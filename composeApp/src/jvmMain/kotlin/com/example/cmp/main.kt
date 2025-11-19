@@ -12,3 +12,5 @@ fun main() = application {
         App()
     }
 }
+
+//./gradlew :composeApp:hotRunJvm --auto

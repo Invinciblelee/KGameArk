@@ -1,20 +1,42 @@
 package com.game.engine.ecs
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import com.game.engine.core.GameScope
-import kotlin.jvm.JvmName
+import com.game.engine.ecs.components.Camera
+import com.game.engine.ecs.components.Transform
 import kotlin.reflect.KClass
 
-class Family(val components: Set<KClass<out Component>>) {
-    // 缓存符合这个组合的实体列表
-    val entities = ArrayList<Entity>()
-
-    // 检查一个实体是否属于这个家族
-    fun matches(entity: Entity): Boolean {
-        return components.all { entity.components.containsKey(it) }
-    }
-}
-
+/**
+ * world {
+ *         // ... 主角 ...
+ *         val player = entity { ... }
+ *
+ *         // --- 摄像机 ---
+ *         entity {
+ *             with(Camera(isActive = true))
+ *             with(Transform(Offset(0f, 0f)))
+ *
+ *             // 【关键】挂载通用组件！
+ *             // 这行代码一加，摄像机自动就有了“弹性跟随主角”的能力
+ *             with(SpringFollow(
+ *                 targetId = player.id,
+ *                 stiffness = 5.0f // 调整这个数值改变跟随的“软度”
+ *             ))
+ *
+ *             // 【可选】如果你想让摄像机有惯性，甚至可以加 Velocity
+ *             // with(Velocity())
+ *         }
+ *
+ *         // ... 系统安装顺序 ...
+ *         install(SteeringSystem()) // 先算跟随
+ *         install(PhysicsSystem())  // 再算物理移动
+ *         install(CameraSystem())   // 再修正边界
+ *         install(RenderSystem())   // 最后画画
+ *     }
+ */
 class World(private val scope: GameScope): GameScope by scope {
     // 所有实体的总池子
     private val entities = ArrayList<Entity>()
@@ -23,8 +45,11 @@ class World(private val scope: GameScope): GameScope by scope {
     private val systems = ArrayList<System>()
 
     // 核心优化：Family 缓存
-    // Key: 组件类型的集合, Value: 符合这个组合的实体列表
-    private val families = HashMap<Set<KClass<out Component>>, Family>()
+    private val families = HashMap<Long, Family>()
+
+    private val cameraFamily: Family by lazy {
+        getFamily(Camera::class, Transform::class)
+    }
 
     private var nextId = 0
 
@@ -49,15 +74,29 @@ class World(private val scope: GameScope): GameScope by scope {
         }
     }
 
-    // --- 核心查询逻辑 ---
-    fun getEntitiesFor(vararg componentTypes: KClass<out Component>): List<Entity> {
-        val key = componentTypes.toSet()
-        val family = families.getOrPut(key) {
-            Family(key).also { fam ->
-                entities.filter { fam.matches(it) }.forEach { fam.entities.add(it) }
+    fun getFamily(t1: KClass<out Component>): Family {
+        val key = 1L shl ComponentKind.get(t1)
+        return getFamilyInternal(key) { setOf(t1) }
+    }
+
+    fun getFamily(t1: KClass<out Component>, t2: KClass<out Component>): Family {
+        val key = (1L shl ComponentKind.get(t1)) or (1L shl ComponentKind.get(t2))
+        return getFamilyInternal(key) { setOf(t1, t2) }
+    }
+
+    fun getFamily(t1: KClass<out Component>, t2: KClass<out Component>, t3: KClass<out Component>): Family {
+        val key = (1L shl ComponentKind.get(t1)) or
+                (1L shl ComponentKind.get(t2)) or
+                (1L shl ComponentKind.get(t3))
+        return getFamilyInternal(key) { setOf(t1, t2, t3) }
+    }
+
+    private inline fun getFamilyInternal(key: Long, typesProvider: () -> Set<KClass<out Component>>): Family {
+        return families.getOrPut(key) {
+            Family(typesProvider()).also { fam ->
+                entities.filterTo(fam.entities) { fam.matches(it) }
             }
         }
-        return family.entities
     }
 
     fun install(system: System) {
@@ -72,7 +111,25 @@ class World(private val scope: GameScope): GameScope by scope {
     }
 
     fun draw(drawScope: DrawScope) {
-        systems.forEach { it.draw(drawScope) }
+        var hasActiveCamera = false
+
+        val potentialCameras = cameraFamily.entities
+
+        potentialCameras.forEach { entity ->
+            val cam = entity.get<Camera>()
+
+            if (cam.isActive) {
+                hasActiveCamera = true
+                val t = entity.get<Transform>()
+                drawScope.withCamera(cam, t) {
+                    systems.forEach { it.draw(this) }
+                }
+            }
+        }
+
+        if (!hasActiveCamera) {
+            systems.forEach { it.draw(drawScope) }
+        }
     }
 
     fun clear() {
@@ -95,97 +152,53 @@ class World(private val scope: GameScope): GameScope by scope {
         pendingRemoval.clear()
     }
 
-}
+    /**
+     * 内部辅助：应用摄像机变换
+     */
+    private fun DrawScope.withCamera(
+        camera: Camera,
+        transform: Transform,
+        block: DrawScope.() -> Unit
+    ) {
+        // 1. 计算视口在屏幕上的物理区域 (Pixel Coordinates)
+        val viewportWidth = size.width * camera.viewport.width
+        val viewportHeight = size.height * camera.viewport.height
+        val viewportLeft = size.width * camera.viewport.left
+        val viewportTop = size.height * camera.viewport.top
 
-@JvmName("query1")
-inline fun <reified A : Component> World.query(): List<Entity> {
-    return getEntitiesFor(A::class)
-}
+        // 2. 裁剪绘制区域 (Clip)
+        // 这一步很重要，防止小地图的内容画到主屏幕外面去
+        clipRect(
+            left = viewportLeft,
+            top = viewportTop,
+            right = viewportLeft + viewportWidth,
+            bottom = viewportTop + viewportHeight
+        ) {
+            // 3. 应用变换矩阵
+            withTransform({
+                // A. 移动到视口中心 (Viewport Center)
+                translate(viewportLeft + viewportWidth / 2f, viewportTop + viewportHeight / 2f)
 
-@JvmName("query2")
-inline fun <reified A : Component, reified B : Component> World.query(): List<Entity> {
-    return getEntitiesFor(A::class, B::class)
-}
+                // B. 缩放 (Zoom)
+                scale(camera.zoom, camera.zoom, pivot = Offset.Zero)
 
-@JvmName("query3")
-inline fun <reified A : Component, reified B : Component, reified C : Component> World.query(): List<Entity> {
-    return getEntitiesFor(A::class, B::class, C::class)
-}
+                // C. 旋转 (Rotation) - 绕着摄像机中心转
+                rotate(-transform.rotation)
 
-@JvmName("findEntity1")
-inline fun <reified A : Component> World.findEntity(): Entity {
-    return getEntitiesFor(A::class).first()
-}
-
-@JvmName("findEntity2")
-inline fun <reified A : Component, reified B : Component> World.findEntity(): Entity {
-    return getEntitiesFor(A::class, B::class).first()
-}
-
-@JvmName("findEntity3")
-inline fun <reified A : Component, reified B : Component, reified C : Component> World.findEntity(): Entity {
-    return getEntitiesFor(A::class, B::class, C::class).first()
-}
-
-@JvmName("findEntityOrNull1")
-inline fun <reified A : Component> World.findEntityOrNull(): Entity? {
-    return getEntitiesFor(A::class).firstOrNull()
-}
-
-@JvmName("findEntityOrNull12")
-inline fun <reified A : Component, reified B : Component> World.findEntityOrNull(): Entity? {
-    return getEntitiesFor(A::class, B::class).firstOrNull()
-}
-
-@JvmName("findEntityOrNull3")
-inline fun <reified A : Component, reified B : Component, reified C : Component> World.findEntityOrNull(): Entity? {
-    return getEntitiesFor(A::class, B::class, C::class).firstOrNull()
-}
-
-inline fun <reified A : Component> World.get(): A {
-    return query<A>().first().get<A>()
-}
-
-inline fun <reified A : Component, reified B : Component> World.getPair(): Pair<A, B> {
-    val entity = query<A, B>().first()
-    return entity.get<A>() to entity.get<B>()
-}
-
-inline fun <reified A : Component> World.getOrNull(): A? {
-    return query<A>().firstOrNull()?.get<A>()
-}
-
-// --- 场景 B：遍历组件 (自动解包) ---
-
-@JvmName("each1")
-inline fun <reified A : Component> World.each(action: (Entity, A) -> Unit) {
-    val entities = getEntitiesFor(A::class)
-    for (i in entities.indices) {
-        val entity = entities[i]
-        val a = entity.get<A>()
-        action(entity, a)
+                // D. 摄像机位移 (Camera Position) - 世界反向移动
+                translate(-transform.position.x, -transform.position.y)
+            }) {
+                block()
+            }
+        }
     }
+
+
 }
 
-@JvmName("each2")
-inline fun <reified A : Component, reified B : Component> World.each(action: (Entity, A, B) -> Unit) {
-    val entities = getEntitiesFor(A::class, B::class)
-    for (i in entities.indices) {
-        val entity = entities[i]
-        val a = entity.get<A>()
-        val b = entity.get<B>()
-        action(entity, a, b)
-    }
-}
-
-@JvmName("each3")
-inline fun <reified A : Component, reified B : Component, reified C : Component> World.each(action: (Entity, A, B, C) -> Unit) {
-    val entities = getEntitiesFor(A::class, B::class, C::class)
-    for (i in entities.indices) {
-        val entity = entities[i]
-        val a = entity.get<A>()
-        val b = entity.get<B>()
-        val c = entity.get<C>()
-        action(entity, a, b, c)
+fun World.switchCamera(cameraName: String) {
+    val cameraFamily = getFamily(Camera::class, Transform::class)
+    cameraFamily.forEach<Camera> { _, camera ->
+        camera.isActive = camera.name == cameraName
     }
 }

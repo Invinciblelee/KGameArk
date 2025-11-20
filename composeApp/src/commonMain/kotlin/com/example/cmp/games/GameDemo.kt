@@ -11,11 +11,10 @@ import androidx.compose.ui.text.drawText
 import com.game.engine.dsl.KGame
 import com.game.engine.ecs.Component
 import com.game.engine.ecs.System
-import com.game.engine.ecs.animate
 import com.game.engine.ecs.components.Transform
 import com.game.engine.ecs.getOrNull
 import com.game.engine.ecs.each
-import com.game.engine.ecs.findEntityOrNull
+import com.game.engine.ecs.firstEntityOrNull
 import com.game.engine.ecs.getPair
 import com.game.engine.input.KeyCodes
 import kotlin.math.hypot
@@ -41,7 +40,7 @@ data class SilkComponent(var type: WuXing = WuXing.Water, val nodes: ArrayList<S
 // --- 系统: 物理 ---
 class SilkPhysicsSystem : System() {
     override fun update(dt: Float) {
-        val player = world.findEntityOrNull<PlayerTag>() ?: return
+        val player = world.firstEntityOrNull<PlayerTag>() ?: return
         val root = player.get<Transform>().position
         val target = if (world.input.mousePosition == Offset.Zero) root + Offset(100f, 0f) else world.input.mousePosition
 
@@ -105,7 +104,7 @@ class CollisionSystem : System() {
                 (head.y - tail.y) * (head.y - tail.y) < 200 * 200
 
         // 3. 遍历所有敌人
-        world.each<EnemyTag, Transform> { entity, enemy, transform ->
+        world.each<EnemyTag, Transform> { _, enemy, transform ->
 
             val enemyPos = transform.position
 
@@ -133,15 +132,11 @@ class CollisionSystem : System() {
                         // 💥 撞到了！产生物理反馈 (击退)
 
                         // 简单的随机击退效果
-                        val knockbackX = transform.position.x + 20f
-                        val knockbackY = transform.position.y + 20f
+                        val knockbackX =  20f
+                        val knockbackY = 20f
 
                         // 修改位置
-                        transform.position = entity.animate(
-                            target = Offset(knockbackX, knockbackY),
-                            dt = dt,
-                            label = "position"
-                        )
+                        transform.position += Offset(knockbackX, knockbackY)
 
                         // 甚至可以减扣血量
                         // enemy.hp -= 10

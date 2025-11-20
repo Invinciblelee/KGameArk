@@ -1,9 +1,5 @@
 package com.game.engine.ecs
 
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.geometry.Offset
-import com.game.engine.ecs.components.Animator
 import kotlin.reflect.KClass
 
 class Entity(val id: Int) {
@@ -21,8 +17,16 @@ class Entity(val id: Int) {
         return components[T::class] as T
     }
 
+    inline fun <reified T : Component> get(componentType: KClass<T>): T {
+        return components[componentType] as T
+    }
+
     inline fun <reified T : Component> Entity.getOrNull(): T? {
         return components[T::class] as? T
+    }
+
+    inline fun <reified T : Component> Entity.getOrNull(componentType: KClass<T>): T? {
+        return components[componentType] as? T
     }
 
     inline fun <reified T : Component> Entity.getOrPut(factory: () -> T): T {
@@ -36,25 +40,18 @@ class Entity(val id: Int) {
     inline fun <reified T : Component> has(): Boolean {
         return components.containsKey(T::class)
     }
+
+    fun <T : Component> has(componentType: KClass<T>): Boolean {
+        return components.containsKey(componentType)
+    }
+
+    inline fun <reified T: Component> remove(): Boolean {
+        return components.remove(T::class) != null
+    }
+
+    fun <T: Component> remove(componentType: KClass<T>): Boolean {
+        return components.remove(componentType) != null
+    }
+
 }
 
-// --- 核心魔法 ---
-fun Entity.animate(
-    target: Offset,
-    dt: Float,
-    label: String,
-    spec: AnimationSpec<Offset> = spring()
-): Offset {
-    val animComp = this.getOrPut { Animator() }
-    return animComp.animate(target, dt, label, spec)
-}
-
-fun Entity.animate(
-    target: Float,
-    dt: Float,
-    label: String,
-    spec: AnimationSpec<Float> = spring()
-): Float {
-    val animComp = this.getOrPut { Animator() }
-    return animComp.animate(target, dt, label, spec)
-}

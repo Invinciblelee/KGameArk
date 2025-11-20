@@ -16,3 +16,21 @@ abstract class System {
     // 渲染帧
     open fun draw(drawScope: DrawScope) {}
 }
+
+inline fun <reified A : Component> System.family(): Lazy<Family> {
+    return lazy(LazyThreadSafetyMode.NONE) {
+        world.getFamily(A::class)
+    }
+}
+
+inline fun <reified A : Component, reified B : Component> System.family(): Lazy<Family> {
+    return lazy(LazyThreadSafetyMode.NONE) {
+        world.getFamily(A::class, B::class)
+    }
+}
+
+inline fun <reified A : Component, reified B : Component, reified C: Component> System.family(): Lazy<Family> {
+    return lazy(LazyThreadSafetyMode.NONE) {
+        world.getFamily(A::class, B::class, C::class)
+    }
+}

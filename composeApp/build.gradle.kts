@@ -39,7 +39,21 @@ kotlin {
         browser()
         binaries.executable()
     }
-    
+
+    compilerOptions {
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
+        freeCompilerArgs.addAll(
+            "-Xexpect-actual-classes",
+            "-opt-in=org.orbitmvi.orbit.annotation.OrbitExperimental",
+            "-opt-in=kotlin.time.ExperimentalTime",
+            "-opt-in=kotlinx.datetime.format.FormatStringsInDatetimeFormats",
+            "-opt-in=kotlin.uuid.ExperimentalUuidApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
+        )
+    }
+
     sourceSets {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)

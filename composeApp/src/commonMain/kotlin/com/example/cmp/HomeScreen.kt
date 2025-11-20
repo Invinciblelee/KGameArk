@@ -13,16 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.cmp.animations.CoolParticleAnimation
-import com.example.cmp.animations.CyberneticFlowFieldAnimation
-import com.example.cmp.animations.CyberpunkMatrixAnimation
-import com.example.cmp.animations.DigitalDNAHelixAnimation
-import com.example.cmp.animations.GravityBlackHoleAnimation
-import com.example.cmp.animations.HyperspaceTunnelAnimation
-import com.example.cmp.animations.NeuralElasticGridAnimation
-import com.example.cmp.animations.OrganicFluxOrbAnimation
-import com.example.cmp.animations.WarpDriveSpaceAnimation
-import com.example.cmp.games.CmpSwordGame
 import com.example.cmp.games.CoolGeometricSilk
 
 @Composable

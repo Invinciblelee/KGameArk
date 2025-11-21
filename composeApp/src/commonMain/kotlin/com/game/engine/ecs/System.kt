@@ -1,6 +1,7 @@
 package com.game.engine.ecs
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import kotlin.jvm.JvmName
 
 abstract class System {
     private lateinit var _world: World
@@ -11,26 +12,23 @@ abstract class System {
     }
 
     // 逻辑更新帧
-    open fun update(dt: Float) {}
+    open fun update(deltaTime: Float) {}
 
     // 渲染帧
-    open fun draw(drawScope: DrawScope) {}
+    open fun DrawScope.draw() {}
 }
 
-inline fun <reified A : Component> System.family(): Lazy<Family> {
-    return lazy(LazyThreadSafetyMode.NONE) {
-        world.getFamily(A::class)
-    }
+@JvmName("inject1")
+inline fun <reified A : Component> System.inject(): Lazy<Family> {
+    return lazy { world.getFamily(A::class) }
 }
 
-inline fun <reified A : Component, reified B : Component> System.family(): Lazy<Family> {
-    return lazy(LazyThreadSafetyMode.NONE) {
-        world.getFamily(A::class, B::class)
-    }
+@JvmName("inject2")
+inline fun <reified A : Component, reified B : Component> System.inject(): Lazy<Family> {
+    return lazy { world.getFamily(A::class, B::class) }
 }
 
-inline fun <reified A : Component, reified B : Component, reified C: Component> System.family(): Lazy<Family> {
-    return lazy(LazyThreadSafetyMode.NONE) {
-        world.getFamily(A::class, B::class, C::class)
-    }
+@JvmName("inject3")
+inline fun <reified A : Component, reified B : Component, reified C: Component> System.inject(): Lazy<Family> {
+    return lazy { world.getFamily(A::class, B::class, C::class) }
 }

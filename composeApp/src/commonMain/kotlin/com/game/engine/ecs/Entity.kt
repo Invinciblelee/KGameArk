@@ -4,12 +4,23 @@ import kotlin.reflect.KClass
 
 class Entity(val id: Int) {
     // 存储组件的 Map
-    val components = mutableMapOf<KClass<out Component>, Component>()
+    @PublishedApi
+    internal val components = mutableMapOf<KClass<out Component>, Component>()
+
+    @PublishedApi
+    internal var componentBits: Long = 0L
 
     // 链式添加组件
     inline fun <reified T : Component> with(component: T): Entity {
         components[T::class] = component
+        componentBits = componentBits or (1L shl ComponentKind.get(T::class))
         return this
+    }
+
+
+
+    inline fun <reified T : Component> get(componentType: KClass<T>): T {
+        return components[componentType] as T
     }
 
     // 获取组件
@@ -17,19 +28,15 @@ class Entity(val id: Int) {
         return components[T::class] as T
     }
 
-    inline fun <reified T : Component> get(componentType: KClass<T>): T {
-        return components[componentType] as T
-    }
-
-    inline fun <reified T : Component> Entity.getOrNull(): T? {
+    inline fun <reified T : Component> getOrNull(): T? {
         return components[T::class] as? T
     }
 
-    inline fun <reified T : Component> Entity.getOrNull(componentType: KClass<T>): T? {
+    inline fun <reified T : Component> getOrNull(componentType: KClass<T>): T? {
         return components[componentType] as? T
     }
 
-    inline fun <reified T : Component> Entity.getOrPut(factory: () -> T): T {
+    inline fun <reified T : Component> getOrPut(factory: () -> T): T {
         return getOrNull<T>() ?: run {
             val newComp = factory()
             with(newComp)

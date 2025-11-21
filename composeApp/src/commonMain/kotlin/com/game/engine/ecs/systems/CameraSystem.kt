@@ -1,40 +1,71 @@
 package com.game.engine.ecs.systems
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.util.lerp
 import com.game.engine.ecs.System
 import com.game.engine.ecs.components.Camera
+import com.game.engine.ecs.components.CameraTarget
 import com.game.engine.ecs.components.Transform
-import com.game.engine.ecs.family
+import com.game.engine.ecs.each
+import com.game.engine.ecs.inject
+import kotlin.random.Random
 
-class CameraSystem(
-    private val mapBounds: Rect? = null
-) : System() {
-    private val cameras by family<Camera, Transform>()
+class CameraSystem : System() {
+    private val cameraFamily by inject<Camera, CameraTarget, Transform>()
 
-    override fun update(dt: Float) {
-        cameras.forEach { entity, cam, t ->
-            if (cam.isActive) {
-                // 1. 限制边界 (Clamping)
-                // 防止摄像机看到地图外面的黑边
-                // 这一步必须在 Steering/Physics 更新完位置之后做
-                val viewportHalfW = (cam.viewportSize.width / cam.zoom) / 2f
-                val viewportHalfH = (cam.viewportSize.height / cam.zoom) / 2f
-                
-                t.position = Offset(
-                    x = t.position.x.coerceIn(mapBounds.left + viewportHalfW, mapBounds.right - viewportHalfW),
-                    y = t.position.y.coerceIn(mapBounds.top + viewportHalfH, mapBounds.bottom - viewportHalfH)
-                )
+    override fun update(deltaTime: Float) {
+        cameraFamily.each<Camera, CameraTarget, Transform> { _, camera, cameraTarget, cameraTransform ->
+            if (!camera.isActive) return@each
 
-                // 2. 处理震动衰减 (Screen Shake Decay)
-                if (cam.shakeIntensity > 0) {
-                    cam.shakeIntensity -= 5f * dt
-                    if (cam.shakeIntensity < 0) cam.shakeIntensity = 0f
-                    
-                    // 施加震动偏移
-                    t.position += Offset.random() * cam.shakeIntensity
-                }
-            }
+            // 1. 跟随逻辑 (修改 camTransform.position)
+            updateFollowLogic(deltaTime, camera, cameraTarget, cameraTransform)
+
+            // 2. 震动逻辑 (修改 camera.shakeOffset / shakeRotation)
+            updateShakeLogic(deltaTime, camera)
         }
     }
+
+    private fun updateFollowLogic(
+        deltaTime: Float,
+        camera: Camera,
+        cameraTarget: CameraTarget,
+        cameraTransform: Transform
+    ) {
+        val targetEntity = world.find(cameraTarget.id) ?: return
+        val targetTransform = targetEntity.getOrNull<Transform>() ?: return
+
+        // Lerp 插值计算新位置
+        val t = (camera.lerpSpeed * deltaTime).coerceIn(0f, 1f)
+        val newX = lerp(cameraTransform.position.x, targetTransform.position.x, t)
+        val newY = lerp(cameraTransform.position.y, targetTransform.position.y, t)
+
+        // 边界限制 (如果有)
+        var finalX = newX
+        var finalY = newY
+        camera.mapBounds?.let { bounds ->
+            finalX = finalX.coerceIn(bounds.left, bounds.right)
+            finalY = finalY.coerceIn(bounds.top, bounds.bottom)
+        }
+
+        cameraTransform.position = Offset(finalX, finalY)
+    }
+
+    private fun updateShakeLogic(dt: Float, camera: Camera) {
+        if (camera.trauma > 0f) {
+            camera.trauma = (camera.trauma - camera.traumaDecay * dt).coerceAtLeast(0f)
+            val shakeFactor = camera.trauma * camera.trauma
+
+            // 计算震动数值写入 Component
+            camera.shakeOffset = Offset(
+                (Random.nextFloat() * 2 - 1) * camera.maxShakeOffset * shakeFactor,
+                (Random.nextFloat() * 2 - 1) * camera.maxShakeOffset * shakeFactor
+            )
+            camera.shakeRotation =
+                (Random.nextFloat() * 2 - 1) * camera.maxShakeAngle * shakeFactor
+        } else {
+            camera.shakeOffset = Offset.Zero
+            camera.shakeRotation = 0f
+        }
+    }
+
 }

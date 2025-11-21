@@ -1,6 +1,13 @@
 package com.example.cmp.games
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -8,14 +15,21 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.unit.dp
 import com.game.engine.dsl.KGame
 import com.game.engine.ecs.Component
 import com.game.engine.ecs.System
+import com.game.engine.ecs.components.Rigidbody
 import com.game.engine.ecs.components.Transform
+import com.game.engine.ecs.components.addImpulsePerpendicularToSegment
 import com.game.engine.ecs.getOrNull
 import com.game.engine.ecs.each
-import com.game.engine.ecs.firstEntityOrNull
-import com.game.engine.ecs.getPair
+import com.game.engine.ecs.firstOrNull
+import com.game.engine.ecs.get
+import com.game.engine.ecs.inject
+import com.game.engine.ecs.systems.CameraSystem
+import com.game.engine.ecs.systems.PhysicsSystem
+import com.game.engine.ecs.systems.SteeringSystem
 import com.game.engine.input.KeyCodes
 import kotlin.math.hypot
 import kotlin.random.Random
@@ -27,24 +41,48 @@ import kotlin.random.Random
 
 // --- 组件 ---
 enum class WuXing(val color: Color) {
-    Metal(Color(0xFFFFD700)), Wood(Color(0xFF69F0AE)), Water(Color(0xFF40C4FF)), Fire(Color(0xFFFF5252)), Earth(Color(0xFF8D6E63))
+    Metal(Color(0xFFFFD700)),
+    Wood(Color(0xFF69F0AE)),
+    Water(Color(0xFF40C4FF)),
+    Fire(Color(0xFFFF5252)),
+    Earth(Color(0xFF8D6E63))
 }
+
 class PlayerTag : Component
 class EnemyTag(val radius: Float = 15f, var isTrapped: Boolean = false) : Component
 
-data class SilkNode(var x: Float, var y: Float, var oldX: Float = x, var oldY: Float = y, var pinned: Boolean = false)
-data class SilkComponent(var type: WuXing = WuXing.Water, val nodes: ArrayList<SilkNode> = ArrayList()) : Component {
-    init { repeat(40) { nodes.add(SilkNode(0f, 0f)) } }
+data class SilkNode(
+    var x: Float,
+    var y: Float,
+    var oldX: Float = x,
+    var oldY: Float = y,
+    var pinned: Boolean = false
+)
+
+data class SilkComponent(
+    var type: WuXing = WuXing.Water,
+    val nodes: ArrayList<SilkNode> = ArrayList()
+) : Component {
+    init {
+        repeat(40) { nodes.add(SilkNode(0f, 0f)) }
+    }
 }
 
 // --- 系统: 物理 ---
 class SilkPhysicsSystem : System() {
-    override fun update(dt: Float) {
-        val player = world.firstEntityOrNull<PlayerTag>() ?: return
-        val root = player.get<Transform>().position
-        val target = if (world.input.mousePosition == Offset.Zero) root + Offset(100f, 0f) else world.input.mousePosition
 
-        world.each<SilkComponent> { _, silk ->
+    private val playerFamily by inject<PlayerTag>()
+    private val silkFamily by inject<SilkComponent>()
+
+    override fun update(deltaTime: Float) {
+        val player = playerFamily.firstOrNull() ?: return
+        val root = player.get<Transform>().position
+        val target = if (world.input.mousePosition == Offset.Zero) root + Offset(
+            100f,
+            0f
+        ) else world.input.mousePosition
+
+        silkFamily.each<SilkComponent> { _, silk ->
             updateVerlet(silk, root, target)
         }
     }
@@ -74,14 +112,22 @@ class SilkPhysicsSystem : System() {
         }
         repeat(stiffness) {
             for (i in 0 until nodes.size - 1) {
-                val p1 = nodes[i]; val p2 = nodes[i+1]
-                val dx = p2.x - p1.x; val dy = p2.y - p1.y
-                val dist = hypot(dx, dy); val diff = 10f - dist
+                val p1 = nodes[i];
+                val p2 = nodes[i + 1]
+                val dx = p2.x - p1.x;
+                val dy = p2.y - p1.y
+                val dist = hypot(dx, dy);
+                val diff = 10f - dist
                 if (dist > 0) {
                     val percent = diff / dist / 2f
-                    val ox = dx * percent; val oy = dy * percent
-                    if (!p1.pinned) { p1.x -= ox; p1.y -= oy }
-                    if (!p2.pinned) { p2.x += ox; p2.y += oy }
+                    val ox = dx * percent;
+                    val oy = dy * percent
+                    if (!p1.pinned) {
+                        p1.x -= ox; p1.y -= oy
+                    }
+                    if (!p2.pinned) {
+                        p2.x += ox; p2.y += oy
+                    }
                 }
             }
         }
@@ -91,9 +137,12 @@ class SilkPhysicsSystem : System() {
 // --- 系统: 绞杀 ---
 class CollisionSystem : System() {
 
-    override fun update(dt: Float) {
+    private val silkFamily by inject<SilkComponent>()
+    private val enemyFamily by inject<EnemyTag>()
+
+    override fun update(deltaTime: Float) {
         // 1. 获取剑丝数据
-        val silk = world.getOrNull<SilkComponent>() ?: return
+        val silk = silkFamily.getOrNull<SilkComponent>() ?: return
         val nodes = silk.nodes
         if (nodes.isEmpty()) return
 
@@ -104,7 +153,7 @@ class CollisionSystem : System() {
                 (head.y - tail.y) * (head.y - tail.y) < 200 * 200
 
         // 3. 遍历所有敌人
-        world.each<EnemyTag, Transform> { _, enemy, transform ->
+        enemyFamily.each<EnemyTag, Transform, Rigidbody> { _, enemy, transform, rigidBody ->
 
             val enemyPos = transform.position
 
@@ -117,7 +166,7 @@ class CollisionSystem : System() {
                 // 遍历剑丝的每一段线段
                 for (i in 0 until nodes.size - 1) {
                     val p1 = nodes[i]
-                    val p2 = nodes[i+1]
+                    val p2 = nodes[i + 1]
 
                     // 计算圆心到线段的距离平方
                     val distSq = distToSegmentSquared(
@@ -131,12 +180,14 @@ class CollisionSystem : System() {
                     if (distSq < hitRadius * hitRadius) {
                         // 💥 撞到了！产生物理反馈 (击退)
 
-                        // 简单的随机击退效果
-                        val knockbackX =  20f
-                        val knockbackY = 20f
+                        val baseImpulse = 50f // 只需要定义冲量大小
 
-                        // 修改位置
-                        transform.position += Offset(knockbackX, knockbackY)
+                        // ⚡️ 极简调用：将线段和冲量大小直接交给 Rigidbody 处理
+                        rigidBody.addImpulsePerpendicularToSegment(
+                            p1 = Offset(p1.x, p1.y),
+                            p2 = Offset(p2.x, p2.y),
+                            magnitude = baseImpulse
+                        )
 
                         // 甚至可以减扣血量
                         // enemy.hp -= 10
@@ -153,7 +204,8 @@ class CollisionSystem : System() {
         var j = nodes.size - 1
         for (i in nodes.indices) {
             if ((nodes[i].y > p.y) != (nodes[j].y > p.y) &&
-                (p.x < (nodes[j].x - nodes[i].x) * (p.y - nodes[i].y) / (nodes[j].y - nodes[i].y) + nodes[i].x)) {
+                (p.x < (nodes[j].x - nodes[i].x) * (p.y - nodes[i].y) / (nodes[j].y - nodes[i].y) + nodes[i].x)
+            ) {
                 inside = !inside
             }
             j = i
@@ -180,49 +232,55 @@ class CollisionSystem : System() {
     }
 
 }
+
 // --- 系统: 渲染 ---
 class RenderSystem : System() {
-    override fun draw(drawScope: DrawScope) {
+    private val playerFamily by inject<PlayerTag>()
+    private val silkFamily by inject<SilkComponent>()
+    private val enemyFamily by inject<EnemyTag>()
+
+    override fun DrawScope.draw() {
         // 怪物
-        world.each<EnemyTag, Transform> { _, e, t ->
-            drawScope.drawCircle(if(e.isTrapped) Color.Red else Color.Gray, e.radius, t.position)
+        enemyFamily.each<EnemyTag, Transform> { _, e, t ->
+            drawCircle(if (e.isTrapped) Color.Red else Color.Gray, e.radius, t.position)
         }
 
         // 剑丝
-        world.each<SilkComponent> { _, silk ->
+        silkFamily.each<SilkComponent> { _, silk ->
             val color = silk.type.color
             val path = Path()
             if (silk.nodes.isNotEmpty()) {
                 path.moveTo(silk.nodes[0].x, silk.nodes[0].y)
                 for (i in 0 until silk.nodes.size - 1) {
-                    val p1 = silk.nodes[i]; val p2 = silk.nodes[i+1]
+                    val p1 = silk.nodes[i];
+                    val p2 = silk.nodes[i + 1]
                     path.quadraticTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
                 }
                 path.lineTo(silk.nodes.last().x, silk.nodes.last().y)
             }
-            with(drawScope) {
-                drawPath(path, color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round))
-                drawPath(path, color, style = Stroke(5f, cap = StrokeCap.Round))
-                drawPath(path, Color.White, style = Stroke(2f, cap = StrokeCap.Round))
-            }
+            drawPath(path, color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round))
+            drawPath(path, color, style = Stroke(5f, cap = StrokeCap.Round))
+            drawPath(path, Color.White, style = Stroke(2f, cap = StrokeCap.Round))
         }
 
         // 主角
-        val (_, t) = world.getPair<PlayerTag, Transform>()
-        drawScope.drawCircle(Color.White, 10f, t.position)
+        val t = playerFamily.get<Transform>()
+        drawCircle(Color.White, 10f, t.position)
     }
 }
 
 // --- 系统: 控制 ---
 class SilkControlSystem : System() {
 
-    override fun update(dt: Float) {
+    private val silkFamily by inject<SilkComponent>()
+
+    override fun update(deltaTime: Float) {
         // 1. 获取输入 (System 已经能访问 world.engine.input)
         // 注意：这里假设 input 已经在 GameScope 中可用
         val input = world.input
 
         // 2. 找到剑丝组件 (通常玩家只有一个剑丝，或者遍历所有)
-        world.each<SilkComponent> { _, silk ->
+        silkFamily.each<SilkComponent> { _, silk ->
             if (input.isKeyDown(KeyCodes.One)) silk.type = WuXing.Metal
             if (input.isKeyDown(KeyCodes.Two)) silk.type = WuXing.Wood
             if (input.isKeyDown(KeyCodes.Three)) silk.type = WuXing.Water
@@ -239,69 +297,74 @@ class SilkControlSystem : System() {
 @Composable
 fun GameDemo() {
     KGame(initialScene = "menu") {
-        val textStyle = TextStyle(
-            color = Color.White
-        )
         // --- 场景 1: 菜单 ---
         scene("menu") {
-            onRender {
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = "=== 剑 气 朝 元 ===",
-                    topLeft = Offset(300f, 300f),
-                    style = textStyle
-                )
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = "按 [SPACE] 开始修仙",
-                    topLeft = Offset(310f, 350f),
-                    style = textStyle
-                )
-            }
-            onUpdate { dt ->
+            onUpdate {
                 if (input.isKeyDown(Key.Spacebar)) {
                     switchScene("battle")
+                }
+            }
+
+            onUI {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Text("=== 剑 气 朝 元 ===", style = MaterialTheme.typography.titleLarge)
+                    Text("按 [SPACE] 开始修仙", style = MaterialTheme.typography.bodyLarge)
+
+                    Button(
+                        onClick = {
+                            switchScene("battle")
+                        }
+                    ) {
+                        Text("开始")
+                    }
                 }
             }
         }
 
         // --- 场景 2: 战斗 ---
         scene("battle") {
-            // ECS 配置
-           world {
+            // ECS 配置 
+            world {
                 install(SilkPhysicsSystem())
+                install(SilkControlSystem())
+                install(SteeringSystem())
+                install(PhysicsSystem())
+                install(CameraSystem())
                 install(CollisionSystem())
                 install(RenderSystem())
-                install(SilkControlSystem())
 
-                entity { with(Transform(Offset(400f, 300f))); with(PlayerTag()) }
-                entity { with(SilkComponent(WuXing.Water)) }
-                repeat(50) {
-                    entity {
-                        with(Transform(Offset(Random.nextFloat() * 800, Random.nextFloat() * 600)))
-                        with(EnemyTag())
-                    }
+                entity {
+                    with(Transform(Offset(400f, 300f)));
+                    with(PlayerTag())
                 }
-            }
-
-            onRender {
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = "Battle Mode | FPS: $fps",
-                    topLeft = Offset(20f, 40f),
-                    style = textStyle
-                )
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = "[1-5] Switch Element  [ESC] Menu",
-                    topLeft = Offset(20f, 70f),
-                    style = textStyle
-                )
+                entity { with(SilkComponent(WuXing.Water)) }
+                entities(100) {
+                    with(Transform(Offset(Random.nextFloat() * 800, Random.nextFloat() * 600)))
+                    with(Rigidbody())
+                    with(EnemyTag())
+                }
             }
 
             onUpdate { dt ->
                 if (input.isKeyDown(Key.Escape)) {
                     switchScene("menu")
+                }
+            }
+
+            onUI {
+                Column {
+                    Text("Battle Mode | FPS: $fps")
+                    Text("[1-5] Switch Element  [ESC] Menu")
+
+                    Button(onClick = {
+                        switchScene("menu")
+                    }) {
+                        Text("退出")
+                    }
                 }
             }
         }

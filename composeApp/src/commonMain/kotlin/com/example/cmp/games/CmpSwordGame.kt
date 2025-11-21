@@ -54,7 +54,7 @@
 //        Color(0xFFFF7043)  // 橙
 //    )
 //
-//    fun update(dt: Float, timeSec: Float, constraints: Size) {
+//    fun update(deltaTime: Float, timeSec: Float, constraints: Size) {
 //        // 1. 生成敌人
 //        if (enemies.size < 60 && random.nextFloat() < 0.05f) {
 //            spawnEnemy(constraints)
@@ -127,7 +127,7 @@
 //        }
 //    }
 //
-//    private fun trackEnemy(sword: SilkSword, dt: Float) {
+//    private fun trackEnemy(sword: SilkSword, deltaTime: Float) {
 //        var target: Enemy? = null
 //        var minDistSq = 1000000f
 //        for (e in enemies) {

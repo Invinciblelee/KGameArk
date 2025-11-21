@@ -4,13 +4,15 @@ import com.game.engine.ecs.System
 import com.game.engine.ecs.components.Boundary
 import com.game.engine.ecs.components.Transform
 import com.game.engine.ecs.each
+import com.game.engine.ecs.inject
 
 class BoundarySystem : System() {
-    override fun update(dt: Float) {
+    private val boundaryFamily by inject<Transform, Boundary>()
+
+    override fun update(deltaTime: Float) {
         // 获取屏幕尺寸
         val screenSize = world.size
-        
-        world.each<Transform, Boundary> { entity, t, b ->
+        boundaryFamily.each<Transform, Boundary> { entity, t, b ->
             val pos = t.position
             val padding = b.padding
             

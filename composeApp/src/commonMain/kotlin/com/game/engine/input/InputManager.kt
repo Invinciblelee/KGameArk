@@ -1,41 +1,55 @@
 package com.game.engine.input
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 
 class InputManager {
+    private val keysDown = mutableSetOf<Key>()
     private val keysPressed = mutableSetOf<Key>()
 
-    // 鼠标位置 (Compose State)
-    var mousePosition by mutableStateOf(Offset.Zero)
+    var pointerPosition: Offset = Offset.Zero
+        private set
+    var isPointerDown: Boolean = false
         private set
 
-    var isMouseDown by mutableStateOf(false)
-        private set
-
-    // --- 内部调用 (由 KGame Composable 喂数据) ---
-    fun onKeyDown(key: Key) { keysPressed.add(key) }
-    fun onKeyUp(key: Key) { keysPressed.remove(key) }
-
-    fun onMouseUpdate(position: Offset, down: Boolean) {
-        mousePosition = position
-        isMouseDown = down
+    fun onKeyDown(key: Key) {
+        keysDown.add(key)
+        keysPressed.clear()
     }
-    
-    fun onMouseMove(position: Offset) {
-        mousePosition = position
+    fun onKeyUp(key: Key) {
+        if (keysDown.remove(key)) {
+            keysPressed.add(key)
+        }
     }
 
-    // --- 外部调用 (游戏逻辑使用) ---
-    fun isKeyDown(key: Key): Boolean = key in keysPressed
+    fun isKeyDown(key: Key): Boolean = key in keysDown
+
+    fun isKeyPressed(key: Key): Boolean = keysPressed.remove(key)
 
     // 虚拟轴 (例如 AD 移动返回 -1/0/1)
     fun getAxis(positive: Key, negative: Key): Float {
-        if (isKeyDown(positive)) return 1f
-        if (isKeyDown(negative)) return -1f
-        return 0f
+        var axisValue = 0f
+        if (isKeyDown(positive)) {
+            axisValue += 1f
+        }
+        if (isKeyDown(negative)) {
+            axisValue -= 1f
+        }
+        return axisValue
     }
+
+    internal fun onPointerUpdate(position: Offset? = null, down: Boolean) {
+        if (position != null) {
+            pointerPosition = position
+        }
+        isPointerDown = down
+    }
+
+    internal fun clear() {
+        keysDown.clear()
+        keysPressed.clear()
+        pointerPosition = Offset.Zero
+        isPointerDown = false
+    }
+
 }

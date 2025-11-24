@@ -216,6 +216,8 @@ class GameEngine(
         }
 
         calculateFps(deltaTime)
+
+        input.endFrame()
     }
 
     internal fun render(drawScope: DrawScope) {

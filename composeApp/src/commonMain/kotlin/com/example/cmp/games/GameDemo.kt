@@ -81,11 +81,14 @@ enum class WuXing(val color: Color) {
 
 class PlayerTag : Component<PlayerTag> {
     override fun type() = PlayerTag
-    companion object: ComponentType<PlayerTag>()
+
+    companion object : ComponentType<PlayerTag>()
 }
+
 class EnemyTag(val radius: Float = 15f, var isTrapped: Boolean = false) : Component<EnemyTag> {
     override fun type() = EnemyTag
-    companion object: ComponentType<EnemyTag>()
+
+    companion object : ComponentType<EnemyTag>()
 }
 
 data class SilkNode(
@@ -101,7 +104,8 @@ data class SilkComponent(
     val nodes: ArrayList<SilkNode> = ArrayList() // 存储局部坐标
 ) : Component<SilkComponent> {
     override fun type() = SilkComponent
-    companion object: ComponentType<SilkComponent>()
+
+    companion object : ComponentType<SilkComponent>()
 
     init {
         repeat(40) { nodes.add(SilkNode(0f, 0f)) }
@@ -142,6 +146,7 @@ class PlayerVisual(assets: AssetsManager) : Visual {
             dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
         )
     }
+
     private fun Offset.toIntOffset() = androidx.compose.ui.unit.IntOffset(x.toInt(), y.toInt())
 }
 
@@ -199,7 +204,14 @@ class SilkPhysicsSystem(
             // 💥 零分配核心：直接操作 silk.nodes 列表
             // updateVerlet 函数现在负责使用 silkWorldOrigin 偏移量，
             // 将 World 坐标逻辑转换为 Local 坐标操作
-            updateVerlet(silk.type, silk.nodes, rootWorldPos, targetWorldPos, silkWorldOrigin, isPointerDown)
+            updateVerlet(
+                silk.type,
+                silk.nodes,
+                rootWorldPos,
+                targetWorldPos,
+                silkWorldOrigin,
+                isPointerDown
+            )
         }
     }
 
@@ -297,7 +309,7 @@ class CollisionSystem(
     private val silkFamily = family { all(SilkComponent, Transform) }
     private val enemyFamily = family { all(EnemyTag) }
 
-    private val eatSound by lazy { assets[GameAssets.Sound.Eat] }
+    private val eatSound = assets[GameAssets.Sound.Eat]
 
     override fun onTick() {
         // 1. 获取剑丝数据及 Transform
@@ -400,7 +412,7 @@ class CollisionSystem(
 // --- 系统: 控制 ---
 class SilkControlSystem(
     val input: InputManager = inject()
-): IteratingSystem(
+) : IteratingSystem(
     family = family { all(SilkComponent) }
 ) {
 
@@ -418,7 +430,7 @@ class SilkControlSystem(
 // -- 系统：玩家控制 ---
 class PlayerControlSystem(
     val input: InputManager = inject()
-): IteratingSystem(
+) : IteratingSystem(
     family = family { all(PlayerTag, Transform) }
 ) {
     override fun onTickEntity(entity: Entity) {
@@ -520,7 +532,7 @@ fun GameDemo(context: PlatformContext) {
 
         // --- 场景 2: 战斗 (改造：添加 Renderable) ---
         scene("battle") {
-            val world = world {
+            world(configuration = {
                 systems {
                     // 1. 输入/控制：处理意图
                     add(PlayerControlSystem())
@@ -544,6 +556,40 @@ fun GameDemo(context: PlatformContext) {
                     // 7. 输出/渲染：永远在最后
                     add(RenderSystem())
                 }
+            }) {
+                val player = entity {
+                    it += Transform()
+                    it += Renderable(PlayerVisual(assets), zIndex = 1)
+                    it += PlayerTag()
+                }
+
+                entity {
+                    it += Transform()
+                    it += SpringEffect(stiffness = 80f, damping = 5f)
+                    it += CameraTarget(player)
+                    it += Camera(isMain = true, mapBounds = Rect(-800f, -600f, 800f, 600f))
+                }
+
+                entity {
+                    val silk = SilkComponent(WuXing.Water)
+                    it += Transform()
+                    it += silk
+                    it += Renderable(SilkVisual(silk), zIndex = 2)
+                }
+                entities(100) {
+                    val enemy = EnemyTag()
+
+                    // 💥 修正 X 轴坐标：从 0-1600 映射到 -800 到 800
+                    val randomX = Random.nextFloat() * 1600f - 800f
+
+                    // 💥 修正 Y 轴坐标：从 0-1200 映射到 -600 到 600
+                    val randomY = Random.nextFloat() * 1200f - 600f
+
+                    it += Transform(Offset(randomX, randomY))
+                    it += Rigidbody()
+                    it += enemy
+                    it += Renderable(EnemyVisual(enemy))
+                }
             }
 
             resources {
@@ -552,51 +598,17 @@ fun GameDemo(context: PlatformContext) {
                 it += GameAssets.Music.BGM
             }
 
-            onEnter {
-                with(world) {
-                    val player = entity {
-                        it += Transform()
-                        it += Renderable(PlayerVisual(assets), zIndex = 1)
-                        it += PlayerTag()
-                    }
-
-                    entity {
-                        it += Transform()
-                        it += SpringEffect(stiffness = 80f, damping = 5f)
-                        it += CameraTarget(player)
-                        it += Camera(isMain = true, mapBounds = Rect(-800f, -600f, 800f, 600f))
-                    }
-
-                    entity {
-                        val silk = SilkComponent(WuXing.Water)
-                        it += Transform()
-                        it += silk
-                        it += Renderable(SilkVisual(silk), zIndex = 2)
-                    }
-                    entities(100) {
-                        val enemy = EnemyTag()
-
-                        // 💥 修正 X 轴坐标：从 0-1600 映射到 -800 到 800
-                        val randomX = Random.nextFloat() * 1600f - 800f
-
-                        // 💥 修正 Y 轴坐标：从 0-1200 映射到 -600 到 600
-                        val randomY = Random.nextFloat() * 1200f - 600f
-
-                        it += Transform(Offset(randomX, randomY))
-                        it += Rigidbody()
-                        it += enemy
-                        it += Renderable(EnemyVisual(enemy))
-                    }
+            onUpdate {
+                if (input.isKeyUp(Key.Escape)) {
+                    dismissScene()
+                }
+                if (input.isKeyUp(Key.Back)) {
+                    dismissScene()
                 }
             }
 
-            onUpdate {
-                if (input.isKeyPressed(Key.Escape)) {
-                    dismissScene()
-                }
-                if (input.isKeyPressed(Key.Back)) {
-                    dismissScene()
-                }
+            onRenderBackground {
+                drawRect(Color.White)
             }
 
             onUI {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.game.ecs.World
+import com.game.ecs.World.Companion.family
 import com.game.ecs.WorldConfiguration
 import com.game.ecs.components.Camera
 import com.game.ecs.configureWorld
@@ -34,15 +35,16 @@ class SceneBuilder(
     @GameDslMarker
     fun world(
         capacity: Int = 1024,
-        configuration: WorldConfiguration.() -> Unit
-    ): World {
+        configuration: WorldConfiguration.() -> Unit,
+        initWorld: World.() -> Unit
+    ) {
         val world = GameWorld(
             scope,
             capacity,
-            configuration
+            configuration,
+            initWorld
         )
         this.world = world
-        return world.instance
     }
 
     @GameDslMarker
@@ -116,27 +118,30 @@ class GameWorld(
     private val scope: GameScope,
     entityCapacity: Int,
     configuration: WorldConfiguration.() -> Unit,
+    private val initWorld: World.() -> Unit
 ) {
-
-    internal val instance = configureWorld(entityCapacity) {
-        injectables {
-            add(scope)
-            add(scope.input)
-            add(scope.audio)
-            add(scope.assets)
-            add(scope.viewportTransform)
-            add(scope.coordinateTransform)
-            add(scope.textMeasurer)
+    private val instance by lazy {
+        configureWorld(entityCapacity) {
+            injectables {
+                add(scope)
+                add(scope.input)
+                add(scope.audio)
+                add(scope.assets)
+                add(scope.viewportTransform)
+                add(scope.coordinateTransform)
+                add(scope.textMeasurer)
+            }
+            configuration()
+        }.also {
+            val coordinateTransform = scope.coordinateTransform
+            if (coordinateTransform is DefaultCoordinateTransform) {
+                coordinateTransform.setCameraFamily(family { all(Camera) })
+            }
         }
-        configuration()
     }
 
     fun enter() {
-        val cameraFamily = instance.family { all(Camera) }
-        val coordinateTransform = scope.coordinateTransform
-        if (coordinateTransform is DefaultCoordinateTransform) {
-            coordinateTransform.setCameraFamily(cameraFamily)
-        }
+        initWorld(instance)
     }
 
     fun update(deltaTime: Float) {

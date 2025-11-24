@@ -5,7 +5,8 @@ import androidx.compose.ui.input.key.Key
 
 class InputManager {
     private val keysDown = mutableSetOf<Key>()
-    private val keysPressed = mutableSetOf<Key>()
+    private val keysUpCur  = mutableSetOf<Key>()
+    private val keysUpLast = mutableSetOf<Key>()
 
     var pointerPosition: Offset = Offset.Zero
         private set
@@ -14,17 +15,16 @@ class InputManager {
 
     fun onKeyDown(key: Key) {
         keysDown.add(key)
-        keysPressed.clear()
     }
+
     fun onKeyUp(key: Key) {
-        if (keysDown.remove(key)) {
-            keysPressed.add(key)
-        }
+        keysDown.remove(key)
+        keysUpCur.add(key)
     }
 
     fun isKeyDown(key: Key): Boolean = key in keysDown
 
-    fun isKeyPressed(key: Key): Boolean = keysPressed.remove(key)
+    fun isKeyUp(key: Key): Boolean = key in keysUpLast
 
     // 虚拟轴 (例如 AD 移动返回 -1/0/1)
     fun getAxis(positive: Key, negative: Key): Float {
@@ -45,9 +45,16 @@ class InputManager {
         isPointerDown = down
     }
 
+    internal fun endFrame() {
+        keysUpLast.clear()
+        keysUpLast.addAll(keysUpCur)
+        keysUpCur.clear()
+    }
+
     internal fun clear() {
         keysDown.clear()
-        keysPressed.clear()
+        keysUpCur.clear()
+        keysUpLast.clear()
         pointerPosition = Offset.Zero
         isPointerDown = false
     }

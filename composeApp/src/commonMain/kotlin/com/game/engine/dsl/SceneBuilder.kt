@@ -132,7 +132,7 @@ class GameWorld(
                 add(scope.textMeasurer)
             }
             configuration()
-        }.also {
+
             val coordinateTransform = scope.coordinateTransform
             if (coordinateTransform is DefaultCoordinateTransform) {
                 coordinateTransform.setCameraFamily(family { all(Camera) })

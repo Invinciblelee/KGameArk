@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.Key.Companion.U
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toIntSize
 import cmp.composeapp.generated.resources.Res
@@ -497,7 +498,7 @@ fun GameDemo(context: PlatformContext) {
             }
 
             onEnter {
-//                audio.playMusic(assets[GameAssets.Music.BGM])
+                audio.playMusic(assets[GameAssets.Music.BGM])
             }
 
             onUpdate {

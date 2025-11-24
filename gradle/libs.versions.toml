@@ -18,7 +18,9 @@ junit = "4.13.2"
 kotlin = "2.2.21"
 kotlinxCoroutines = "1.10.2"
 atomicfu = "0.29.0"
-basicSound = "+"
+soundlibsMp3spi = "1.9.5.4"
+soundlibsTritonusShare = "0.3.7.4"
+soundlibVorbisspi = "1.0.3.3"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -45,10 +47,11 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
-
 kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 
-basic-sound = { module = "app.lexilabs.basic:basic-sound", version.ref = "basicSound" }
+soundlibs-mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "soundlibsMp3spi" }
+soundlibs-tritonus-share = { module = "com.googlecode.soundlibs:tritonus-share", version.ref = "soundlibsTritonusShare" }
+soundlibs-vorbisspi = { module = "com.googlecode.soundlibs:vorbisspi", version.ref = "soundlibVorbisspi" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

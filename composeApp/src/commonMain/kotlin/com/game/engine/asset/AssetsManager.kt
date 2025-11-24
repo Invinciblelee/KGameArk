@@ -16,12 +16,12 @@ sealed interface AssetKey<T> {
 val AssetKey<*>.uri: String
     get() = Res.getUri(path)
 
-interface DataSource {
-    val uri: String
+interface SourceUri {
+    val path: String
 }
 
 @JvmInline
-internal value class LocalDataSource(override val uri: String): DataSource
+internal value class AssetUri(override val path: String): SourceUri
 
 @JvmInline
 value class ImageKey(override val path: String) : AssetKey<ImageBitmap>
@@ -30,13 +30,13 @@ value class ImageKey(override val path: String) : AssetKey<ImageBitmap>
 value class TextKey(override val path: String) : AssetKey<String>
 
 @JvmInline
-value class VideoKey(override val path: String) : AssetKey<DataSource>
+value class VideoKey(override val path: String) : AssetKey<SourceUri>
 
 @JvmInline
-value class SoundKey(override val path: String) : AssetKey<DataSource>
+value class SoundKey(override val path: String) : AssetKey<SourceUri>
 
 @JvmInline
-value class MusicKey(override val path: String): AssetKey<DataSource>
+value class MusicKey(override val path: String): AssetKey<SourceUri>
 
 class AssetsManager() {
 
@@ -57,7 +57,7 @@ class AssetsManager() {
             }
 
             is VideoKey, is SoundKey, is MusicKey -> {
-                LocalDataSource(Res.getUri(key.path))
+                AssetUri(Res.getUri(key.path))
             }
         }
 

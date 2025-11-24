@@ -36,6 +36,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.toSize
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.GameEngine
+import com.game.engine.geometry.DefaultViewportTransform
+import com.game.engine.input.InputManager
+import com.game.engine.input.KeyInterceptor
 
 /**
  * 游戏入口
@@ -54,10 +57,19 @@ fun KGame(
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
     background: (@Composable BoxScope.() -> Unit)? = null,
+    keyInterceptor: KeyInterceptor = KeyInterceptor,
     init: GameConfigBuilder.() -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val engine = remember { GameEngine(context, textMeasurer) }
+    val engine = remember {
+        val viewportTransform = DefaultViewportTransform()
+        GameEngine(
+            context = context,
+            viewportTransform = viewportTransform,
+            input = InputManager(viewportTransform, keyInterceptor),
+            textMeasurer = textMeasurer
+        )
+    }
     val focusRequester = remember { FocusRequester() }
     var frameTrigger by remember { mutableLongStateOf(0L) }
 

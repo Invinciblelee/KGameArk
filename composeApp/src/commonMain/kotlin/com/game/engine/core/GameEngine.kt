@@ -47,6 +47,11 @@ import kotlinx.coroutines.launch
 
 class GameEngine(
     override val context: PlatformContext,
+    override val viewportTransform: ViewportTransform = DefaultViewportTransform(),
+    override val coordinateTransform: CoordinateTransform = DefaultCoordinateTransform(viewportTransform),
+    override val input: InputManager = InputManager(viewportTransform),
+    override val audio: AudioManager = AudioManager(context),
+    override val assets: AssetsManager = AssetsManager(),
     override val textMeasurer: TextMeasurer
 ) : GameScope {
 
@@ -68,18 +73,10 @@ class GameEngine(
 
     override var canvasSize: Size by mutableStateOf(Size.Zero)
         private set
-
-    override val viewportTransform: ViewportTransform = DefaultViewportTransform()
-    override val coordinateTransform: CoordinateTransform = DefaultCoordinateTransform(viewportTransform)
-
     override var fps: Int by mutableIntStateOf(0)
         private set
     private var frameCount = 0
     private var timeAccumulator = 0f
-
-    override val input = InputManager()
-    override val audio = AudioManager(context)
-    override val assets = AssetsManager()
 
     private val sceneRegistry = mutableMapOf<String, GameScene>()
     private val sceneHistory = ArrayDeque<String>()
@@ -148,29 +145,11 @@ class GameEngine(
     }
 
     internal fun handleKeyEvent(event: KeyEvent): Boolean {
-        when (event.type) {
-            KeyEventType.KeyDown -> input.onKeyDown(event.key)
-            KeyEventType.KeyUp -> input.onKeyUp(event.key)
-        }
-        return true
+        return input.handleKeyEvent(event)
     }
 
     internal suspend fun handlePointerEvent(scope: PointerInputScope, canvasOffset: Offset) {
-        scope.detectDragGestures(
-            onDragStart = { position ->
-                val globalPosition = position + canvasOffset
-                val virtualPosition = viewportTransform.actualToVirtual(globalPosition)
-                input.onPointerUpdate(virtualPosition, down = true)
-            },
-            onDragEnd = { input.onPointerUpdate(down = false) },
-            onDragCancel = { input.onPointerUpdate(down = false) },
-            onDrag = { change, _ ->
-                change.consume()
-                val globalPosition = change.position + canvasOffset
-                val virtualPosition = viewportTransform.actualToVirtual(globalPosition)
-                input.onPointerUpdate(virtualPosition, down = true)
-            }
-        )
+        input.handlePointerEvent(scope, canvasOffset)
     }
 
     internal suspend inline fun withFrameLoop(crossinline block: (Long) -> Unit) {
@@ -273,6 +252,7 @@ class GameEngine(
         val id = pendingSceneId ?: return
         currentScene?.exit()
         currentScene?.unload()
+        audio.clear()
 
         val next = sceneRegistry[id] ?: return
 

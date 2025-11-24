@@ -22,10 +22,6 @@ class RenderSystem : IntervalSystem() {
     private val bounds = MutableRect(Offset.Zero, Size.Zero)
     private val cullRect = MutableRect(Offset.Zero, Size.Zero)
 
-    override fun onTick() {
-        renderableFamily.sort(renderableComparator)
-    }
-
     override fun onRender(drawScope: DrawScope) {
         val cameraEntity = cameraFamily.find { it[Camera].isActive }
 
@@ -62,6 +58,7 @@ class RenderSystem : IntervalSystem() {
     }
 
     private fun DrawScope.drawRenderables(useCulling: Boolean) {
+        renderableFamily.sort(renderableComparator)
         renderableFamily.forEach {
             val renderable = it[Renderable]
             val transform = it[Transform]

@@ -18,8 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Example:
  * ```
- * val audioUrl = "https://dare.wisc.edu/wp-content/uploads/sites/1051/2008/11/MS072.mp3"
- * val audio = Audio(audioUrl, true) // AutoPlay is marked "true"
+ * val audioUri = HttpUri("https://dare.wisc.edu/wp-content/uploads/sites/1051/2008/11/MS072.mp3")
+ * val audio = Audio(context, audioUri, autoPlay = true) // AutoPlay is marked "true"
  * ```
  */
 
@@ -79,7 +79,9 @@ actual class Audio actual constructor(
                     false
                 }
                 setOnCompletionListener {
-                    _audioState.value = AudioState.Completed
+                    if (!loop) {
+                        _audioState.value = AudioState.Completed
+                    }
                 }
             }
         } catch (e: Exception) {

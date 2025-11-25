@@ -63,6 +63,11 @@ class SystemConfiguration(
         }
         systems += system
     }
+
+    operator fun <T : IntervalSystem> T.unaryPlus() = add(this)
+
+    operator fun <T : IntervalSystem> plusAssign(system: T) = add(system)
+
 }
 
 /**

@@ -51,8 +51,7 @@ actual class SoundBoard actual constructor(val context: PlatformContext) {
         Logger.info(tag, "startMixer:starting")
         scope.launch {
             while (isActive) {
-                val result = mixer.receiveCatching()
-                val sound = result.getOrNull() ?: break
+                val sound = mixer.receiveCatching().getOrNull() ?: break
                 val id = audioIds[sound.name]
                 if (id != null) {
                     soundPool.play(id, sound.volume, sound.volume, 1, 0, 1f)

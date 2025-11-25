@@ -34,6 +34,9 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.toSize
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.GameEngine
 import com.game.engine.geometry.DefaultViewportTransform
@@ -69,11 +72,27 @@ fun KGame(
     val focusRequester = remember { FocusRequester() }
     var frameTrigger by remember { mutableLongStateOf(0L) }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     DisposableEffect(Unit) {
+        val observer = LifecycleEventObserver { _, event ->
+            when {
+                event == Lifecycle.Event.ON_START -> {
+                    engine.resume()
+                }
+
+                event == Lifecycle.Event.ON_STOP -> {
+                    engine.pause()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
         GameConfigBuilder(engine).init()
         engine.presentScene(initialScene)
         onDispose {
             engine.release()
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 

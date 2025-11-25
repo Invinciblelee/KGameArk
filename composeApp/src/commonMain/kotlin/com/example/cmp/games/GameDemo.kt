@@ -130,7 +130,6 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 
     override val size: Size = Size(50f, 50f)
 
-    // drawCircle(Color.Yellow)
     // 1. 定义源矩形 (Source Rectangle): 从原图的哪个部分裁剪 (通常是整个图片)
     val sourceRect = Rect(Offset.Zero, Size(player.width.toFloat(), player.height.toFloat()))
 
@@ -148,7 +147,7 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 //            dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
 //        )
 
-        drawCircle(Color.Red, 25f)
+        drawCircle(Color.Yellow)
     }
 
     private fun Offset.toIntOffset() = androidx.compose.ui.unit.IntOffset(x.toInt(), y.toInt())
@@ -360,7 +359,6 @@ class CollisionSystem(
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
                         audio.playSound(eatSound)
-                        println("PlaySound")
 
                         val baseImpulse = 50f
 
@@ -483,7 +481,7 @@ object GameAssets {
     }
 
     object Music {
-        val BGM = MusicKey("files/bgm.mp3")
+        val BGM = MusicKey("files/bgm3.wav")
     }
 
 }
@@ -499,10 +497,17 @@ fun GameDemo(context: PlatformContext) {
         scene("menu") {
             resources {
                 it += GameAssets.Music.BGM
+                it += GameAssets.Sound.Eat
+                it += GameAssets.Music.BGM
             }
 
             onEnter {
-//                audio.playMusic(assets[GameAssets.Music.BGM])
+                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
+                println("Menu Scene Entered")
+            }
+
+            onExit {
+                println("Menu Scene Exited")
             }
 
             onUpdate {
@@ -540,26 +545,26 @@ fun GameDemo(context: PlatformContext) {
             world(configuration = {
                 systems {
                     // 1. 输入/控制：处理意图
-                    add(PlayerControlSystem())
-                    add(SilkControlSystem())
+                    + PlayerControlSystem()
+                    + SilkControlSystem()
 
                     // 2. 逻辑/计算：将意图转化为力
-                    add(SteeringSystem())
+                    + SteeringSystem()
 
                     // 3. 物理/运动：通用运动计算
-                    add(PhysicsSystem())
+                    + PhysicsSystem()
 
                     // 4. 物理/特殊：处理 Silk 特有约束
-                    add(SilkPhysicsSystem())
+                    + SilkPhysicsSystem()
 
                     // 5. 修正/解决：修复碰撞后的位置
-                    add(CollisionSystem())
+                    + CollisionSystem()
 
                     // 6. 工具/辅助：更新摄像机
-                    add(CameraSystem())
+                    + CameraSystem()
 
                     // 7. 输出/渲染：永远在最后
-                    add(RenderSystem())
+                    + RenderSystem()
                 }
             }) {
                 val player = entity {
@@ -601,6 +606,14 @@ fun GameDemo(context: PlatformContext) {
                 it += GameAssets.Texture.Player
                 it += GameAssets.Sound.Eat
                 it += GameAssets.Music.BGM
+            }
+
+            onEnter {
+                println("Battle Scene Entered")
+            }
+
+            onExit {
+                println("Battle Scene Exited")
             }
 
             onUpdate {

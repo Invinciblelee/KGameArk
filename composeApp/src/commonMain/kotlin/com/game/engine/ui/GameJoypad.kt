@@ -37,7 +37,7 @@ fun GameJoypad(
     onValue: (JoypadValue) -> Unit,
     onRelease: () -> Unit = {},
     modifier: Modifier = Modifier,
-    radius: Dp = 90.dp,
+    radius: Dp = 48.dp,
     deadRadius: Dp = 12.dp,
     dotRadius: Dp = 24.dp,
     bgColor: Color = Color.Black.copy(alpha = 0.4f),

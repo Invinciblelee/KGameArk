@@ -107,7 +107,7 @@ abstract class EntityComponentContext(
 open class EntityCreateContext(
     compService: ComponentService,
     @PublishedApi
-    internal val compMasks: com.game.ecs.collection.Bag<com.game.ecs.collection.BitArray>,
+    internal val compMasks: Bag<BitArray>,
 ) : EntityComponentContext(compService) {
 
     /**

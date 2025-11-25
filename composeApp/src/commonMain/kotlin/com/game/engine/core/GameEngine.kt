@@ -42,8 +42,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 
 class GameEngine(
     override val context: PlatformContext,
@@ -83,6 +85,11 @@ class GameEngine(
     var currentScene by mutableStateOf<GameScene?>(null)
         private set
 
+    @Volatile
+    private var isPaused = false
+    private var isMusicPlaying = false
+
+    @Volatile
     private var pendingSceneId: String? = null
     private var pendingSceneParams: Map<String, Any>? = null
     private var transitionState by mutableStateOf(TransitionState.Idle)
@@ -104,7 +111,12 @@ class GameEngine(
     }
 
     override fun presentScene(id: String, params: Map<String, Any>) {
-        if (sceneRegistry.containsKey(id) && transitionState == TransitionState.Idle) {
+        if (currentScene?.id == id || transitionState != TransitionState.Idle) {
+            return
+        }
+
+        if (sceneRegistry.containsKey(id)) {
+            transitionJob?.cancel()
             sceneHistory.addLast(id)
             pendingSceneId = id
             pendingSceneParams = params
@@ -118,6 +130,7 @@ class GameEngine(
             sceneHistory.removeLastOrNull()
             pendingSceneId = sceneHistory.lastOrNull() ?: return
             pendingSceneParams = params
+            transitionAlpha = 0f
             transitionState = TransitionState.FadingOut
         }
     }
@@ -174,6 +187,8 @@ class GameEngine(
                 val dt = (frameTimeNanos - lastFrameTime) / 1_000_000_000f
                 lastFrameTime = frameTimeNanos
 
+                if (isPaused) return@withFrameNanos
+
                 tick(dt.coerceAtMost(0.1f))
 
                 block(frameTimeNanos)
@@ -187,8 +202,8 @@ class GameEngine(
                 transitionAlpha += transitionSpeed * deltaTime
                 if (transitionAlpha >= 1f) {
                     transitionAlpha = 1f
-                    transitionJob = scope.launch { performSceneSwitch() }
                     transitionState = TransitionState.FadingIn
+                    transitionJob = scope.launch { performSceneSwitch() }
                 }
             }
 
@@ -229,6 +244,23 @@ class GameEngine(
         }
     }
 
+    internal fun pause() {
+        if (isPaused) return
+        isPaused = true
+
+        isMusicPlaying = audio.isMusicPlaying
+        audio.pauseMusic()
+    }
+
+    internal fun resume() {
+        if (!isPaused) return
+        isPaused = false
+
+        if (isMusicPlaying) {
+            audio.resumeMusic()
+        }
+    }
+
     @Composable
     internal fun UI() {
         val scene = currentScene ?: return
@@ -260,21 +292,29 @@ class GameEngine(
     }
 
     private suspend fun performSceneSwitch() {
-        val id = pendingSceneId ?: return
-        currentScene?.exit()
-        currentScene?.unload()
+        val targetId = pendingSceneId ?: return
+
+        val oldScene = currentScene
+
+        val next = sceneRegistry[targetId] ?: return
+
+        next.configure(pendingSceneParams.orEmpty())
+        next.load { transitionProgress = it }
+
+        if (!currentCoroutineContext().isActive || pendingSceneId != targetId) {
+            return
+        }
+
+        oldScene?.exit()
+        currentScene = next
         audio.clear()
 
-        val next = sceneRegistry[id] ?: return
-
-        currentScene = next
-        next.configure(pendingSceneParams.orEmpty())
-        next.load {
-            transitionProgress = it
-        }
         next.enter()
+        oldScene?.unload()
 
-        pendingSceneId = null
+        if (pendingSceneId == targetId) {
+            pendingSceneId = null
+        }
     }
 
     private fun calculateFps(deltaTime: Float) {

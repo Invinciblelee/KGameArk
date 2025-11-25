@@ -22,9 +22,9 @@ class GameScene(
     private val config: SceneConfig,
     private val assets: Set<AssetKey<*>> = emptySet()
 ) {
+    private var isActive by atomic(false)
 
     private var isLoading by atomic(false)
-    private var isActive by atomic(false)
 
     internal fun configure(params: Map<String, Any>) {
         config.update(params)
@@ -41,11 +41,10 @@ class GameScene(
         isLoading = true
         try {
             progress(0f)
-            var index = 0
-            for (key in assets) {
+            val totalAssets = assets.size.toFloat()
+            assets.forEachIndexed { index, key ->
                 scope.assets.load(key)
-                progress(index.toFloat() / assets.size)
-                index++
+                progress((index + 1) / totalAssets)
             }
             progress(1f)
         } finally {
@@ -77,22 +76,16 @@ class GameScene(
 
     fun update(deltaTime: Float) {
         if (isActive) {
-            // 1. ECS 优先更新
             world?.update(deltaTime)
         }
-
-        // 2. 自定义脚本 DSL 更新
         update?.invoke(deltaTime)
     }
 
     fun render(drawScope: DrawScope) {
-        // 1. 渲染背景
         renderBackground?.invoke(drawScope)
         if (isActive) {
-            // 2. ECS渲染
             world?.render(drawScope)
         }
-        // 3. 渲染前景
         renderForeground?.invoke(drawScope)
     }
 

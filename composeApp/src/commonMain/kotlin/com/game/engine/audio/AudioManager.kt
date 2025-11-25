@@ -5,6 +5,8 @@ import com.game.engine.context.PlatformContext
 
 interface AudioManager {
 
+    val isMusicPlaying: Boolean
+
     fun playSound(uri: SourceUri, volume: Float = 1f)
     fun playMusic(uri: SourceUri, loop: Boolean = false)
     fun pauseMusic()
@@ -21,14 +23,13 @@ class DefaultAudioManager(private val context: PlatformContext): AudioManager {
     private var music: Audio? = null
     private var musicUri: SourceUri? = null
 
-    private fun isMusicPlaying(): Boolean {
-        return when (music?.audioState?.value) {
+    override val isMusicPlaying: Boolean
+        get() = when (music?.audioState?.value) {
             AudioState.Playing -> true
             AudioState.Paused -> true
             AudioState.Loading -> true
             else -> false
         }
-    }
 
     override fun playSound(uri: SourceUri, volume: Float) {
         if (!soundBoard.isRegistered(uri.path)) {
@@ -38,7 +39,7 @@ class DefaultAudioManager(private val context: PlatformContext): AudioManager {
     }
 
     override fun playMusic(uri: SourceUri, loop: Boolean) {
-        if (musicUri?.path == uri.path && isMusicPlaying()) {
+        if (musicUri?.path == uri.path && isMusicPlaying) {
             return
         }
         musicUri = uri

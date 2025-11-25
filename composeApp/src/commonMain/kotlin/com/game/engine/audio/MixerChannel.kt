@@ -6,6 +6,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.time.Clock
 
 data class Sound(
     val name: String,
@@ -18,8 +21,15 @@ data class Sound(
  */
 class MixerChannel: AutoCloseable {
 
+    companion object {
+        private const val MIN_PLAY_INTERVAL_MS = 100L
+    }
+
     private val delegate = Channel<Sound>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    private val lastPlayed = mutableMapOf<String, Long>()
+    private val rateLimitMutex = Mutex()
 
     internal suspend fun receiveCatching() = delegate.receiveCatching()
 
@@ -32,7 +42,15 @@ class MixerChannel: AutoCloseable {
      */
     fun play(name: String, volume: Float = 1f) {
         scope.launch {
-            delegate.send(Sound(name, volume))
+            rateLimitMutex.withLock {
+                val currentTime = Clock.System.now().toEpochMilliseconds()
+                val lastPlayedTime = lastPlayed[name] ?: 0L
+
+                if (currentTime - lastPlayedTime >= MIN_PLAY_INTERVAL_MS) {
+                    lastPlayed[name] = currentTime
+                    delegate.send(Sound(name, volume))
+                }
+            }
         }
     }
 
@@ -50,6 +68,7 @@ class MixerChannel: AutoCloseable {
     override fun close() {
         scope.cancel()
         delegate.close()
+        lastPlayed.clear()
     }
 
 }

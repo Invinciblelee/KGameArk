@@ -1,98 +1,101 @@
 package com.game.engine.audio
 
+import com.game.engine.asset.AssetUri
 import com.game.engine.context.PlatformContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.BufferedInputStream
-import java.io.InputStream
-import java.util.jar.JarFile
-import javax.sound.sampled.AudioFormat
+import java.util.concurrent.ConcurrentHashMap
 import javax.sound.sampled.AudioSystem
+import javax.sound.sampled.Clip
 
 actual class SoundBoard actual constructor(context: PlatformContext) {
 
-    private val soundBytes: MutableMap<String, SoundByte> = mutableMapOf()
+    private companion object {
+        const val MAX_POLYPHONY = 4
+    }
+
+    private class PooledClip(val clip: Clip, var inUse: Boolean = false) {
+        fun reset() {
+            if (clip.isRunning) clip.stop()
+            clip.microsecondPosition = 0
+            inUse = false
+        }
+    }
+
+    private val soundBytes = ConcurrentHashMap<String, SoundByte>()
+    private val soundPool = ConcurrentHashMap<String, ArrayDeque<PooledClip>>()
 
     actual val mixer: MixerChannel = MixerChannel()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
 
     init {
         startMixer()
     }
 
-    private fun startMixer() {
-        scope.launch {
-//            for (soundName in mixer) {
-//                soundBytes.find { it.name == soundName }?.let { soundByte ->
-//                    try {
-//                        val clip = AudioSystem.getClip()
-//                        val audioInputStream = AudioSystem.getAudioInputStream(getJarResourceAsInputStream(soundByte.localPath))
-//                        val stream = if (soundByte.localPath.lowercase().endsWith(".mp3")) {
-//                            AudioSystem.getAudioInputStream(getMp3Format(audioInputStream.format), audioInputStream)
-//                        } else { audioInputStream }
-//                        clip.open(stream)
-//                        clip.start()
-//                    } catch (e: Exception) {
-//                        e.printStackTrace()
-//                    }
-//                }
-//            }
-        }
-    }
-
-    actual fun isRegistered(name: String): Boolean {
-        return soundBytes.containsKey(name)
-    }
+    actual fun isRegistered(name: String): Boolean = soundBytes.containsKey(name)
 
     actual fun register(soundByte: SoundByte) {
         soundBytes[soundByte.name] = soundByte
     }
 
     actual fun register(soundBytes: List<SoundByte>) {
-        for (soundByte in soundBytes) {
-            register(soundByte)
-        }
+        soundBytes.forEach { register(it) }
     }
 
     actual fun powerUp() {
-
+        soundBytes.values.forEach { loadPool(it) }
     }
 
     actual fun powerDown() {
+        soundPool.values.forEach { pool ->
+            pool.forEach { clip -> clip.reset() }
+        }
+        soundPool.clear()
     }
 
     actual fun release() {
         scope.cancel()
         mixer.close()
+        powerDown()
     }
 
-    private fun getJarResourceAsInputStream(path: String): InputStream {
-        // Split path for jar location from the path for jar interior
-        val parts = path.split("!")
-        // All Jar paths to resources have two parts
-        if (parts.size != 2) throw IllegalArgumentException("Invalid JAR file path format: $path")
-        // First part of jar path always starts with "jar:file:"
-        val jarFilePath = parts[0].substringAfter("jar:file:")
-        // Once you're inside the jar, you don't need to use "/" before the first folder
-        val entryPath = parts[1].removePrefix("/")
-        // Get Jar file and extract the local file from the jar
-        val jarFile = JarFile(jarFilePath)
-        val jarEntry = jarFile.getJarEntry(entryPath)
-            ?: throw IllegalStateException("File not found in JAR: $entryPath")
-        // Convert to input stream and return
-        return BufferedInputStream(jarFile.getInputStream(jarEntry))
+    private fun loadPool(soundByte: SoundByte): ArrayDeque<PooledClip> =
+        soundPool.getOrPut(soundByte.name) {
+            ArrayDeque<PooledClip>(MAX_POLYPHONY).apply {
+                getAudioInputStream(AssetUri(soundByte.path)).use { sourceIn ->
+                    val format   = sourceIn.format
+                    val pcmBytes = sourceIn.readAllBytes()
+                    repeat(MAX_POLYPHONY) {
+                        val clip = AudioSystem.getClip()
+                        clip.open(format, pcmBytes, 0, pcmBytes.size)
+                        addLast(PooledClip(clip))
+                    }
+                }
+            }
+        }
+
+    private fun obtainClip(name: String): PooledClip? {
+        val pool = loadPool(requireNotNull(soundBytes[name]) { "Sound $name not registered" })
+        pool.find { !it.inUse }?.let { it.inUse = true; return it }
+        return null
     }
 
-    private fun getMp3Format(inFormat: AudioFormat): AudioFormat {
-        val ch = inFormat.channels
-        val rate = inFormat.sampleRate
-        return AudioFormat(AudioFormat.Encoding.PCM_SIGNED, rate, 16, ch, ch * 2, rate, false)
+    private fun startMixer() {
+        scope.launch {
+            while (isActive) {
+                val sound = mixer.receiveCatching().getOrNull() ?: break
+                val pooled = obtainClip(sound.name) ?: continue
+                pooled.clip.setVolume(sound.volume)
+                pooled.clip.start()
+                launch {
+                    pooled.clip.drain()
+                    pooled.reset()
+                }
+            }
+        }
     }
-
 }

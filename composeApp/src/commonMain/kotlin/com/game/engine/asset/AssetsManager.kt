@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.game.engine.asset
 
 import androidx.compose.ui.graphics.ImageBitmap
@@ -13,15 +15,15 @@ sealed interface AssetKey<T> {
     val path: String
 }
 
-val AssetKey<*>.uri: String
-    get() = Res.getUri(path)
-
 interface SourceUri {
     val path: String
 }
 
 @JvmInline
-internal value class AssetUri(override val path: String): SourceUri
+value class AssetUri(override val path: String): SourceUri
+
+@JvmInline
+value class HttpUri(override val path: String): SourceUri
 
 @JvmInline
 value class ImageKey(override val path: String) : AssetKey<ImageBitmap>
@@ -38,12 +40,25 @@ value class SoundKey(override val path: String) : AssetKey<SourceUri>
 @JvmInline
 value class MusicKey(override val path: String): AssetKey<SourceUri>
 
-class AssetsManager() {
+interface AssetsManager {
+
+    suspend fun <T> load(key: AssetKey<T>)
+
+    fun unload(key: AssetKey<*>)
+
+
+    operator fun <T> get(key: AssetKey<T>): T
+
+    fun clear()
+
+}
+
+class DefaultAssetsManager: AssetsManager {
 
     private val loadedAssets = HashMap<AssetKey<*>, Any>()
     private val lock = SynchronizedObject()
 
-    suspend fun load(key: AssetKey<*>) = withContext(Dispatchers.Default) {
+    override suspend fun <T> load(key: AssetKey<T>) = withContext(Dispatchers.Default) {
         val loaded = synchronized(lock) { loadedAssets.containsKey(key) }
         if (loaded) return@withContext
 
@@ -61,23 +76,23 @@ class AssetsManager() {
             }
         }
 
-        synchronized(lock) { loadedAssets.put(key, loadedObject) }
+        synchronized(lock) { loadedAssets[key] = loadedObject }
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun unload(key: AssetKey<*>) {
+    override fun unload(key: AssetKey<*>) {
         synchronized(lock) { loadedAssets.remove(key) }
     }
 
     @Suppress("UNCHECKED_CAST")
-    operator fun <T> get(key: AssetKey<T>): T {
+    override operator fun <T> get(key: AssetKey<T>): T {
         val asset = synchronized(lock) { loadedAssets[key] }
             ?: throw IllegalStateException("Asset '${key.path}' not loaded. Call load() first.")
 
         return asset as T
     }
 
-    fun clear() {
+    override fun clear() {
         synchronized(lock) { loadedAssets.clear() }
     }
 

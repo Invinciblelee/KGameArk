@@ -23,19 +23,19 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.text.TextMeasurer
 import com.game.ecs.injectables.CoordinateTransform
 import com.game.ecs.injectables.ViewportTransform
 import com.game.engine.asset.AssetsManager
+import com.game.engine.asset.DefaultAssetsManager
 import com.game.engine.audio.AudioManager
+import com.game.engine.audio.DefaultAudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.geometry.DefaultCoordinateTransform
 import com.game.engine.geometry.DefaultViewportTransform
 import com.game.engine.graphics.withViewportTransform
+import com.game.engine.input.DefaultInputManager
 import com.game.engine.input.InputManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +49,9 @@ class GameEngine(
     override val context: PlatformContext,
     override val viewportTransform: ViewportTransform = DefaultViewportTransform(),
     override val coordinateTransform: CoordinateTransform = DefaultCoordinateTransform(viewportTransform),
-    override val input: InputManager = InputManager(viewportTransform),
-    override val audio: AudioManager = AudioManager(context),
-    override val assets: AssetsManager = AssetsManager(),
+    override val input: InputManager = DefaultInputManager(viewportTransform),
+    override val audio: AudioManager = DefaultAudioManager(context),
+    override val assets: AssetsManager = DefaultAssetsManager(),
     override val textMeasurer: TextMeasurer
 ) : GameScope {
 
@@ -145,11 +145,22 @@ class GameEngine(
     }
 
     internal fun handleKeyEvent(event: KeyEvent): Boolean {
-        return input.handleKeyEvent(event)
+        return input.onKeyEvent(event)
     }
 
     internal suspend fun handlePointerEvent(scope: PointerInputScope, canvasOffset: Offset) {
-        input.handlePointerEvent(scope, canvasOffset)
+        scope.detectDragGestures(
+            onDragStart = { position ->
+                input.onPointerUpdate(position, canvasOffset)
+                input.onPointerStart()
+            },
+            onDragEnd = { input.onPointerEnd() },
+            onDragCancel = { input.onPointerEnd() },
+            onDrag = { change, _ ->
+                change.consume()
+                input.onPointerUpdate(change.position, canvasOffset)
+            }
+        )
     }
 
     internal suspend inline fun withFrameLoop(crossinline block: (Long) -> Unit) {

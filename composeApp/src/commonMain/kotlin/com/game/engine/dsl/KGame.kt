@@ -57,16 +57,12 @@ fun KGame(
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
     background: (@Composable BoxScope.() -> Unit)? = null,
-    keyInterceptor: KeyInterceptor = KeyInterceptor,
     init: GameConfigBuilder.() -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
     val engine = remember {
-        val viewportTransform = DefaultViewportTransform()
         GameEngine(
             context = context,
-            viewportTransform = viewportTransform,
-            input = InputManager(viewportTransform, keyInterceptor),
             textMeasurer = textMeasurer
         )
     }

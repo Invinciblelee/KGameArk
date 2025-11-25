@@ -1,8 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.internal.os.OperatingSystem
-import java.util.Locale
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -27,11 +25,12 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
+            freeCompilerArgs += "-Xbinary=bundleId=com.example.game"
         }
     }
     
     jvm()
-    
+
     js {
         browser()
         binaries.executable()
@@ -48,7 +47,6 @@ kotlin {
         apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_1)
         freeCompilerArgs.addAll(
             "-Xexpect-actual-classes",
-            "-opt-in=org.orbitmvi.orbit.annotation.OrbitExperimental",
             "-opt-in=kotlin.time.ExperimentalTime",
             "-opt-in=kotlinx.datetime.format.FormatStringsInDatetimeFormats",
             "-opt-in=kotlin.uuid.ExperimentalUuidApi",
@@ -79,32 +77,13 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.soundlibs.tritonus.share)
             implementation(libs.soundlibs.mp3spi)
             implementation(libs.soundlibs.vorbisspi)
-
-            val osName = System.getProperty("os.name").lowercase()
-            val osArch = System.getProperty("os.arch").lowercase()
-            val platform: String = when {
-                osName.contains("win") -> "win"
-                osName.contains("mac") -> when (osArch) {
-                    "aarch64", "arm64" -> "mac-aarch64"
-                    "x86_64" -> "mac"
-                    else -> throw IllegalStateException("Unsupported macOS architecture: $osArch")
-                }
-                osName.contains("nix") || osName.contains("linux") -> "linux"
-                else -> throw IllegalStateException("Unsupported OS for JavaFX platform mapping")
-            }
-
-            //noinspection NewerVersionAvailable
-            implementation("org.openjfx:javafx-base:21.0.1:$platform")
-            //noinspection NewerVersionAvailable
-            implementation("org.openjfx:javafx-media:21.0.1:$platform")
-            //noinspection NewerVersionAvailable
-            implementation("org.openjfx:javafx-graphics:21.0.1:$platform")
         }
     }
 }

@@ -7,7 +7,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -29,10 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.Key.Companion.U
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toIntSize
-import cmp.composeapp.generated.resources.Res
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
@@ -58,11 +59,11 @@ import com.game.engine.asset.AssetsManager
 import com.game.engine.asset.ImageKey
 import com.game.engine.asset.MusicKey
 import com.game.engine.asset.SoundKey
-import com.game.engine.dsl.KGame
-import com.game.engine.input.InputManager
-import com.game.engine.input.KeyCodes
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
+import com.game.engine.dsl.KGame
+import com.game.engine.input.InputManager
+import com.game.engine.ui.GameJoypad
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
 import kotlin.random.Random
@@ -139,13 +140,15 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 
     override fun DrawScope.draw() { // 纯粹的局部绘制
         // 3. 使用 drawImage 的重载，指定源和目标矩形
-        drawImage(
-            image = player,
-            srcOffset = sourceRect.topLeft.toIntOffset(), // 源矩形的左上角
-            srcSize = sourceRect.size.toIntSize(),         // 源矩形的尺寸
-            dstOffset = destRect.topLeft.toIntOffset(),   // 目标矩形的左上角
-            dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
-        )
+//        drawImage(
+//            image = player,
+//            srcOffset = sourceRect.topLeft.toIntOffset(), // 源矩形的左上角
+//            srcSize = sourceRect.size.toIntSize(),         // 源矩形的尺寸
+//            dstOffset = destRect.topLeft.toIntOffset(),   // 目标矩形的左上角
+//            dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
+//        )
+
+        drawCircle(Color.Red, 25f)
     }
 
     private fun Offset.toIntOffset() = androidx.compose.ui.unit.IntOffset(x.toInt(), y.toInt())
@@ -357,6 +360,7 @@ class CollisionSystem(
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
                         audio.playSound(eatSound)
+                        println("PlaySound")
 
                         val baseImpulse = 50f
 
@@ -419,11 +423,11 @@ class SilkControlSystem(
 
     override fun onTickEntity(entity: Entity) {
         val silk = entity[SilkComponent]
-        if (input.isKeyDown(KeyCodes.One)) silk.type = WuXing.Metal
-        if (input.isKeyDown(KeyCodes.Two)) silk.type = WuXing.Wood
-        if (input.isKeyDown(KeyCodes.Three)) silk.type = WuXing.Water
-        if (input.isKeyDown(KeyCodes.Four)) silk.type = WuXing.Fire
-        if (input.isKeyDown(KeyCodes.Five)) silk.type = WuXing.Earth
+        if (input.isKeyDown(Key.One)) silk.type = WuXing.Metal
+        if (input.isKeyDown(Key.Two)) silk.type = WuXing.Wood
+        if (input.isKeyDown(Key.Three)) silk.type = WuXing.Water
+        if (input.isKeyDown(Key.Four)) silk.type = WuXing.Fire
+        if (input.isKeyDown(Key.Five)) silk.type = WuXing.Earth
     }
 
 }
@@ -498,7 +502,7 @@ fun GameDemo(context: PlatformContext) {
             }
 
             onEnter {
-                audio.playMusic(assets[GameAssets.Music.BGM])
+//                audio.playMusic(assets[GameAssets.Music.BGM])
             }
 
             onUpdate {
@@ -517,7 +521,7 @@ fun GameDemo(context: PlatformContext) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    Text("=== 贪吃蛇 ===", style = MaterialTheme.typography.titleLarge)
+                    Text("=== 跨平台测试用例 ===", style = MaterialTheme.typography.titleLarge)
                     Text("按 [SPACE] 开始", style = MaterialTheme.typography.bodyLarge)
 
                     Button(
@@ -613,16 +617,43 @@ fun GameDemo(context: PlatformContext) {
             }
 
             onUI {
-                Column {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 30.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
                     Text("Battle Mode | FPS: $fps")
                     Text("[1-5] Switch Element  [ESC] Menu")
 
-                    Button(onClick = {
-                        presentScene("menu")
-                    }) {
-                        Text("退出")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val keys = listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)
+                        for ((index, key) in keys.withIndex()) {
+                            Button(modifier = Modifier.size(30.dp, 20.dp), onClick = {
+                                input.simulateKey(key)
+                            }, contentPadding = PaddingValues(0.dp)) {
+                                Text("$index")
+                            }
+                        }
+                        Button(modifier = Modifier.size(40.dp, 20.dp), onClick = {
+                            presentScene("menu")
+                        }, contentPadding = PaddingValues(0.dp)) {
+                            Text("退出")
+                        }
                     }
                 }
+
+                GameJoypad(
+                    onValue = {
+                        when {
+                            it.strength < 0.2f -> Unit // 死区
+                            it.angle in -45f..45f      -> input.simulateKey(Key.DirectionRight)
+                            it.angle in 45f..135f      -> input.simulateKey(Key.DirectionDown)
+                            it.angle in 135f..225f     -> input.simulateKey(Key.DirectionLeft)
+                            else                      -> input.simulateKey(Key.DirectionUp)
+                        }
+                    }
+                )
 
                 LoadingContent(progress = { transitionProgress })
             }

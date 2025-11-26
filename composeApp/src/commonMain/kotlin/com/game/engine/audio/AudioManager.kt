@@ -3,21 +3,68 @@ package com.game.engine.audio
 import com.game.engine.asset.SourceUri
 import com.game.engine.context.PlatformContext
 
+/**
+ * Manages the audio of the game.
+ */
 interface AudioManager {
 
+    /**
+     * Returns true if music is playing
+     */
     val isMusicPlaying: Boolean
 
+    /**
+     * Plays a sound with the given [uri] and [volume].
+     * @param uri The uri of the sound to play.
+     * @param volume The volume of the sound.
+     */
     fun playSound(uri: SourceUri, volume: Float = 1f)
+
+    /**
+     * Plays music with the given [uri] and [loop].
+     * @param uri The uri of the music to play.
+     * @param loop Whether the music should loop.
+     */
     fun playMusic(uri: SourceUri, loop: Boolean = false)
+
+    /**
+     * Pauses music.
+     */
     fun pauseMusic()
+
+    /**
+     * Resumes music.
+     */
     fun resumeMusic()
+
+    /**
+     * Stops music.
+     */
     fun stopMusic()
+
+    /**
+     * Sets the volume of music.
+     * @param volume The volume of the music.
+     */
     fun setMusicVolume(volume: Float)
+
+    /**
+     * Clears all resources.
+     * This [AudioManager] can be reused after calling this function.
+     */
     fun clear()
+
+    /**
+     * Shuts down the audio manager.
+     * This [AudioManager] can no longer be used after calling this function.
+     */
     fun shutdown()
 
 }
 
+/**
+ * Default implementation of [AudioManager].
+ */
 class DefaultAudioManager(private val context: PlatformContext): AudioManager {
     private val soundBoard = SoundBoard(context)
     private var music: Audio? = null

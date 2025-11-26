@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
 import javax.sound.sampled.LineEvent
+import kotlin.IllegalStateException
 
 actual class Audio actual constructor(
     val context: PlatformContext,
@@ -56,9 +57,9 @@ actual class Audio actual constructor(
         }
     }
 
-    actual fun setVolume(rate: Float) {
+    actual fun setVolume(volume: Float) {
         try {
-            if (!clip.setVolume(rate)) {
+            if (!clip.setVolume(volume)) {
                 Logger.warn(tag, "setVolume:unsupported")
             }
         } catch (e: Exception) {
@@ -68,29 +69,29 @@ actual class Audio actual constructor(
     }
 
     actual fun play() {
-        when (audioState.value) {
-            is AudioState.Loading,
-            is AudioState.Playing -> return
-            is AudioState.None -> {
-                throw Exception ("AudioState.NONE: load() not run yet")
+        try {
+            when (audioState.value) {
+                is AudioState.Loading,
+                is AudioState.Playing -> return
+                is AudioState.None -> {
+                    throw IllegalStateException("AudioState.NONE: mediaPlayer not initialized")
+                }
+                is AudioState.Ready,
+                is AudioState.Paused -> {
+                    clip.microsecondPosition = cursor
+                    clip.start()
+                    _audioState.value = AudioState.Playing
+                }
+                is AudioState.Error,
+                is AudioState.Completed -> {
+                    clip.microsecondPosition = 0L
+                    clip.start()
+                    _audioState.value = AudioState.Playing
+                }
             }
-            is AudioState.Error -> {
-                throw Exception("AudioState.ERROR: ${(audioState.value as AudioState.Error).message}")
-            }
-            is AudioState.Paused -> {
-                clip.microsecondPosition = cursor
-                clip.start()
-                _audioState.value = AudioState.Playing
-            }
-            is AudioState.Ready -> {
-                clip.start()
-                _audioState.value = AudioState.Playing
-            }
-            is AudioState.Completed -> {
-                clip.microsecondPosition = 0L
-                clip.start()
-                _audioState.value = AudioState.Playing
-            }
+        } catch (e: Exception) {
+            Logger.error(tag, "play:failure", e)
+            _audioState.value = AudioState.Error("play:failure: $e")
         }
     }
 

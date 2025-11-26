@@ -42,6 +42,21 @@ class InjectableConfiguration(private val world: World) {
      * @throws [FleksInjectableAlreadyAddedException] if the dependency was already added before.
      */
     inline fun <reified T : Any> add(dependency: T) = add(T::class.simpleName ?: T::class.toString(), dependency)
+
+    /**
+     * Adds the specified [dependency]
+     *
+     * @see add
+     */
+    operator fun <T: Any> String.plus(dependency: T) = add(this, dependency)
+
+    /**
+     * Adds the specified [dependency][T]
+     *
+     * @see add
+     */
+    inline operator fun <reified T: Any> T.unaryPlus() = add(this)
+
 }
 
 /**
@@ -64,9 +79,12 @@ class SystemConfiguration(
         systems += system
     }
 
+    /**
+     * Adds the [system][T] to the [world][World].
+     *
+     * @see add
+     */
     operator fun <T : IntervalSystem> T.unaryPlus() = add(this)
-
-    operator fun <T : IntervalSystem> plusAssign(system: T) = add(system)
 
 }
 

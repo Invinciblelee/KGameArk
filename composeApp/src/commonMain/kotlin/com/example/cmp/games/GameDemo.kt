@@ -50,11 +50,15 @@ import com.game.ecs.components.Transform
 import com.game.ecs.components.Visual
 import com.game.ecs.components.applyImpulseFromSegment
 import com.game.ecs.components.applyMovement
+import com.game.ecs.components.shake
 import com.game.ecs.injectables.CoordinateTransform
+import com.game.ecs.injectables.coerceViewportSafeBounds
 import com.game.ecs.systems.CameraSystem
 import com.game.ecs.systems.PhysicsSystem
 import com.game.ecs.systems.RenderSystem
 import com.game.ecs.systems.SteeringSystem
+import com.game.ecs.systems.panTo
+import com.game.ecs.systems.switchCameraSmoothly
 import com.game.engine.asset.AssetsManager
 import com.game.engine.asset.ImageKey
 import com.game.engine.asset.MusicKey
@@ -63,7 +67,12 @@ import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.dsl.KGame
 import com.game.engine.input.InputManager
+import com.game.engine.math.random
+import com.game.engine.math.randomOffset
 import com.game.engine.ui.GameJoypad
+import com.game.engine.ui.Rectangle
+import com.game.engine.ui.applyToInput
+import com.game.engine.utils.KeyTrigger
 import kotlinx.coroutines.delay
 import kotlin.math.hypot
 import kotlin.random.Random
@@ -116,11 +125,11 @@ data class SilkComponent(
 
 // --- Visual 实现 (新增) ---
 
-class EnemyVisual(private val enemyTag: EnemyTag) : Visual {
+class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual {
     override val size: Size = Size(enemyTag.radius * 2, enemyTag.radius * 2)
 
     override fun DrawScope.draw() { // 纯粹的局部绘制
-        drawCircle(if (enemyTag.isTrapped) Color.Red else Color.Gray)
+        drawCircle(color ?: (if (enemyTag.isTrapped) Color.Red else Color.Gray))
     }
 }
 
@@ -149,8 +158,6 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 
         drawCircle(Color.Yellow)
     }
-
-    private fun Offset.toIntOffset() = androidx.compose.ui.unit.IntOffset(x.toInt(), y.toInt())
 }
 
 class SilkVisual(private val silkComponent: SilkComponent) : Visual {
@@ -358,7 +365,7 @@ class CollisionSystem(
                     // 判定阈值：(敌人半径 + 剑丝粗细)^2
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
-                        audio.playSound(eatSound)
+//                        audio.playSound(eatSound)
 
                         val baseImpulse = 50f
 
@@ -436,6 +443,36 @@ class PlayerControlSystem(
 ) : IteratingSystem(
     family = family { all(PlayerTag, Transform) }
 ) {
+
+
+    private val keyTrigger by lazy { KeyTrigger(Key.Six) }
+    private val keyTrigger2 by lazy { KeyTrigger(Key.Seven) }
+
+    private var currentCamera = "player"
+
+    override fun onTick() {
+        super.onTick()
+
+        keyTrigger.check(input) {
+            world.system<CameraSystem>().apply {
+                currentCamera = if (currentCamera == "player") {
+                    switchCameraSmoothly("enemy"); "enemy"
+                } else {
+                    switchCameraSmoothly("player"); "player"
+                }
+            }
+        }
+
+        keyTrigger2.check(input) {
+            val system = world.system<CameraSystem>()
+//            val camera = system.findActiveCamera() ?: return@check
+//            camera.shake(10f)
+            val x = (-400f..1200f).random()
+            val y = (-300f..900f).random()
+            system.panTo(Offset(x, y))
+        }
+    }
+
     override fun onTickEntity(entity: Entity) {
         val playerTransform = entity[Transform]
 
@@ -492,17 +529,16 @@ object GameAssets {
 
 @Composable
 fun GameDemo(context: PlatformContext) {
-    KGame(context = context, initialScene = "menu", modifier = Modifier.fillMaxSize()) {
+    KGame(context = context, modifier = Modifier.fillMaxSize()) {
         // --- 场景 1: 菜单 ---
         scene("menu") {
             resources {
                 it += GameAssets.Music.BGM
                 it += GameAssets.Sound.Eat
-                it += GameAssets.Music.BGM
             }
 
             onEnter {
-                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
+                audio.playMusic(assets[GameAssets.Music.BGM])
                 println("Menu Scene Entered")
             }
 
@@ -516,11 +552,11 @@ fun GameDemo(context: PlatformContext) {
                 }
             }
 
-            onRenderForeground {
-                drawRect(Color.Cyan)
+            onBackgroundUI {
+                Rectangle(Color.Cyan)
             }
 
-            onUI {
+            onForegroundUI {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -545,28 +581,31 @@ fun GameDemo(context: PlatformContext) {
             world(configuration = {
                 systems {
                     // 1. 输入/控制：处理意图
-                    + PlayerControlSystem()
-                    + SilkControlSystem()
+                    +PlayerControlSystem()
+                    +SilkControlSystem()
 
                     // 2. 逻辑/计算：将意图转化为力
-                    + SteeringSystem()
+                    +SteeringSystem()
 
                     // 3. 物理/运动：通用运动计算
-                    + PhysicsSystem()
+                    +PhysicsSystem()
 
                     // 4. 物理/特殊：处理 Silk 特有约束
-                    + SilkPhysicsSystem()
+                    +SilkPhysicsSystem()
 
                     // 5. 修正/解决：修复碰撞后的位置
-                    + CollisionSystem()
+                    +CollisionSystem()
 
                     // 6. 工具/辅助：更新摄像机
-                    + CameraSystem()
+                    +CameraSystem()
 
                     // 7. 输出/渲染：永远在最后
-                    + RenderSystem()
+                    +RenderSystem()
                 }
             }) {
+                val mapBounds = Rect(-800f, -600f, 800f, 600f)
+                val safeBounds = viewportTransform.coerceViewportSafeBounds(mapBounds)
+
                 val player = entity {
                     it += Transform()
                     it += Renderable(PlayerVisual(assets), zIndex = 1)
@@ -575,9 +614,9 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-                    it += SpringEffect(stiffness = 80f, damping = 5f)
-                    it += CameraTarget(player)
-                    it += Camera(isMain = true, mapBounds = Rect(-800f, -600f, 800f, 600f))
+//                    it += SpringEffect(stiffness = 80f, damping = 5f)
+                    it += CameraTarget("player", player)
+                    it += Camera(isMain = true, mapBounds = mapBounds)
                 }
 
                 entity {
@@ -586,16 +625,24 @@ fun GameDemo(context: PlatformContext) {
                     it += silk
                     it += Renderable(SilkVisual(silk), zIndex = 2)
                 }
+
+                val enemy = entity {
+                    it += Transform(safeBounds.randomOffset())
+                    it += Rigidbody()
+                    it += EnemyTag()
+                    it += Renderable(EnemyVisual(EnemyTag(), color = Color.Magenta))
+                }
+
+                entity {
+                    it += Transform()
+//                    it += SpringEffect(stiffness = 80f, damping = 5f)
+                    it += CameraTarget("enemy", enemy)
+                    it += Camera(isActive = false, mapBounds = mapBounds)
+                }
+
                 entities(100) {
                     val enemy = EnemyTag()
-
-                    // 💥 修正 X 轴坐标：从 0-1600 映射到 -800 到 800
-                    val randomX = Random.nextFloat() * 1600f - 800f
-
-                    // 💥 修正 Y 轴坐标：从 0-1200 映射到 -600 到 600
-                    val randomY = Random.nextFloat() * 1200f - 600f
-
-                    it += Transform(Offset(randomX, randomY))
+                    it += Transform(mapBounds.randomOffset())
                     it += Rigidbody()
                     it += enemy
                     it += Renderable(EnemyVisual(enemy))
@@ -625,11 +672,15 @@ fun GameDemo(context: PlatformContext) {
                 }
             }
 
-            onRenderBackground {
-                drawRect(Color.White)
+            onBackgroundUI {
+                Rectangle(Color.Green)
             }
 
-            onUI {
+            onForegroundUI {
+                GameJoypad(
+                    onValue = { it.applyToInput(input) }
+                )
+
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -655,18 +706,6 @@ fun GameDemo(context: PlatformContext) {
                         }
                     }
                 }
-
-                GameJoypad(
-                    onValue = {
-                        when {
-                            it.strength < 0.2f -> Unit // 死区
-                            it.angle in -45f..45f      -> input.simulateKey(Key.DirectionRight)
-                            it.angle in 45f..135f      -> input.simulateKey(Key.DirectionDown)
-                            it.angle in 135f..225f     -> input.simulateKey(Key.DirectionLeft)
-                            else                      -> input.simulateKey(Key.DirectionUp)
-                        }
-                    }
-                )
 
                 LoadingContent(progress = { transitionProgress })
             }

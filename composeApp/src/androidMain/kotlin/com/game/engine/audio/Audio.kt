@@ -3,7 +3,6 @@
 package com.game.engine.audio
 
 import android.media.MediaPlayer
-import android.util.Log
 import com.game.engine.asset.AssetUri
 import com.game.engine.asset.HttpUri
 import com.game.engine.asset.SourceUri
@@ -12,6 +11,7 @@ import com.game.engine.log.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.IllegalStateException
 
 /**
  * Play audio from a url ([String]).
@@ -90,9 +90,9 @@ actual class Audio actual constructor(
         }
     }
 
-    actual fun setVolume(rate: Float) {
+    actual fun setVolume(volume: Float) {
         try {
-            mediaPlayer?.setVolume(rate, rate)
+            mediaPlayer?.setVolume(volume, volume)
         } catch (e: Exception) {
             Logger.error(tag, "setVolume:failure", e)
             _audioState.value = AudioState.Error("setVolume:failure: $e")
@@ -102,26 +102,27 @@ actual class Audio actual constructor(
     actual fun play() {
         try {
             mediaPlayer?.let {
-                if (!it.isPlaying) {
-                    when (audioState.value) {
-                        is AudioState.Loading,
-                        is AudioState.Playing -> { /** do nothing **/ }
-                        is AudioState.None -> {
-                            throw Exception ("AudioState.NONE: mediaPlayer not initialized")
-                        }
-                        is AudioState.Error -> {
-                            throw Exception("AudioState.ERROR: ${(audioState.value as AudioState.Error).message}")
-                        }
-                        is AudioState.Paused,
-                        is AudioState.Ready -> {
-                            it.start()
-                            _audioState.value = AudioState.Playing
-                        }
-                        is AudioState.Completed -> {
-                            it.seekTo(0)
-                            it.start()
-                            _audioState.value = AudioState.Playing
-                        }
+                if (it.isPlaying) {
+                    _audioState.value = AudioState.Playing
+                    return
+                }
+
+                when (audioState.value) {
+                    is AudioState.Loading,
+                    is AudioState.Playing -> Unit
+                    is AudioState.None -> {
+                        throw IllegalStateException("AudioState.NONE: mediaPlayer not initialized")
+                    }
+                    is AudioState.Paused,
+                    is AudioState.Ready -> {
+                        it.start()
+                        _audioState.value = AudioState.Playing
+                    }
+                    is AudioState.Error,
+                    is AudioState.Completed -> {
+                        it.seekTo(0)
+                        it.start()
+                        _audioState.value = AudioState.Playing
                     }
                 }
             }

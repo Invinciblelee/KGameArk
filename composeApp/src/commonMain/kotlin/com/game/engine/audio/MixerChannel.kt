@@ -65,6 +65,12 @@ class MixerChannel: AutoCloseable {
         play(sound.name, volume)
     }
 
+    /**
+     * Used to close the [MixerChannel]
+     * This [MixerChannel] can no longer be used after calling this function.
+     * @see AutoCloseable.close
+     * @see Channel.close
+     */
     override fun close() {
         scope.cancel()
         delegate.close()

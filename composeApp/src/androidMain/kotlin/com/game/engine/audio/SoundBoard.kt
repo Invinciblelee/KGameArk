@@ -10,8 +10,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
-actual class SoundBoard actual constructor(val context: PlatformContext) {
+actual class SoundBoard actual constructor(val context: PlatformContext, maxStreams: Int) {
 
     private val tag: String = "SoundBoard"
     private val soundPool: SoundPool
@@ -31,7 +32,7 @@ actual class SoundBoard actual constructor(val context: PlatformContext) {
             .build()
 
         soundPool = SoundPool.Builder()
-            .setMaxStreams(4)
+            .setMaxStreams(maxStreams)
             .setAudioAttributes(audioAttributes)
             .build()
 

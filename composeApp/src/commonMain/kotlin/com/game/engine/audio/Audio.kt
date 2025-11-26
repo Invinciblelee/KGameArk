@@ -42,14 +42,15 @@ expect class Audio(
 
     /**
      * Adjust volume of [com.game.engine.audio.Audio]
-     * @param rate range from 0.0 to 1.0
+     * @param volume range from 0.0 to 1.0
      **
      * Example:
      * ```
-     * setVolume(0.5f)
+     * val audio = Audio(context, audioUri) // AutoPlay defaults to "false"
+     * audio.setVolume(0.5f)
      * ```
      */
-    fun setVolume(rate: Float)
+    fun setVolume(volume: Float)
 
     /**
      * Used after [com.game.engine.audio.Audio] is initialized with [AudioState.Ready] to play the sound immediately.

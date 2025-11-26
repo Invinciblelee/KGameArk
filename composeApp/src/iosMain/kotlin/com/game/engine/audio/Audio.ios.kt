@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import platform.AVFAudio.AVAudioEngine
 import platform.AVFAudio.AVAudioFile
-import platform.AVFAudio.AVAudioFramePosition
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPlayerNode
 import platform.AVFAudio.AVAudioPlayerNodeBufferLoops
@@ -37,9 +36,8 @@ actual class Audio actual constructor(
     private val engine = AVAudioEngine()
     private val playerNode = AVAudioPlayerNode()
     private var audioFile: AVAudioFile? = null
-    private var seekFrame: AVAudioFramePosition = 0
-    private var audioSampleRate: Double = 0.0
-    private var audioLengthFrames: AVAudioFramePosition = 0
+
+    private var cursor: Long = 0
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -61,9 +59,6 @@ actual class Audio actual constructor(
             }
 
             val procFormat = audioFile.processingFormat
-            audioSampleRate = procFormat.sampleRate
-            audioLengthFrames = audioFile.length
-
             engine.attachNode(playerNode)
             engine.connect(playerNode, engine.mainMixerNode, procFormat)
             engine.startAndReturnError(null)
@@ -78,22 +73,25 @@ actual class Audio actual constructor(
 
     actual fun play() {
         try {
+            if (playerNode.playing) {
+                _audioState.value = AudioState.Playing
+                return
+            }
+
             when (audioState.value) {
-                AudioState.Loading,
-                AudioState.Playing -> return
+                is AudioState.Loading,
+                is AudioState.Playing -> return
                 is AudioState.None -> {
-                    throw Exception ("AudioState.NONE: load() not run yet")
+                    throw IllegalStateException("AudioState.NONE: mediaPlayer not initialized")
                 }
-                is AudioState.Error -> {
-                    throw Exception("AudioState.ERROR: ${(audioState.value as AudioState.Error).message}")
+                is AudioState.Ready,
+                is AudioState.Paused -> {
+                    startPlay(cursor)
+                    _audioState.value = AudioState.Playing
                 }
-                AudioState.Paused,
-                AudioState.Ready,
-                AudioState.Completed -> {
-                    if (!playerNode.playing) {
-                        scheduleNextSegment()
-                        playerNode.play()
-                    }
+                is AudioState.Error,
+                is AudioState.Completed -> {
+                    startPlay(0)
                     _audioState.value = AudioState.Playing
                 }
             }
@@ -106,6 +104,10 @@ actual class Audio actual constructor(
     actual fun pause() {
         try {
             if (playerNode.playing) {
+                val nodeTime = playerNode.lastRenderTime ?: return
+                val playerTime = playerNode.playerTimeForNodeTime(nodeTime) ?: return
+                cursor = playerTime.sampleTime
+
                 playerNode.pause()
                 _audioState.value = AudioState.Paused
             }
@@ -118,7 +120,6 @@ actual class Audio actual constructor(
     actual fun stop() {
         try {
             playerNode.stop()
-            seekFrame = 0
             _audioState.value = AudioState.Ready
         } catch (e: Exception) {
             Logger.error(tag, "stop:failure", e)
@@ -126,8 +127,8 @@ actual class Audio actual constructor(
         }
     }
 
-    actual fun setVolume(rate: Float) {
-        playerNode.volume = rate.coerceIn(0f, 1f)
+    actual fun setVolume(volume: Float) {
+        playerNode.volume = volume.coerceIn(0f, 1f)
     }
 
     actual fun release() {
@@ -143,31 +144,38 @@ actual class Audio actual constructor(
         }
     }
 
-    private fun scheduleNextSegment() {
-        audioFile?.let { file ->
-            val buffer = AVAudioPCMBuffer(
-                pCMFormat = file.processingFormat,
-                frameCapacity = file.length.toUInt()
-            )
-            file.readIntoBuffer(buffer, error = null)
-            seekFrame = file.length
+    private fun startPlay(fromFrame: Long = 0) {
+        val file = audioFile ?: return
+        val start = fromFrame.coerceIn(0, file.length)
+        val remaining = file.length - start
+        if (remaining <= 0) return
 
-            val options: AVAudioPlayerNodeBufferOptions = if (loop) {
-                AVAudioPlayerNodeBufferLoops
-            } else {
-                0u
-            }
+        val buffer = AVAudioPCMBuffer(
+            pCMFormat = file.processingFormat,
+            frameCapacity = remaining.toUInt()
+        )
 
-            playerNode.scheduleBuffer(
-                buffer = buffer,
-                atTime = null,
-                options = options,
-                completionHandler = {
-                    if (!loop) {
-                        _audioState.value = AudioState.Completed
-                    }
-                }
-            )
+        file.framePosition = start
+        file.readIntoBuffer(buffer, error = null)
+
+        playerNode.stop()
+        val options: AVAudioPlayerNodeBufferOptions = if (loop) {
+            AVAudioPlayerNodeBufferLoops
+        } else {
+            0u
         }
+
+        playerNode.scheduleBuffer(
+            buffer = buffer,
+            atTime = null,
+            options = options,
+            completionHandler = {
+                if (!loop) {
+                    _audioState.value = AudioState.Completed
+                }
+            }
+        )
+        playerNode.play()
     }
+
 }

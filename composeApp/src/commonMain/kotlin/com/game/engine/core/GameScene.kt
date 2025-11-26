@@ -8,6 +8,21 @@ import com.game.engine.asset.AssetKey
 import com.game.engine.dsl.GameWorld
 import kotlinx.atomicfu.atomic
 
+/**
+ * Represents a scene in the game.
+ *
+ * @param id The unique identifier of the scene.
+ * @param scope The game scope.
+ * @param onEnter A function to be called when the scene is entered.
+ * @param onExit A function to be called when the scene is exited
+ * @param update A function to be called every frame to update the scene.
+ * @param render A function to be called to render the scene on game canvas.
+ * @param foregroundUI A function to be called to render the foreground UI, which is rendered on top of the game canvas.
+ * @param backgroundUI A function to be called to render the background UI, which is rendered behind the game canvas.
+ * @param world The game world.
+ * @param config The scene config.
+ * @param assets The assets to be loaded.
+ */
 @Immutable
 class GameScene(
     val id: String,
@@ -15,9 +30,9 @@ class GameScene(
     private val onEnter: (() -> Unit)?,
     private val onExit: (() -> Unit)?,
     private val update: ((Float) -> Unit)?,
-    private val renderForeground: (DrawScope.() -> Unit)?,
-    private val renderBackground: (DrawScope.() -> Unit)?,
-    private val ui: (@Composable BoxScope.() -> Unit)?,
+    private val render: (DrawScope.() -> Unit)?,
+    private val foregroundUI: (@Composable BoxScope.() -> Unit)?,
+    private val backgroundUI: (@Composable BoxScope.() -> Unit)?,
     private val world: GameWorld?,
     private val config: SceneConfig,
     private val assets: Set<AssetKey<*>> = emptySet()
@@ -58,7 +73,7 @@ class GameScene(
         }
     }
 
-    fun enter() {
+    internal fun enter() {
         isActive = true
 
         world?.enter()
@@ -66,7 +81,7 @@ class GameScene(
         onEnter?.invoke()
     }
 
-    fun exit() {
+    internal fun exit() {
         isActive = false
 
         onExit?.invoke()
@@ -74,24 +89,28 @@ class GameScene(
         world?.exit()
     }
 
-    fun update(deltaTime: Float) {
+    internal fun update(deltaTime: Float) {
         if (isActive) {
             world?.update(deltaTime)
         }
         update?.invoke(deltaTime)
     }
 
-    fun render(drawScope: DrawScope) {
-        renderBackground?.invoke(drawScope)
+    internal fun render(drawScope: DrawScope) {
         if (isActive) {
             world?.render(drawScope)
         }
-        renderForeground?.invoke(drawScope)
+        render?.invoke(drawScope)
     }
 
     @Composable
-    fun BoxScope.UI() {
-        ui?.invoke(this)
+    internal fun BoxScope.ForegroundUI() {
+        foregroundUI?.invoke(this)
+    }
+
+    @Composable
+    internal fun BoxScope.BackgroundUI() {
+        backgroundUI?.invoke(this)
     }
 
     override fun equals(other: Any?): Boolean {

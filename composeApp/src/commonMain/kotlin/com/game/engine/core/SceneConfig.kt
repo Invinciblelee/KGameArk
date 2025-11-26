@@ -1,7 +1,26 @@
 package com.game.engine.core
 
-import kotlin.jvm.JvmName
-
+/**
+ * Represents a scene config.
+ *
+ * Example:
+ **
+ * ```kotlin
+ * KGame(context) {
+ *    scene("first") {
+ *       onEnter {
+ *          presentScene("second", "key" to "Hello World")
+ *       }
+ *    }
+ *
+ *    scene("second") {
+ *        onEnter {
+ *          println(config.get<String>("key")) // Prints "Hello World"
+ *       }
+ *    }
+ * }
+ * ```
+ */
 class SceneConfig {
 
     @PublishedApi
@@ -12,8 +31,8 @@ class SceneConfig {
         data.putAll(newData)
     }
 
-    operator fun get(key: String): Any? = data[key]
-    @JvmName("getWithGeneric")
-    inline fun <reified T> get(key: String): T? = data[key] as? T
+    inline fun <reified T> get(key: String): T = data[key] as T
 
 }
+
+inline fun <reified T> SceneConfig.getOrNull(key: String): T? = data[key] as? T

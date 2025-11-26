@@ -42,11 +42,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
 
+/**
+ * Manages the Transform, Input, Audio, Assets and Scene of the game.
+ *
+ * @param context The platform context.
+ * @param viewportTransform The viewport transform.
+ * @param coordinateTransform The coordinate transform.
+ * @param input The input manager.
+ * @param audio The audio manager.
+ * @param assets The assets manager.
+ * @param textMeasurer The text measurer.
+ *
+ * @property actualSize The actual size of the game.
+ * @property virtualSize The virtual size of the game.
+ * @property canvasSize The canvas size of the game.
+ * @property fps The frames per second of the game.
+ * @property currentScene The current scene of the game.
+ * @property transitionProgress The progress of the transition.
+ */
 class GameEngine(
     override val context: PlatformContext,
     override val viewportTransform: ViewportTransform = DefaultViewportTransform(),
@@ -106,7 +123,7 @@ class GameEngine(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    fun registerScene(id: String, scene: GameScene) {
+    internal fun registerScene(id: String, scene: GameScene) {
         sceneRegistry[id] = scene
     }
 
@@ -132,6 +149,28 @@ class GameEngine(
             pendingSceneParams = params
             transitionAlpha = 0f
             transitionState = TransitionState.FadingOut
+        }
+    }
+
+    internal fun init(initialScene: String?) {
+        val scene = initialScene ?: sceneRegistry.keys.firstOrNull() ?: return
+        presentScene(scene)
+    }
+
+    internal fun pause() {
+        if (isPaused) return
+        isPaused = true
+
+        isMusicPlaying = audio.isMusicPlaying
+        audio.pauseMusic()
+    }
+
+    internal fun resume() {
+        if (!isPaused) return
+        isPaused = false
+
+        if (isMusicPlaying) {
+            audio.resumeMusic()
         }
     }
 
@@ -244,25 +283,8 @@ class GameEngine(
         }
     }
 
-    internal fun pause() {
-        if (isPaused) return
-        isPaused = true
-
-        isMusicPlaying = audio.isMusicPlaying
-        audio.pauseMusic()
-    }
-
-    internal fun resume() {
-        if (!isPaused) return
-        isPaused = false
-
-        if (isMusicPlaying) {
-            audio.resumeMusic()
-        }
-    }
-
     @Composable
-    internal fun UI() {
+    internal fun ForegroundUI() {
         val scene = currentScene ?: return
 
         val animatedAlpha by animateFloatAsState(
@@ -283,7 +305,19 @@ class GameEngine(
                 .fillMaxSize()
                 .alpha(animatedAlpha)
         ) {
-            with(scene) { UI() }
+            with(scene) { ForegroundUI() }
+        }
+    }
+
+    @Composable
+    internal fun BackgroundUI() {
+        val scene = currentScene ?: return
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            with(scene) { BackgroundUI() }
         }
     }
 

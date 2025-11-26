@@ -11,19 +11,23 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
+import kotlin.math.max
 
-actual class SoundBoard actual constructor(context: PlatformContext) {
-
-    private companion object {
-        const val MAX_POLYPHONY = 4
-    }
+actual class SoundBoard actual constructor(context: PlatformContext, val maxStreams: Int) {
 
     private class PooledClip(val clip: Clip, var inUse: Boolean = false) {
+
+        fun play(volume: Float) {
+            clip.setVolume(volume)
+            clip.start()
+        }
+
         fun reset() {
             if (clip.isRunning) clip.stop()
             clip.microsecondPosition = 0
             inUse = false
         }
+
     }
 
     private val soundBytes = ConcurrentHashMap<String, SoundByte>()
@@ -65,11 +69,11 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
 
     private fun loadPool(soundByte: SoundByte): ArrayDeque<PooledClip> =
         soundPool.getOrPut(soundByte.name) {
-            ArrayDeque<PooledClip>(MAX_POLYPHONY).apply {
+            ArrayDeque<PooledClip>(maxStreams).apply {
                 getAudioInputStream(AssetUri(soundByte.path)).use { sourceIn ->
                     val format   = sourceIn.format
                     val pcmBytes = sourceIn.readAllBytes()
-                    repeat(MAX_POLYPHONY) {
+                    repeat(maxStreams) {
                         val clip = AudioSystem.getClip()
                         clip.open(format, pcmBytes, 0, pcmBytes.size)
                         addLast(PooledClip(clip))
@@ -89,8 +93,7 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
             while (isActive) {
                 val sound = mixer.receiveCatching().getOrNull() ?: break
                 val pooled = obtainClip(sound.name) ?: continue
-                pooled.clip.setVolume(sound.volume)
-                pooled.clip.start()
+                pooled.play(sound.volume)
                 launch {
                     pooled.clip.drain()
                     pooled.reset()

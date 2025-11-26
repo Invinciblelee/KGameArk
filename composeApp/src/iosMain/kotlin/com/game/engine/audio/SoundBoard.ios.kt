@@ -19,18 +19,23 @@ import platform.Foundation.NSURL
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 
-actual class SoundBoard actual constructor(context: PlatformContext) {
+actual class SoundBoard actual constructor(context: PlatformContext, val maxStreams: Int) {
 
-    private companion object {
-        const val MAX_POLYPHONY = 4
-    }
+    private class PooledNode(
+        val node: AVAudioPlayerNode,
+        val buffer: AVAudioPCMBuffer,
+        var inUse: Boolean = false
+    ) {
 
-    private class PooledNode(val node: AVAudioPlayerNode, var inUse: Boolean = false) {
+        fun play(volume: Float) {
+            node.volume = volume
+            node.scheduleBuffer(buffer, completionHandler = { reset() })
+            node.play()
+        }
+
         fun reset() {
-            dispatch_async(dispatch_get_main_queue()) {
-                if (node.playing) {
-                    this.node.stop()
-                }
+            if (node.playing) {
+                node.stop()
             }
             inUse = false
         }
@@ -38,7 +43,6 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
 
     private val soundBytes = mutableMapOf<String, SoundByte>()
     private val soundPools = mutableMapOf<String, ArrayDeque<PooledNode>>()
-    private val soundBuffers = mutableMapOf<String, AVAudioPCMBuffer>()
 
     actual val mixer: MixerChannel = MixerChannel()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -68,7 +72,9 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
         soundBytes.forEach { register(it) }
     }
 
-    actual fun powerUp() = soundBytes.values.forEach { loadPool(it) }
+    actual fun powerUp() {
+        soundBytes.values.forEach { loadPool(it) }
+    }
 
     actual fun powerDown() {
         soundPools.values.forEach { pool ->
@@ -76,7 +82,6 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
             pool.clear()
         }
         soundPools.clear()
-        soundBuffers.clear()
     }
 
     actual fun release() {
@@ -87,25 +92,24 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
         engine.detachNode(mixerNode)
     }
 
-    private fun decodeToBuffer(soundByte: SoundByte): AVAudioPCMBuffer =
-        soundBuffers.getOrPut(soundByte.name) {
-            val url = NSURL(string = soundByte.path)
-            val file = AVAudioFile(forReading = url, error = null)
-            AVAudioPCMBuffer(
-                pCMFormat = file.processingFormat,
-                frameCapacity = file.length.toUInt()
-            ).apply { file.readIntoBuffer(this, error = null) }
-        }
+    private fun decodeToBuffer(soundByte: SoundByte): AVAudioPCMBuffer {
+        val url = NSURL(string = soundByte.path)
+        val file = AVAudioFile(forReading = url, error = null)
+        return AVAudioPCMBuffer(
+            pCMFormat = file.processingFormat,
+            frameCapacity = file.length.toUInt()
+        ).apply { file.readIntoBuffer(this, error = null) }
+    }
 
     private fun loadPool(soundByte: SoundByte): ArrayDeque<PooledNode> =
         soundPools.getOrPut(soundByte.name) {
             val buffer = decodeToBuffer(soundByte)
-            ArrayDeque<PooledNode>(MAX_POLYPHONY).apply {
-                repeat(MAX_POLYPHONY) {
+            ArrayDeque<PooledNode>(maxStreams).apply {
+                repeat(maxStreams) {
                     val node = AVAudioPlayerNode()
                     engine.attachNode(node)
                     engine.connect(node, mixerNode, buffer.format)
-                    addLast(PooledNode(node))
+                    addLast(PooledNode(node, buffer))
                 }
             }
         }
@@ -116,17 +120,12 @@ actual class SoundBoard actual constructor(context: PlatformContext) {
         return null
     }
 
-    private fun releaseNode(pooled: PooledNode) = pooled.reset()
-
     private fun startMixer() {
         scope.launch {
             while (isActive) {
                 val sound = mixer.receiveCatching().getOrNull() ?: break
                 val pooled = obtainNode(sound.name) ?: continue
-                val buffer = decodeToBuffer(requireNotNull(soundBytes[sound.name]))
-                pooled.node.volume = sound.volume
-                pooled.node.scheduleBuffer(buffer, completionHandler = { releaseNode(pooled) })
-                pooled.node.play()
+                pooled.play(sound.volume)
             }
         }
     }

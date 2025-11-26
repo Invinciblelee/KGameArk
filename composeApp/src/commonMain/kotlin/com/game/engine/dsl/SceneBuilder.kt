@@ -21,10 +21,10 @@ class SceneBuilder(
     private var onEnter: (() -> Unit)? = null
     private var onExit: (() -> Unit)? = null
     private var onUpdate: ((Float) -> Unit)? = null
-    private var onRenderForeground: (DrawScope.() -> Unit)? = null
-    private var onRenderBackground: (DrawScope.() -> Unit)? = null
+    private var onRender: (DrawScope.() -> Unit)? = null
 
-    private var onUI: (@Composable BoxScope.() -> Unit)? = null
+    private var onForegroundUI: (@Composable BoxScope.() -> Unit)? = null
+    private var onBackgroundUI: (@Composable BoxScope.() -> Unit)? = null
 
     private var world: GameWorld? = null
 
@@ -68,18 +68,18 @@ class SceneBuilder(
     }
 
     @GameDslMarker
-    fun onRenderForeground(block: DrawScope.() -> Unit) {
-        onRenderForeground = block
+    fun onRender(block: DrawScope.() -> Unit) {
+        onRender = block
     }
 
     @GameDslMarker
-    fun onRenderBackground(block: DrawScope.() -> Unit) {
-        onRenderBackground = block
+    fun onForegroundUI(block: @Composable BoxScope.() -> Unit) {
+        onForegroundUI = block
     }
 
     @GameDslMarker
-    fun onUI(block: @Composable BoxScope.() -> Unit) {
-        onUI = block
+    fun onBackgroundUI(block: @Composable BoxScope.() -> Unit) {
+        onBackgroundUI = block
     }
 
     internal fun build(): GameScene = GameScene(
@@ -88,9 +88,9 @@ class SceneBuilder(
         onEnter,
         onExit,
         onUpdate,
-        onRenderForeground,
-        onRenderBackground,
-        onUI,
+        onRender,
+        onForegroundUI,
+        onBackgroundUI,
         world,
         config,
         requiredAssets

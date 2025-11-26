@@ -7,23 +7,60 @@ import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
 
-// 标记：这个实体是被跟随的目标
-data class CameraTarget(val entity: Entity) : Component<CameraTarget> {
+/**
+ * Mark camera follow target.
+ */
+data class CameraTarget(val name: String, val entity: Entity) : Component<CameraTarget> {
     override fun type() = CameraTarget
 
     companion object : ComponentType<CameraTarget>()
 }
 
-// 数据：摄像机的参数
+/**
+ * Camera Transition Component: Attached to the currently active camera entity
+ * that is initiating a smooth switch.
+ */
+data class CameraTransition(
+    val targetCamera: String,
+    val targetPosition: Offset,
+    val duration: Float,
+
+    var elapsed: Float = 0f,
+    var startPosition: Offset? = null,
+
+    val finishTracking: Boolean = false
+) : Component<CameraTransition> {
+    override fun type() = CameraTransition
+    companion object: ComponentType<CameraTransition>()
+}
+
+/**
+ * A component of Camera.
+ *
+ * @param isActive Whether the camera is active.
+ * @param isMain Whether the camera is the main camera.
+ * @param isTracking Whether the camera is tracking the [CameraTarget].
+ * @param zoom The zoom level of the camera.
+ * @param rotation The rotation of the camera.
+ * @param lerpSpeed The speed of camera movement.
+ * @param deadZone The dead zone of the camera.
+ * @param mapBounds The bounds of the map.
+ * @param trauma The trauma of the camera.
+ * @param traumaDecay The decay of the trauma.
+ * @param maxShakeOffset The maximum offset of the shake.
+ * @param maxShakeAngle The maximum angle of the shake.
+ * @param viewport The viewport of the camera.
+ *
+ */
 data class Camera(
     var isActive: Boolean = true,
     var isMain: Boolean = false,
 
-    // 基础配置
-    var zoom: Float = 1f,
-    var rotation: Float = 0f, // 摄像机本身的基础旋转
+    var isTracking: Boolean = true,
 
-    // 运动平滑配置
+    var zoom: Float = 1f,
+    var rotation: Float = 0f,
+
     var lerpSpeed: Float = 5f,
     var deadZone: Size = Size(50f, 50f),
     var mapBounds: Rect = Rect(
@@ -33,16 +70,14 @@ data class Camera(
         Float.POSITIVE_INFINITY
     ),
 
-    // 震动配置 (Trauma)
-    var trauma: Float = 0f,        // 0~1
-    var traumaDecay: Float = 2.0f, // 震动衰减速度
+    var trauma: Float = 0f,
+    var traumaDecay: Float = 2.0f,
     var maxShakeOffset: Float = 50f,
     var maxShakeAngle: Float = 10f,
 
-    // 渲染用临时状态 (System 计算后填入这里，供 Draw 使用)
     var shakeOffset: Offset = Offset.Zero,
     var shakeRotation: Float = 0f,
-    var viewport: Rect = Rect(0f, 0f, 1f, 1f), // 默认全屏
+    var viewport: Rect = Rect(0f, 0f, 1f, 1f),
 ) : Component<Camera> {
 
     override fun type() = Camera
@@ -52,19 +87,63 @@ data class Camera(
 }
 
 /**
- * 施加震动
+ * add trauma to camera
+ * @param amount trauma amount
  */
 fun Camera.addTrauma(amount: Float) {
     trauma = (trauma + amount).coerceIn(0f, 1f)
 }
 
+/**
+ * Stops the camera from automatically following its target entity, keeping it static.
+ */
+fun Camera.pauseTracking() {
+    this.isTracking = false
+}
 
 /**
- * 【新增】基于中心点和尺寸设置地图边界。
- * @param mapWidth 地图总宽度
- * @param mapHeight 地图总高度
- * @param centerX 地图原点X坐标 (默认为 0)
- * @param centerY 地图原点Y坐标 (默认为 0)
+ * Resumes the camera following its target entity, subject to its follow/spring settings.
+ * Note: This should be called *after* any pan sequence is complete.
+ */
+fun Camera.resumeTracking() {
+    this.isTracking = true
+}
+
+/**
+ * Shakes the camera view by adding trauma.
+ *
+ * @param amount The maximum trauma value (clamped between 0 and 1).
+ * @param decayRate The rate at which the trauma decays per second.
+ * @param maxOffset The maximum pixel offset for shake (optional, overrides default).
+ * @param maxAngle The maximum angle (in degrees) for shake (optional, overrides default).
+ */
+fun Camera.shake(
+    amount: Float,
+    decayRate: Float? = null,
+    maxOffset: Float? = null,
+    maxAngle: Float? = null
+) {
+    // 1. Add trauma amount (using existing logic)
+    this.addTrauma(amount)
+
+    // 2. Override decay rate and maximums if provided
+    if (decayRate != null) {
+        this.traumaDecay = decayRate.coerceAtLeast(0.01f) // Ensure decay is positive
+    }
+    if (maxOffset != null) {
+        this.maxShakeOffset = maxOffset.coerceAtLeast(0f)
+    }
+    if (maxAngle != null) {
+        this.maxShakeAngle = maxAngle.coerceAtLeast(0f)
+    }
+}
+
+/**
+ * Set the map bounds of the camera.
+ * @param mapWidth The width of the map.
+ * @param mapHeight The height of the map.
+ * @param centerX The center X of the map.
+ * @param centerY The center Y of the map.
  */
 fun Camera.setMapBounds(
     mapWidth: Float,
@@ -81,11 +160,11 @@ fun Camera.setMapBounds(
 }
 
 /**
- * 【新增】设置自定义视口，参数为 0.0 到 1.0 的相对屏幕比例。
- * @param left 相对左边界
- * @param top 相对上边界
- * @param width 相对宽度
- * @param height 相对高度
+ * Set the viewport of the camera.
+ * @param left The left of the viewport, from 0 to 1.
+ * @param top The top of the viewport, from 0 to 1.
+ * @param width The width of the viewport, from 0 to 1.
+ * @param height The height of the viewport, from 0 to 1.
  */
 fun Camera.setViewportNormalized(
     left: Float,

@@ -17,9 +17,6 @@ class SteeringSystem : IteratingSystem(
 
     override fun onTickEntity(entity: Entity) {
         val target = entity[FollowTarget]
-        if (target.entity.isMarkedForRemoval()) {
-            return
-        }
         val targetPosition = target.entity[Transform].position
 
         val rigidbody = entity[Rigidbody]

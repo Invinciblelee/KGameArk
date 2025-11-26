@@ -2,28 +2,32 @@ package com.game.ecs.components
 
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 
-// 2. 视觉接口 (Visual)
+
+/**
+ * The visual of renderable
+ */
 interface Visual {
 
     /**
-     * 视觉尺寸, 当size==Size.Unspecified时，表示按实际尺寸渲染
+     * Visual size. When size == Size.Unspecified, the component is rendered at its intrinsic size.
      */
     val size: Size get() = Size.Unspecified
 
     /**
-     * 绘制逻辑
-     * 注意：RenderSystem 通常会预先应用 Matrix 变换（移到 pos，应用 rotation/scale），
-     * 所以在 draw 内部，通常应该以 bounds.center 为中心绘制。
+     * Drawing logic.
+     * Note: RenderSystem usually applies the Matrix transformation beforehand (translation to pos,
+     * rotation and scale), so inside draw() you should generally render centered on bounds.center.
      */
     fun DrawScope.draw()
 
     /**
-     * 获取世界坐标下的包围盒 (用于视锥剔除 Culling)
-     * 需要用到 transform.pos 和 transform.scale
+     * Returns the world-axis aligned bounding box (for frustum culling).
+     * Uses transform.pos and transform.scale.
      */
     fun getBounds(transform: Transform, bounds: MutableRect) {
         if (size == Size.Unspecified) {
@@ -36,20 +40,38 @@ interface Visual {
             return
         }
 
-        // 考虑缩放后的半宽/半高
         val halfW = (size.width * transform.scaleX) / 2f
         val halfH = (size.height * transform.scaleY) / 2f
 
-        // 构造以 transform.position 为中心的矩形
         bounds.left = transform.position.x - halfW
         bounds.top = transform.position.y - halfH
         bounds.right = transform.position.x + halfW
         bounds.bottom = transform.position.y + halfH
     }
+}
+
+class Circle(val color: Color, radius: Float): Visual {
+
+    override val size: Size = Size(radius * 2, radius * 2)
+
+    override fun DrawScope.draw() {
+        drawCircle(color)
+    }
 
 }
 
-// 3. 渲染组件 (Renderable)
+class Rectangle(val color: Color, override val size: Size = Size.Unspecified): Visual {
+    override fun DrawScope.draw() {
+        drawRect(color)
+    }
+}
+
+/**
+ * A component of Renderable.
+ * @param visual The visual of the renderable.
+ * @param zIndex The z-index of the renderable.
+ * @param isVisible Whether the renderable is visible.
+ */
 data class Renderable(
     val visual: Visual,
     val zIndex: Int = 0,

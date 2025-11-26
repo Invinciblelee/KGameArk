@@ -16,21 +16,31 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.game.engine.input.InputManager
 import com.game.engine.math.angle
 import kotlinx.coroutines.isActive
-
-// 请确保您的项目中 Offset 有 angle() 和 getDistance() 扩展函数
-// 如果没有，您可能需要自行添加或使用其他数学库
+import kotlin.compareTo
 
 data class JoypadValue(
     val vector: Offset = Offset.Zero,
     val angle: Float = 0f,
     val strength: Float = 0f
 )
+
+fun JoypadValue.applyToInput(input: InputManager) {
+    when {
+        strength < 0.2f -> Unit
+        angle in -45f..45f      -> input.simulateKey(Key.DirectionRight)
+        angle in 45f..135f      -> input.simulateKey(Key.DirectionDown)
+        angle in 135f..225f     -> input.simulateKey(Key.DirectionLeft)
+        else                      -> input.simulateKey(Key.DirectionUp)
+    }
+}
 
 @Composable
 fun GameJoypad(
@@ -65,11 +75,9 @@ fun GameJoypad(
         )
     }
 
-    // 解决协程捕获旧值问题，获取最新的 value
     val currentJoypadValue by rememberUpdatedState(value)
 
     if (visible) {
-        // 持续帧循环
         LaunchedEffect(Unit) {
             while (isActive) {
                 withFrameNanos {

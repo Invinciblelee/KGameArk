@@ -1,9 +1,11 @@
 package com.game.engine.dsl
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -44,18 +47,74 @@ import com.game.engine.input.InputManager
 import com.game.engine.input.KeyInterceptor
 
 /**
- * 游戏入口
- * @param initialScene 游戏初始场景
- * @param virtualSize 虚拟屏幕大小
- * @param modifier Modifier
- * @param foreground 前景
- * @param background 背景
- * @param init 游戏配置
+ * The main entry point of the game.
+ * Example:
+ **
+ * ```kotlin
+ * KGame(context, initialScene = "main", virtualSize = Size(800f, 600f)) {
+ *     scene("main") {
+ *          onEnter {
+ *              // Scene entered
+ *          }
+ *
+ *          onExit {
+ *              // Scene exited
+ *          }
+ *
+ *          onUpdate { dt ->
+ *              // Update logic
+ *          }
+ *
+ *          // behind the game canvas
+ *          onBackgroundUI {
+ *              Rectangle(Color.Black)
+ *          }
+ *
+ *          // render game canvas
+ *          onRender {
+ *              drawRect(Color.Green)
+ *          }
+ *
+ *          // above the game canvas
+ *          onForegroundUI {
+ *              // Use dp units directly. The engine has already handled screen scaling for virtualSize = Size(800f, 600f).
+ *              // For example, 400.dp = half canvas width, 300.dp = half canvas height.
+ *              // This draws a rectangle centered over the game canvas.
+ *              Rectangle(Color.White, width = 400.dp, height = 300.dp, modifier = Modifier.align(Alignment.Center))
+ *              Text("Welcome to My Game!", modifier = Modifier.align(Alignment.Center))
+ *          }
+ *     }
+ *
+ *     scene("game") {
+ *          world(configuration = {
+ *              injectables {
+ *                  "key" + "value"
+ *                  + ViewModel()
+ *              }
+ *              systems {
+ *                  + PhysicsSystem()
+ *                  + RenderSystem()
+ *              }
+ *          }) {
+ *              entity {
+ *                  it += Transform()
+ *                  it += Camera()
+ *              }
+ *
+ *              entities(100) {
+ *                  it += Transform()
+ *                  it += Renderable(Rectangle(Color.Red))
+ *              }
+ *          }
+ *     }
+ * }
+ * ```
+ *
  */
 @Composable
 fun KGame(
     context: PlatformContext,
-    initialScene: String,
+    initialScene: String? = null,
     virtualSize: Size = Size(800f, 600f),
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
@@ -89,7 +148,8 @@ fun KGame(
         lifecycleOwner.lifecycle.addObserver(observer)
 
         GameConfigBuilder(engine).init()
-        engine.presentScene(initialScene)
+        engine.init(initialScene)
+
         onDispose {
             engine.release()
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -180,20 +240,18 @@ private fun ScaledGameViewport(
     foreground: (@Composable BoxScope.() -> Unit)?
 ) {
     Box(modifier = Modifier.size(scaledWidthDp, scaledHeightDp)) {
-        background?.let {
-            CompositionLocalProvider(
-                LocalDensity provides scaledDensity
-            ) {
-                it.invoke(this)
-            }
+        CompositionLocalProvider(
+            LocalDensity provides scaledDensity
+        ) {
+            background?.invoke(this)
+            engine.BackgroundUI()
         }
-
         GameCanvasRenderer(engine, virtualSize) { frameTrigger }
 
         CompositionLocalProvider(
             LocalDensity provides scaledDensity
         ) {
-            engine.UI()
+            engine.ForegroundUI()
             foreground?.invoke(this)
         }
     }

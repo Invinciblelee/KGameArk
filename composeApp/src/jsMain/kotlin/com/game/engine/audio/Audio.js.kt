@@ -31,12 +31,15 @@ actual class Audio actual constructor(
             _audioState.value = AudioState.Loading
             player = Audio(uri.path)
             player?.loop = loop
-            player?.oncanplaythrough?.let { _ ->
-                {
-                    _audioState.value = AudioState.Ready
-                    if (autoPlay) {
-                        play()
-                    }
+            player?.onended = {
+                if (!loop) {
+                    _audioState.value = AudioState.Completed
+                }
+            }
+            player?.oncanplaythrough = {
+                _audioState.value = AudioState.Ready
+                if (autoPlay) {
+                    play()
                 }
             }
         } catch (e: Exception) {

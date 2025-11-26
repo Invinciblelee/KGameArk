@@ -1,6 +1,9 @@
+import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.reload.core.Environment.Companion.application
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -17,8 +20,9 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_21)
         }
     }
-    
+
     listOf(
+        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -84,6 +88,10 @@ kotlin {
             implementation(libs.soundlibs.tritonus.share)
             implementation(libs.soundlibs.mp3spi)
             implementation(libs.soundlibs.vorbisspi)
+        }
+
+        webMain.dependencies {
+            implementation(libs.kotlin.browser)
         }
     }
 }

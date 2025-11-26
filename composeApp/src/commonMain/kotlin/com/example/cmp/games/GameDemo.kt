@@ -27,13 +27,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
@@ -156,7 +160,7 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 //            dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
 //        )
 
-        drawCircle(Color.Yellow)
+        drawCircle(Color.Yellow, )
     }
 }
 
@@ -365,7 +369,7 @@ class CollisionSystem(
                     // 判定阈值：(敌人半径 + 剑丝粗细)^2
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
-//                        audio.playSound(eatSound)
+                        audio.playSound(eatSound)
 
                         val baseImpulse = 50f
 
@@ -538,7 +542,6 @@ fun GameDemo(context: PlatformContext) {
             }
 
             onEnter {
-                audio.playMusic(assets[GameAssets.Music.BGM])
                 println("Menu Scene Entered")
             }
 
@@ -614,7 +617,7 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-//                    it += SpringEffect(stiffness = 80f, damping = 5f)
+                    it += SpringEffect(stiffness = 20f, damping = 5f)
                     it += CameraTarget("player", player)
                     it += Camera(isMain = true, mapBounds = mapBounds)
                 }
@@ -635,7 +638,7 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-//                    it += SpringEffect(stiffness = 80f, damping = 5f)
+                    it += SpringEffect(stiffness = 20f, damping = 5f)
                     it += CameraTarget("enemy", enemy)
                     it += Camera(isActive = false, mapBounds = mapBounds)
                 }
@@ -657,10 +660,12 @@ fun GameDemo(context: PlatformContext) {
 
             onEnter {
                 println("Battle Scene Entered")
+                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
             }
 
             onExit {
                 println("Battle Scene Exited")
+                audio.stopMusic()
             }
 
             onUpdate {

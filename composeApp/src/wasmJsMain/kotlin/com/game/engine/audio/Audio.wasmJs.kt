@@ -5,6 +5,7 @@ package com.game.engine.audio
 import com.game.engine.asset.SourceUri
 import com.game.engine.context.PlatformContext
 import com.game.engine.log.Logger
+import kotlinx.browser.window
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,11 @@ actual class Audio actual constructor(
             _audioState.value = AudioState.Loading
             player = Audio(uri.path)
             player?.loop = loop
+            player?.onended = {
+                if (!loop) {
+                    _audioState.value = AudioState.Completed
+                }
+            }
             player?.oncanplaythrough = {
                 _audioState.value = AudioState.Ready
                 if (autoPlay) {

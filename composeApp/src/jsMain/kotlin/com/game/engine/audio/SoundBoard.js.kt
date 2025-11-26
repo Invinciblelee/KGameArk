@@ -5,27 +5,43 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import web.audio.AudioBuffer
+import web.audio.AudioContext
+import web.audio.AudioContextState
+import web.audio.decodeAudioData
+import web.audio.resume
+import web.audio.suspended
+import web.events.EventHandler
+import web.html.HtmlTagName.source
+import web.http.arrayBuffer
+import web.http.fetch
 
 actual class SoundBoard actual constructor(context: PlatformContext, val maxStreams: Int) {
 
-    private class PooledClip(val ctx: dynamic, var buffer: dynamic, var inUse: Boolean = false) {
-        private var source: dynamic? = null
-        fun play(volume: Float) {
-            source = ctx.createBufferSource()
+    private class PooledClip(val context: AudioContext, var buffer: AudioBuffer, var inUse: Boolean = false) {
+        private val gainNode = context.createGain().apply {
+            connect(context.destination)
+        }
+
+        suspend fun play(volume: Float) {
+            if (context.state == AudioContextState.suspended) {
+                context.resume()
+            }
+
+            val source = context.createBufferSource()
             source.buffer = buffer
-            val gain = ctx.createGain()
-            gain.gain.value = volume
-            source.connect(gain)
-            gain.connect(ctx.destination)
+            source.connect(gainNode)
+            gainNode.gain.setValueAtTime(volume, context.currentTime)
+            source.onended = EventHandler {
+                source.disconnect(gainNode)
+                reset()
+            }
             source.start(0.0)
         }
 
         fun reset() {
-            source?.stop(0.0)
-            source = null
             inUse = false
         }
     }
@@ -35,7 +51,7 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
 
     actual val mixer: MixerChannel = MixerChannel()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val ctx = js("new (window.AudioContext || window.webkitAudioContext)()")
+    private val context = js("new (window.AudioContext || window.webkitAudioContext)()")
 
     init { startMixer() }
 
@@ -62,21 +78,21 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
         scope.cancel()
         mixer.close()
         powerDown()
-        ctx.close()
+        context.close()
     }
 
-    private fun loadPool(soundByte: SoundByte): ArrayDeque<PooledClip> {
+    private suspend fun loadPool(soundByte: SoundByte): ArrayDeque<PooledClip> {
         return soundPool.getOrPut(soundByte.name) {
-            val buffer = ctx.decodeAudioData(
-                js("fetch(url)").await().arrayBuffer().await()
-            ).await()
+            val response = fetch(soundByte.path)
+            val arrayBuffer = response.arrayBuffer()
+            val buffer = context.unsafeCast<AudioContext>().decodeAudioData(arrayBuffer)
             ArrayDeque<PooledClip>(maxStreams).apply {
-                repeat(maxStreams) { addLast(PooledClip(ctx, buffer)) }
+                repeat(maxStreams) { addLast(PooledClip(context, buffer)) }
             }
         }
     }
 
-    private fun obtainClip(name: String): PooledClip? {
+    private suspend fun obtainClip(name: String): PooledClip? {
         val pool = loadPool(requireNotNull(soundBytes[name]) { "Sound $name not registered" })
         pool.find { !it.inUse }?.let { it.inUse = true; return it }
         return null
@@ -88,10 +104,6 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
                 val sound = mixer.receiveCatching().getOrNull() ?: break
                 val pooled = obtainClip(sound.name) ?: continue
                 pooled.play(sound.volume)
-                launch {
-                    delay(timeMillis = (pooled.buffer.duration * 1000L).toLong())
-                    pooled.reset()
-                }
             }
         }
     }

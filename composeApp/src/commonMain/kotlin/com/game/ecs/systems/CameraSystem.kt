@@ -40,7 +40,6 @@ class CameraSystem(
             return
         }
 
-
         if (!camera.isActive) return
 
         // 2. Execute normal follow logic (Only if the camera is the active view)
@@ -87,7 +86,11 @@ class CameraSystem(
         clampToMapBounds(camera, cameraTransform)
     }
 
-    private fun handleTransition(entity: Entity, cameraTransform: Transform, transition: CameraTransition) {
+    private fun handleTransition(
+        entity: Entity,
+        cameraTransform: Transform,
+        transition: CameraTransition
+    ) {
         // 1. Lazy initialization: Lock the start position on the first frame.
         if (transition.startPosition == null) {
             transition.startPosition = cameraTransform.position
@@ -113,6 +116,7 @@ class CameraSystem(
 
         // 5. Check for completion
         if (rawProgress >= 1f) {
+            cameraTransform.position = transition.targetPosition
             completeTransition(entity, transition)
         }
     }
@@ -121,23 +125,22 @@ class CameraSystem(
      * Finalizes the transition, switches active camera, and resets physics state.
      */
     private fun completeTransition(entity: Entity, transition: CameraTransition) {
-        // Enforce final position to eliminate float error
-        entity[Transform].position = transition.targetPosition
-
         // 1. Remove transition component from the old camera
         entity.configure {
             it -= CameraTransition
         }
 
+        val camera = entity[Camera]
+        val cameraTarget = entity[CameraTarget]
         // Check if this was a self-transition (panTo)
-        if (entity[CameraTarget].name == transition.targetCamera) {
+        if (cameraTarget.name == transition.targetCamera) {
             // This was a PAN operation: The camera stays active and resumes updateFollowLogic next frame.
-            entity[Camera].isTracking = !transition.finishTracking
+            camera.isTracking = !transition.finishTracking
             return
         }
 
         // 2. Deactivate the old camera
-        entity[Camera].isActive = false
+        camera.isActive = false
 
         // 3. Activate the new camera and reset its physics state
         family.forEach { newCameraEntity ->
@@ -179,7 +182,8 @@ class CameraSystem(
         val mapBounds = camera.mapBounds
 
         val cameraPosition = cameraTransform.position
-        cameraTransform.position = viewportTransform.clampPositionInBounds(mapBounds, cameraPosition)
+        cameraTransform.position =
+            viewportTransform.clampPositionInBounds(mapBounds, cameraPosition)
     }
 }
 
@@ -212,10 +216,10 @@ fun CameraSystem.switchCamera(name: String) {
  */
 fun CameraSystem.switchCameraSmoothly(name: String, duration: Float = 0.5f) {
     // Initiates a smooth transition between the current active camera and the target camera.
-    val targetCamera = family.firstOrNull { it[CameraTarget].name == name } ?: return
+    val targetCameraEntity = family.firstOrNull { it[CameraTarget].name == name } ?: return
 
     // Ensure the target entity has a Transform to get the position
-    val targetPosition = targetCamera[CameraTarget].entity.getOrNull(Transform)?.position
+    val targetPosition = targetCameraEntity[CameraTarget].entity.getOrNull(Transform)?.position
         ?: return // Target entity must have a Transform
 
     val activeCameraEntity = family.firstOrNull { it[Camera].isActive }
@@ -271,7 +275,7 @@ fun CameraSystem.panTo(
             // Use the existing CameraTarget name as the 'next' name.
             // This signals 'completeTransition' to *not* switch active camera,
             // but simply remove the component and resume normal follow logic.
-            targetCamera = activeCameraEntity[CameraTarget].name,
+            targetCamera = it[CameraTarget].name,
             targetPosition = clampedTargetPos,
             duration = duration,
             finishTracking = finishTracking

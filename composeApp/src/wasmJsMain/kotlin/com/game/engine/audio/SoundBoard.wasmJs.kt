@@ -3,31 +3,49 @@
 package com.game.engine.audio
 
 import com.game.engine.context.PlatformContext
+import kotlinx.browser.document
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import web.audio.AudioBuffer
+import web.audio.AudioContext
+import web.audio.AudioContextState
+import web.audio.decodeAudioData
+import web.audio.resume
+import web.audio.suspended
+import web.events.EventHandler
+import web.html.HtmlTagName.p
+import web.http.arrayBuffer
+import web.http.fetch
 
 actual class SoundBoard actual constructor(context: PlatformContext, val maxStreams: Int) {
 
-    private class PooledClip(val ctx: JsAny, val buffer: JsAny, var inUse: Boolean = false) {
-        private var source: JsAny? = null
-        fun play(volume: Float) {
-            val src = createBufferSource(ctx)
-            setBuffer(src, buffer)            // ← 显式函数
-            val g = createGain(ctx)
-            setGain(g, volume)
-            connect(src, g)
-            connect(g, getDestination(ctx))
-            startSource(src, 0.0)
-            source = src
+    private class PooledClip(context: JsAny, val buffer: AudioBuffer, var inUse: Boolean = false) {
+        private val audioContext = context.unsafeCast<AudioContext>()
+        private val gainNode = audioContext.createGain().apply {
+            connect(audioContext.destination)
         }
+
+        suspend fun play(volume: Float) {
+            if (audioContext.state == AudioContextState.suspended) {
+                audioContext.resume()
+            }
+
+            val source = audioContext.createBufferSource()
+            source.buffer = buffer
+            source.connect(gainNode)
+            gainNode.gain.setValueAtTime(volume, audioContext.currentTime)
+            source.onended = EventHandler {
+                source.disconnect(gainNode)
+                reset()
+            }
+            source.start(0.0)
+        }
+
         fun reset() {
-            source?.let { stopSource(it, 0.0) }
-            source = null
             inUse = false
         }
     }
@@ -37,7 +55,7 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
 
     actual val mixer: MixerChannel = MixerChannel()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val ctx = createAudioContext()
+    private val context = createAudioContext()
 
     init { startMixer() }
 
@@ -59,14 +77,19 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
     }
 
     actual fun release() {
-        scope.cancel(); mixer.close(); powerDown()
+        scope.cancel()
+        mixer.close()
+        powerDown()
+        closeAudioContext(context)
     }
 
     private suspend fun loadPool(soundByte: SoundByte): ArrayDeque<PooledClip> {
         return soundPool.getOrPut(soundByte.name) {
-            val buffer = fetchAndDecode(soundByte.path)
+            val response = fetch(soundByte.path)
+            val arrayBuffer = response.arrayBuffer()
+            val buffer = context.unsafeCast<AudioContext>().decodeAudioData(arrayBuffer)
             ArrayDeque<PooledClip>(maxStreams).apply {
-                repeat(maxStreams) { addLast(PooledClip(ctx, buffer)) }
+                repeat(maxStreams) { addLast(PooledClip(context, buffer)) }
             }
         }
     }
@@ -83,10 +106,6 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
                 val sound = mixer.receiveCatching().getOrNull() ?: break
                 val pooled = obtainClip(sound.name) ?: continue
                 pooled.play(sound.volume)
-                launch {
-                    delay((getBufferDuration(pooled.buffer) * 1000).toLong())
-                    pooled.reset()
-                }
             }
         }
     }

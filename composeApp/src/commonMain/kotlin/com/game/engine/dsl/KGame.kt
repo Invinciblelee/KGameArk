@@ -1,11 +1,9 @@
 package com.game.engine.dsl
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -18,33 +16,27 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.FrameRateCategory
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.GameEngine
-import com.game.engine.geometry.DefaultViewportTransform
-import com.game.engine.input.InputManager
-import com.game.engine.input.KeyInterceptor
 
 /**
  * The main entry point of the game.
@@ -171,10 +163,9 @@ fun KGame(
     }
 
     GameShell(
-        modifier = modifier.preferredFrameRate(FrameRateCategory.High),
+        modifier = modifier,
         engine = engine,
         focusRequester = focusRequester,
-        virtualSize = virtualSize,
         frameTrigger = frameTrigger,
         background = background,
         foreground = foreground
@@ -186,26 +177,10 @@ private fun GameShell(
     modifier: Modifier,
     engine: GameEngine,
     focusRequester: FocusRequester,
-    virtualSize: Size,
     frameTrigger: Long,
     background: (@Composable BoxScope.() -> Unit)?,
     foreground: (@Composable BoxScope.() -> Unit)?
 ) {
-    val physicalDensity = LocalDensity.current
-    val viewportTransform = engine.viewportTransform
-
-    val (scaledWidthDp, scaledHeightDp) = remember(viewportTransform.scaleFactor, virtualSize) {
-        with(physicalDensity) {
-            val widthPx = virtualSize.width * viewportTransform.scaleFactor
-            val heightPx = virtualSize.height * viewportTransform.scaleFactor
-            widthPx.toDp() to heightPx.toDp()
-        }
-    }
-
-    val scaledDensity = remember(viewportTransform.scaleFactor) {
-        Density(density = viewportTransform.scaleFactor)
-    }
-
     Box(
         modifier = modifier
             .focusRequester(focusRequester)
@@ -217,10 +192,6 @@ private fun GameShell(
     ) {
         ScaledGameViewport(
             engine = engine,
-            virtualSize = virtualSize,
-            scaledDensity = scaledDensity,
-            scaledWidthDp = scaledWidthDp,
-            scaledHeightDp = scaledHeightDp,
             frameTrigger = frameTrigger,
             background = background,
             foreground = foreground
@@ -231,26 +202,45 @@ private fun GameShell(
 @Composable
 private fun ScaledGameViewport(
     engine: GameEngine,
-    virtualSize: Size,
-    scaledDensity: Density,
-    scaledWidthDp: Dp,
-    scaledHeightDp: Dp,
     frameTrigger: Long,
     background: (@Composable BoxScope.() -> Unit)?,
     foreground: (@Composable BoxScope.() -> Unit)?
 ) {
-    Box(modifier = Modifier.size(scaledWidthDp, scaledHeightDp)) {
-        CompositionLocalProvider(
-            LocalDensity provides scaledDensity
-        ) {
+    val originalDensity = LocalDensity.current
+
+    val viewportTransform = engine.viewportTransform
+    val scaleFactor = viewportTransform.scaleFactor
+    val virtualSize = engine.virtualSize
+    val (scaledWidthDp, scaledHeightDp) = remember(scaleFactor, virtualSize) {
+        with(originalDensity) {
+            val widthPx = virtualSize.width * scaleFactor
+            val heightPx = virtualSize.height * scaleFactor
+            widthPx.toDp() to heightPx.toDp()
+        }
+    }
+
+    val scaledDensity = remember(scaleFactor) {
+        Density(density = scaleFactor)
+    }
+
+    val inverseDensity = remember(scaledDensity) {
+        Density(
+            density = scaledDensity.density,
+            fontScale = scaledDensity.fontScale / scaleFactor
+        )
+    }
+
+    Box(modifier = Modifier.size(scaledWidthDp, scaledHeightDp).clipToBounds()) {
+        CompositionLocalProvider(LocalDensity provides scaledDensity) {
             background?.invoke(this)
             engine.BackgroundUI()
         }
-        GameCanvasRenderer(engine, virtualSize) { frameTrigger }
 
-        CompositionLocalProvider(
-            LocalDensity provides scaledDensity
-        ) {
+        CompositionLocalProvider(LocalDensity provides inverseDensity) {
+            GameCanvasRenderer(engine) { frameTrigger }
+        }
+
+        CompositionLocalProvider(LocalDensity provides scaledDensity) {
             engine.ForegroundUI()
             foreground?.invoke(this)
         }
@@ -258,7 +248,7 @@ private fun ScaledGameViewport(
 }
 
 @Composable
-private fun GameCanvasRenderer(engine: GameEngine, virtualSize: Size, frameTrigger: () -> Long) {
+private fun GameCanvasRenderer(engine: GameEngine, frameTrigger: () -> Long) {
     var canvasOffset by remember { mutableStateOf(Offset.Zero) }
 
     Canvas(
@@ -270,7 +260,7 @@ private fun GameCanvasRenderer(engine: GameEngine, virtualSize: Size, frameTrigg
     ) {
         frameTrigger()
 
-        drawContext.size = virtualSize
+        drawContext.size = engine.virtualSize
         engine.render(this)
     }
 }

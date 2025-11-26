@@ -61,7 +61,7 @@ data class Camera(
     var zoom: Float = 1f,
     var rotation: Float = 0f,
 
-    var lerpSpeed: Float = 5f,
+    var lerpSpeed: Float = 2.5f,
     var deadZone: Size = Size(50f, 50f),
     var mapBounds: Rect = Rect(
         Float.NEGATIVE_INFINITY,

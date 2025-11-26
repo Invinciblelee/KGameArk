@@ -16,8 +16,6 @@ import platform.AVFAudio.AVAudioMixerNode
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPlayerNode
 import platform.Foundation.NSURL
-import platform.darwin.dispatch_async
-import platform.darwin.dispatch_get_main_queue
 
 actual class SoundBoard actual constructor(context: PlatformContext, val maxStreams: Int) {
 
@@ -26,7 +24,6 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
         val buffer: AVAudioPCMBuffer,
         var inUse: Boolean = false
     ) {
-
         fun play(volume: Float) {
             node.volume = volume
             node.scheduleBuffer(buffer, completionHandler = { reset() })
@@ -34,9 +31,6 @@ actual class SoundBoard actual constructor(context: PlatformContext, val maxStre
         }
 
         fun reset() {
-            if (node.playing) {
-                node.stop()
-            }
             inUse = false
         }
     }

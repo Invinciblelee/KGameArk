@@ -1,9 +1,18 @@
 package com.game.ecs
 
 import com.game.ecs.collection.bag
+import kotlinx.atomicfu.atomic
 import kotlinx.serialization.Serializable
 import kotlin.math.max
 import kotlin.native.concurrent.ThreadLocal
+
+/**
+ * Store the id of [Component]
+ */
+internal object GlobalId {
+    private val counter = atomic(0)
+    fun next(): Int = counter.getAndIncrement()
+}
 
 /**
  * An interface that specifies a unique [id].
@@ -13,11 +22,6 @@ import kotlin.native.concurrent.ThreadLocal
 // because enum classes can only inherit from an interface and not from an abstract class.
 interface UniqueId<T> {
     val id: Int
-
-    @ThreadLocal
-    companion object {
-        internal var nextId = 0
-    }
 }
 
 /**
@@ -27,7 +31,7 @@ interface UniqueId<T> {
  */
 @Serializable
 abstract class ComponentType<T> : UniqueId<T> {
-    override val id: Int = UniqueId.nextId++
+    override val id: Int = GlobalId.next()
 }
 
 /**
@@ -185,7 +189,7 @@ class ComponentsHolder<T : Component<*>>(
      * The default toString() format is 'package.Component$Companion'.
      * This method returns 'Component' without package and companion.
      */
-    private fun componentName(): String = type::class.toString().substringAfterLast(".").substringBefore("$")
+    private fun componentName(): String = type::class.toString().substringAfter(" ")
 
     override fun toString(): String {
         return "ComponentsHolder(type=${componentName()}, id=${type.id})"

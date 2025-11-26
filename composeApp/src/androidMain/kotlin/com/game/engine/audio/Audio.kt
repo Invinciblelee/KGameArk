@@ -151,7 +151,6 @@ actual class Audio actual constructor(
             mediaPlayer?.let {
                 if (it.isPlaying) {
                     it.stop()
-                    it.prepareAsync()
                     _audioState.value = AudioState.Ready
                 }
             }

@@ -29,9 +29,9 @@ interface GameScope {
     val virtualSize: Size
 
     /**
-     * The canvas size of the game.
+     * The scaled size of the game.
      */
-    val canvasSize: Size
+    val scaledSize: Size
 
     /**
      * The viewport transform.
@@ -69,36 +69,9 @@ interface GameScope {
     val fps: Int
 
     /**
-     * The transition progress of the game.
-     *
-     * If the [GameEngine.currentScene] is loading resources, this value will be between 0 and 1.
-     *
-     * Usually used to display transition UI.
-     *
-     * @see GameEngine.transitionProgress
+     * Sets whether the game is enabled or not.
+     * If enabled, the game will be updated and rendered. Otherwise, it will be paused.
+     * @param enabled If true, the game is enabled. Otherwise, it is disabled.
      */
-    val transitionProgress: Float
-
-    /**
-     * Presents a scene.
-     *
-     * @param id The id of the scene to present.
-     * @param params The parameters to pass to the scene.
-     */
-    fun presentScene(id: String, params: Map<String, Any> = emptyMap())
-
-    /**
-     * Dismisses the current scene.
-     *
-     * @param params The parameters to pass to the scene.
-     */
-    fun dismissScene(params: Map<String, Any> = emptyMap())
-}
-
-fun GameScope.presentScene(id: String, vararg params: Pair<String, Any>) {
-    presentScene(id, params.toMap())
-}
-
-fun GameScope.dismissScene(vararg params: Pair<String, Any>) {
-    dismissScene(params.toMap())
+    fun setEnabled(enabled: Boolean)
 }

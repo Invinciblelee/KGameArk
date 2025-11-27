@@ -9,17 +9,21 @@ import com.game.ecs.WorldConfiguration
 import com.game.ecs.components.Camera
 import com.game.ecs.configureWorld
 import com.game.engine.asset.AssetKey
+import com.game.engine.core.GameEngine
 import com.game.engine.core.GameScene
 import com.game.engine.core.GameScope
-import com.game.engine.core.SceneConfig
 import com.game.engine.geometry.DefaultCoordinateTransform
 
-class SceneBuilder(
-    private val id: String,
-    private val scope: GameScope
-) : GameScope by scope {
+@GameDslMarker
+class SceneBuilderScope<T: Any>(
+    val key: T,
+    private val engine: GameEngine
+) : GameScope by engine {
+    private var onProgress: ((Float) -> Unit)? = null
     private var onEnter: (() -> Unit)? = null
     private var onExit: (() -> Unit)? = null
+    private var onEnable: (() -> Unit)? = null
+    private var onDisable: (() -> Unit)? = null
     private var onUpdate: ((Float) -> Unit)? = null
     private var onRender: (DrawScope.() -> Unit)? = null
 
@@ -28,18 +32,15 @@ class SceneBuilder(
 
     private var world: GameWorld? = null
 
-    val config = SceneConfig()
-
     private val requiredAssets = HashSet<AssetKey<*>>()
 
-    @GameDslMarker
     fun world(
         capacity: Int = 1024,
         configuration: WorldConfiguration.() -> Unit,
         initWorld: World.() -> Unit
     ) {
         val world = GameWorld(
-            scope,
+            engine,
             capacity,
             configuration,
             initWorld
@@ -47,52 +48,59 @@ class SceneBuilder(
         this.world = world
     }
 
-    @GameDslMarker
     fun resources(builder: (AssetSet) -> Unit) {
         AssetSet(requiredAssets).also(builder).build()
     }
 
-    @GameDslMarker
+    fun onProgress(block: (Float) -> Unit) {
+        onProgress = block
+    }
+
     fun onEnter(block: () -> Unit) {
         onEnter = block
     }
 
-    @GameDslMarker
     fun onExit(block: () -> Unit) {
         onExit = block
     }
 
-    @GameDslMarker
+    fun onEnable(block: () -> Unit) {
+        onEnable = block
+    }
+
+    fun onDisable(block: () -> Unit) {
+        onDisable = block
+    }
+
     fun onUpdate(block: (Float) -> Unit) {
         onUpdate = block
     }
 
-    @GameDslMarker
     fun onRender(block: DrawScope.() -> Unit) {
         onRender = block
     }
 
-    @GameDslMarker
     fun onForegroundUI(block: @Composable BoxScope.() -> Unit) {
         onForegroundUI = block
     }
 
-    @GameDslMarker
     fun onBackgroundUI(block: @Composable BoxScope.() -> Unit) {
         onBackgroundUI = block
     }
 
-    internal fun build(): GameScene = GameScene(
-        id,
-        scope,
+    internal fun build(): GameScene<T> = GameScene(
+        key,
+        engine,
+        onProgress,
         onEnter,
         onExit,
+        onEnable,
+        onDisable,
         onUpdate,
         onRender,
         onForegroundUI,
         onBackgroundUI,
         world,
-        config,
         requiredAssets
     )
 }
@@ -116,12 +124,14 @@ class AssetSet(
 
 class GameWorld(
     private val scope: GameScope,
-    entityCapacity: Int,
-    configuration: WorldConfiguration.() -> Unit,
+    private val entityCapacity: Int,
+    private val configuration: WorldConfiguration.() -> Unit,
     private val initWorld: World.() -> Unit
 ) {
-    private val instance by lazy {
-        configureWorld(entityCapacity) {
+    private var instance: World? = null
+
+    private fun ensureWorld(): World {
+        return instance ?: configureWorld(entityCapacity) {
             injectables {
                 add(scope)
                 add(scope.input)
@@ -137,23 +147,23 @@ class GameWorld(
             if (coordinateTransform is DefaultCoordinateTransform) {
                 coordinateTransform.setCameraFamily(family { all(Camera) })
             }
-        }
+        }.also { instance = it }
     }
 
     fun enter() {
-        initWorld(instance)
+        initWorld(ensureWorld())
     }
 
     fun update(deltaTime: Float) {
-        instance.update(deltaTime)
+        instance?.update(deltaTime)
     }
 
     fun render(drawScope: DrawScope) {
-        instance.render(drawScope)
+        instance?.render(drawScope)
     }
 
     fun exit() {
-        instance.dispose()
+        instance?.dispose()
     }
 
 }

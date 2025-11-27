@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.game.ecs.Component
@@ -54,7 +56,6 @@ import com.game.ecs.components.Transform
 import com.game.ecs.components.Visual
 import com.game.ecs.components.applyImpulseFromSegment
 import com.game.ecs.components.applyMovement
-import com.game.ecs.components.shake
 import com.game.ecs.injectables.CoordinateTransform
 import com.game.ecs.injectables.coerceViewportSafeBounds
 import com.game.ecs.systems.CameraSystem
@@ -69,7 +70,9 @@ import com.game.engine.asset.MusicKey
 import com.game.engine.asset.SoundKey
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
-import com.game.engine.dsl.KGame
+import com.game.engine.core.KGame
+import com.game.engine.core.KSimpleGame
+import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
@@ -316,7 +319,7 @@ class SilkPhysicsSystem(
 
 // --- 系统: 绞杀 (改造：处理 Local -> World 转换) ---
 class CollisionSystem(
-    val assets: AssetsManager = inject(),
+    assets: AssetsManager = inject(),
     val audio: AudioManager = inject()
 ) : IntervalSystem() {
 
@@ -369,7 +372,7 @@ class CollisionSystem(
                     // 判定阈值：(敌人半径 + 剑丝粗细)^2
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
-                        audio.playSound(eatSound)
+//                        audio.playSound(eatSound)
 
                         val baseImpulse = 50f
 
@@ -527,15 +530,20 @@ object GameAssets {
 
 }
 
-// ==========================================
-// PART 3: 入口 Main
-// ==========================================
+data object Menu
+
+data class Battle(val value: String)
 
 @Composable
 fun GameDemo(context: PlatformContext) {
-    KGame(context = context, modifier = Modifier.fillMaxSize()) {
+    val sceneStack = rememberGameSceneStack<Any>(Menu)
+    KGame(
+        context = context,
+        sceneStack = sceneStack,
+        modifier = Modifier.fillMaxSize(),
+    ) {
         // --- 场景 1: 菜单 ---
-        scene("menu") {
+        scene<Menu> {
             resources {
                 it += GameAssets.Music.BGM
                 it += GameAssets.Sound.Eat
@@ -551,12 +559,8 @@ fun GameDemo(context: PlatformContext) {
 
             onUpdate {
                 if (input.isKeyDown(Key.Spacebar)) {
-                    presentScene("battle")
+                    sceneStack.push(Battle("From Key Event"))
                 }
-            }
-
-            onBackgroundUI {
-                Rectangle(Color.Cyan)
             }
 
             onForegroundUI {
@@ -570,7 +574,7 @@ fun GameDemo(context: PlatformContext) {
 
                     Button(
                         onClick = {
-                            presentScene("battle")
+                            sceneStack.push(Battle("From Click Event"))
                         }
                     ) {
                         Text("开始")
@@ -580,7 +584,7 @@ fun GameDemo(context: PlatformContext) {
         }
 
         // --- 场景 2: 战斗 (改造：添加 Renderable) ---
-        scene("battle") {
+        scene<Battle> {
             world(configuration = {
                 systems {
                     // 1. 输入/控制：处理意图
@@ -659,8 +663,8 @@ fun GameDemo(context: PlatformContext) {
             }
 
             onEnter {
-                println("Battle Scene Entered")
-                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
+                println("Battle Scene Entered: ${key.value}")
+//                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
             }
 
             onExit {
@@ -670,15 +674,11 @@ fun GameDemo(context: PlatformContext) {
 
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) {
-                    dismissScene()
+                    sceneStack.pop()
                 }
                 if (input.isKeyUp(Key.Back)) {
-                    dismissScene()
+                    sceneStack.pop()
                 }
-            }
-
-            onBackgroundUI {
-                Rectangle(Color.Green)
             }
 
             onForegroundUI {
@@ -705,70 +705,69 @@ fun GameDemo(context: PlatformContext) {
                             }
                         }
                         Button(modifier = Modifier.size(40.dp, 20.dp), onClick = {
-                            presentScene("menu")
+                            sceneStack.pop()
                         }, contentPadding = PaddingValues(0.dp)) {
                             Text("退出")
                         }
                     }
                 }
-
-                LoadingContent(progress = { transitionProgress })
             }
         }
     }
 }
 
 @Composable
-fun LoadingContent(
-    progress: () -> Float,
-    modifier: Modifier = Modifier
-) {
-    val currentProgress = progress()
-
-    // 状态 1: 决定是否显示屏幕 (如果加载时间超过 500ms 且进度 < 1f，则变为 true)
-    var shouldShow by remember { mutableStateOf(false) }
-
-    // 状态 2: 是否可以隐藏 (加载完成 && 已被决定显示)
-    var readyToHide by remember { mutableStateOf(false) }
-
-    // ====== 计时器流：决定是否显示 (LaunchedEffect 1) ======
-    LaunchedEffect(Unit) {
-        delay(500L) // 500ms 计时结束
-
-        // 💥 关键判断：如果时间到时加载尚未完成，则必须显示屏幕。
-        if (progress() < 1f) {
-            shouldShow = true // 这是一个慢速加载，启动屏幕渲染
-        }
-    }
-
-    // ====== 进度流：决定何时隐藏 (LaunchedEffect 2) ======
-    // 只有在 shouldShow=true (已决定显示) 且加载完成时才触发隐藏。
-    LaunchedEffect(shouldShow, currentProgress) {
-        if (shouldShow && currentProgress >= 1f) {
-            readyToHide = true
-        }
-    }
-
-    // ----------------------------------------------------
-    // 最终可见性判断：只有在决定显示 AND 尚未准备好隐藏时才可见。
-    // ----------------------------------------------------
-    val visible = remember(shouldShow, readyToHide) {
-        shouldShow && !readyToHide
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(),
-        exit = fadeOut()
+fun SimpleGameDemo(context: PlatformContext) {
+    KSimpleGame(
+        context = context,
+        modifier = Modifier.fillMaxSize(),
     ) {
-        Box(
-            modifier = modifier.fillMaxSize().background(Color.Red),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(
-                progress = { if (readyToHide) 1f else currentProgress }
-            )
-            Text("${(currentProgress * 100).toInt()}%")
+        var color = Color.Red
+
+        onEnter {
+            println("Game Entered")
+        }
+
+        onExit {
+            println("Menu Scene Exited")
+        }
+
+        onEnable {
+            println("Game Enabled")
+        }
+
+        onDisable {
+            println("Game Disabled")
+        }
+
+        onUpdate {
+            if (input.isKeyDown(Key.Spacebar)) {
+                color = if (color == Color.Red) Color.Yellow else Color.Red
+            }
+        }
+
+        onRender {
+            drawCircle(color, radius = 50f)
+        }
+
+        onBackgroundUI {
+            Rectangle(Color.Blue)
+        }
+
+        onForegroundUI {
+            Button(
+                onClick = {
+
+                } ,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
+            ) {
+                Text(
+                    text = "Hello World",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+
+            Text("Fps: $fps")
         }
     }
 }

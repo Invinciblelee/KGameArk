@@ -51,7 +51,7 @@ fun GameJoypad(
     deadRadius: Dp = 12.dp,
     dotRadius: Dp = 24.dp,
     bgColor: Color = Color.Black.copy(alpha = 0.4f),
-    dotColor: Color = Color.White,
+    dotColor: Color = Color.LightGray,
 ) {
     val density = LocalDensity.current
     val pxRadius     = with(density) { radius.toPx() }

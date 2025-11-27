@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.cmp.games.GameDemo
+import com.example.cmp.games.SimpleGameDemo
 import com.game.engine.context.PlatformContext
 
 

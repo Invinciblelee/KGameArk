@@ -13,6 +13,7 @@ enum class ViewportScaleType {
 interface ViewportTransform {
     var actualSize: Size
     var virtualSize: Size
+    var scaledSize: Size
 
     var scaleFactor: Float
 
@@ -22,14 +23,21 @@ interface ViewportTransform {
     var scaleType: ViewportScaleType
 
     fun applyToSize(
-        actualSize: Size,
-        virtualSize: Size,
+        actualSize: Size = this.actualSize,
+        virtualSize: Size = this.virtualSize,
         scaleType: ViewportScaleType = ViewportScaleType.Fill
     ) {
+        this.actualSize = actualSize
+        this.virtualSize = virtualSize
+        this.scaleType = scaleType
+
+        if (actualSize.width <= 0 || actualSize.height <= 0) return
+        if (virtualSize.width <= 0 || virtualSize.height <= 0) return
+
         val scaleX = actualSize.width / virtualSize.width
         val scaleY = actualSize.height / virtualSize.height
 
-        scaleFactor = when (scaleType) {
+        this.scaleFactor = when (scaleType) {
             ViewportScaleType.Fit -> min(scaleX, scaleY)
             ViewportScaleType.Fill -> max(scaleX, scaleY)
         }
@@ -37,12 +45,10 @@ interface ViewportTransform {
         val scaledWidth = virtualSize.width * scaleFactor
         val scaledHeight = virtualSize.height * scaleFactor
 
-        offsetX = (actualSize.width - scaledWidth) / 2f
-        offsetY = (actualSize.height - scaledHeight) / 2f
+        this.scaledSize = Size(scaledWidth, scaledHeight)
 
-        this.actualSize = actualSize
-        this.virtualSize = virtualSize
-        this.scaleType = scaleType
+        this.offsetX = (actualSize.width - scaledWidth) / 2f
+        this.offsetY = (actualSize.height - scaledHeight) / 2f
     }
 
     fun actualToVirtual(position: Offset): Offset {

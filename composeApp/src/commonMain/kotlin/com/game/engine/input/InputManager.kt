@@ -42,7 +42,6 @@ interface InputManager {
 
     fun isKeyUp(key: Key): Boolean
 
-    // 虚拟轴 (例如 AD 移动返回 -1/0/1)
     fun getAxis(positive: Key, negative: Key): Float {
         var axisValue = 0f
         if (isKeyDown(positive)) {

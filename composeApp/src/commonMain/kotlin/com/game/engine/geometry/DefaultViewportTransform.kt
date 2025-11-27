@@ -9,8 +9,10 @@ import com.game.ecs.injectables.ViewportTransform
 import com.game.ecs.injectables.ViewportScaleType
 
 class DefaultViewportTransform: ViewportTransform {
-    override var actualSize: Size = Size.Zero
-    override var virtualSize: Size = Size.Zero
+    override var actualSize: Size by mutableStateOf(Size.Zero)
+    override var virtualSize: Size by mutableStateOf(Size.Zero)
+
+    override var scaledSize: Size by mutableStateOf(Size.Zero)
 
     override var scaleFactor: Float by mutableFloatStateOf(1f)
     override var offsetX: Float by mutableFloatStateOf(0f)

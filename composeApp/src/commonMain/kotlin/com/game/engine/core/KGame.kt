@@ -1,25 +1,20 @@
 package com.game.engine.core
 
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -27,17 +22,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.toSize
@@ -49,9 +37,6 @@ import com.game.engine.context.PlatformContext
 import com.game.engine.dsl.GameSceneProvider
 import com.game.engine.dsl.GameSceneProviderScope
 import com.game.engine.dsl.SceneBuilderScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 /**
  * The main entry point of the game.
@@ -146,18 +131,29 @@ fun <T : Any> KGame(
             textMeasurer = textMeasurer,
         )
     }
-    val coroutineScope = rememberCoroutineScope()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     DisposableEffect(Unit) {
-        coroutineScope.launch {
-            engine.scheduleFrameLoop()
+        val observer = LifecycleEventObserver { _, event ->
+            when {
+                event == Lifecycle.Event.ON_START -> engine.enable()
+                event == Lifecycle.Event.ON_STOP -> engine.disable()
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             engine.release()
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
     LaunchedEffect(virtualSize) {
         engine.virtualSizeChanged(virtualSize)
+    }
+
+    LaunchedEffect(Unit) {
+        engine.scheduleFrameLoop()
     }
 
     GameShell(
@@ -212,10 +208,12 @@ private fun <T : Any> GameShell(
         modifier = modifier
             .focusRequester(focusRequester)
             .focusable()
+            .focusProperties {
+                canFocus = false
+                onExit = { focusRequester.requestFocus() }
+            }
             .onPreviewKeyEvent { engine.handleKeyEvent(it) }
-            .focusProperties { canFocus = true }
             .onFocusChanged { engine.focusChanged(it) }
-            .onPreviewKeyEvent { engine.handleKeyEvent(it) }
             .onSizeChanged { engine.actualSizeChanged(it.toSize()) },
         contentAlignment = Alignment.Center
     ) {
@@ -279,17 +277,3 @@ private val DefaultContentTransform = ContentTransform(
     fadeOut(animationSpec = tween(700))
 )
 
-@Composable
-fun GameCanvasRenderer(engine: GameEngine, onDraw: DrawScope.() -> Unit) {
-    var canvasOffset by remember { mutableStateOf(Offset.Zero) }
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxSize()
-            .clipToBounds()
-            .onGloballyPositioned { canvasOffset = it.positionInRoot() }
-            .pointerInput(Unit) { engine.handlePointerEvent(this, canvasOffset) }
-    ) {
-        onDraw()
-    }
-}

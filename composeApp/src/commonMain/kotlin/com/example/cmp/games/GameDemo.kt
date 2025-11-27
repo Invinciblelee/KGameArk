@@ -1,11 +1,6 @@
 package com.example.cmp.games
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,33 +8,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.FrameRateCategory
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
@@ -79,8 +64,8 @@ import com.game.engine.math.randomOffset
 import com.game.engine.ui.GameJoypad
 import com.game.engine.ui.Rectangle
 import com.game.engine.ui.applyToInput
+import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
-import kotlinx.coroutines.delay
 import kotlin.math.hypot
 import kotlin.random.Random
 
@@ -372,7 +357,7 @@ class CollisionSystem(
                     // 判定阈值：(敌人半径 + 剑丝粗细)^2
                     val hitRadius = enemy.radius + 5f
                     if (distSq < hitRadius * hitRadius) {
-//                        audio.playSound(eatSound)
+                        audio.playSound(eatSound)
 
                         val baseImpulse = 50f
 
@@ -540,7 +525,7 @@ fun GameDemo(context: PlatformContext) {
     KGame(
         context = context,
         sceneStack = sceneStack,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),
     ) {
         // --- 场景 1: 菜单 ---
         scene<Menu> {
@@ -561,6 +546,10 @@ fun GameDemo(context: PlatformContext) {
                 if (input.isKeyDown(Key.Spacebar)) {
                     sceneStack.push(Battle("From Key Event"))
                 }
+            }
+
+            onBackgroundUI {
+                Rectangle(Color.Green)
             }
 
             onForegroundUI {
@@ -621,7 +610,7 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-                    it += SpringEffect(stiffness = 20f, damping = 5f)
+                    it += SpringEffect(stiffness = 80f, damping = 10f)
                     it += CameraTarget("player", player)
                     it += Camera(isMain = true, mapBounds = mapBounds)
                 }
@@ -642,7 +631,7 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-                    it += SpringEffect(stiffness = 20f, damping = 5f)
+                    it += SpringEffect(stiffness = 80f, damping = 10f)
                     it += CameraTarget("enemy", enemy)
                     it += Camera(isActive = false, mapBounds = mapBounds)
                 }
@@ -664,7 +653,7 @@ fun GameDemo(context: PlatformContext) {
 
             onEnter {
                 println("Battle Scene Entered: ${key.value}")
-//                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
+                audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
             }
 
             onExit {
@@ -674,11 +663,22 @@ fun GameDemo(context: PlatformContext) {
 
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) {
+
                     sceneStack.pop()
                 }
                 if (input.isKeyUp(Key.Back)) {
                     sceneStack.pop()
                 }
+            }
+
+            val fpsCalculator = FpsCalculator()
+
+            onRender {
+                fpsCalculator.advanceFrame()
+            }
+
+            onBackgroundUI {
+                Rectangle(Color.Green)
             }
 
             onForegroundUI {
@@ -692,7 +692,7 @@ fun GameDemo(context: PlatformContext) {
                         .padding(bottom = 30.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    Text("Battle Mode | FPS: $fps")
+                    Text("Battle Mode | FPS: ${fpsCalculator.fps}")
                     Text("[1-5] Switch Element  [ESC] Menu")
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -742,11 +742,13 @@ fun SimpleGameDemo(context: PlatformContext) {
 
         onUpdate {
             if (input.isKeyDown(Key.Spacebar)) {
+                println("Spacebar pressed")
                 color = if (color == Color.Red) Color.Yellow else Color.Red
             }
         }
 
         onRender {
+            println("render: $color")
             drawCircle(color, radius = 50f)
         }
 
@@ -767,7 +769,7 @@ fun SimpleGameDemo(context: PlatformContext) {
                 )
             }
 
-            Text("Fps: $fps")
+//            Text("Fps: $fps")
         }
     }
 }

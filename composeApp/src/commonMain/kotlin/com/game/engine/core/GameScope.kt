@@ -8,6 +8,7 @@ import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.input.InputManager
+import kotlin.jvm.JvmName
 
 /**
  * Represents a scope for the game.
@@ -64,14 +65,21 @@ interface GameScope {
     val assets: AssetsManager
 
     /**
-     * The frames per second of the game.
-     */
-    val fps: Int
-
-    /**
      * Sets whether the game is enabled or not.
      * If enabled, the game will be updated and rendered. Otherwise, it will be paused.
-     * @param enabled If true, the game is enabled. Otherwise, it is disabled.
      */
-    fun setEnabled(enabled: Boolean)
+    val isEnabled: Boolean
+
+    /**
+     * Enables the game, updating and rendering it.
+     * If the game is already enabled, this method has no effect.
+     */
+    fun enable()
+
+    /**
+     * Disables the game, pausing it.
+     * If the game is already disabled, this method has no effect.
+     */
+    fun disable()
+
 }

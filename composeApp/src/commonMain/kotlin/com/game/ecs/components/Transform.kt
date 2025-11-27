@@ -108,3 +108,30 @@ fun Transform.applyMovement(
         y = this.position.y + movementY
     )
 }
+
+/**
+ * Computes and updates the Transform's position from a CameraTransition.
+ * @param cameraTransition The CameraTransition component to use for the transition.
+ * @param deltaTime The time elapsed since the last frame.
+ * @return The raw progress of the transition (0f to 1f).
+ */
+fun Transform.applyCameraTransform(
+    cameraTransition: CameraTransition,
+    deltaTime: Float
+): Float {
+    val startPos = cameraTransition.startPosition ?: return 0f
+
+    // 2. Update elapsed time and raw progress
+    cameraTransition.elapsed += deltaTime
+    val rawProgress = (cameraTransition.elapsed / cameraTransition.duration).coerceIn(0f, 1f)
+
+    // 3. Calculate smooth curve using Smoothstep (Ease-In-Out)
+    val easedProgress = rawProgress * rawProgress * (3f - 2f * rawProgress)
+
+    // 4. Interpolate position: Start -> End
+    val newX = startPos.x + (cameraTransition.targetPosition.x - startPos.x) * easedProgress
+    val newY = startPos.y + (cameraTransition.targetPosition.y - startPos.y) * easedProgress
+
+    this.position = Offset(newX, newY)
+    return rawProgress
+}

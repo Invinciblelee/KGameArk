@@ -114,9 +114,8 @@ class DefaultInputManager(
 
     override fun isKeyDown(key: Key): Boolean = key in keysDown
 
-    override fun isKeyUp(key: Key): Boolean = key in keysUpLast
+    override fun isKeyUp(key: Key): Boolean = key in keysUpLast || key in keysUpCur
 
-    // 虚拟轴 (例如 AD 移动返回 -1/0/1)
     override fun getAxis(positive: Key, negative: Key): Float {
         var axisValue = 0f
         if (isKeyDown(positive)) {

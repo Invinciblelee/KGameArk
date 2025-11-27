@@ -7,6 +7,7 @@ import com.game.engine.context.PlatformContext
 fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
+        alwaysOnTop = true,
         title = "CMP",
     ) {
         App(PlatformContext)

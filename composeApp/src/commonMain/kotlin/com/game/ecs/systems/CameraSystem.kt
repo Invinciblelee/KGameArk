@@ -10,6 +10,7 @@ import com.game.ecs.components.CameraTarget
 import com.game.ecs.components.CameraTransition
 import com.game.ecs.components.SpringEffect
 import com.game.ecs.components.Transform
+import com.game.ecs.components.applyCameraTransform
 import com.game.ecs.components.applyLerpFollow
 import com.game.ecs.components.applySpringFollow
 import com.game.ecs.injectables.ViewportTransform
@@ -96,26 +97,14 @@ class CameraSystem(
             transition.startPosition = cameraTransform.position
         }
 
-        val startPos = transition.startPosition ?: return
-
-        // 2. Update elapsed time and raw progress
-        transition.elapsed += deltaTime
-        val rawProgress = (transition.elapsed / transition.duration).coerceIn(0f, 1f)
-
-        // 3. Calculate smooth curve using Smoothstep (Ease-In-Out)
-        val easedProgress = rawProgress * rawProgress * (3f - 2f * rawProgress)
-
-        // 4. Interpolate position: Start -> End
-        val newX = startPos.x + (transition.targetPosition.x - startPos.x) * easedProgress
-        val newY = startPos.y + (transition.targetPosition.y - startPos.y) * easedProgress
-
-        cameraTransform.position = Offset(newX, newY)
+        // 2. Updates camera position based on elapsed time
+        val progress = cameraTransform.applyCameraTransform(transition, deltaTime)
 
         // Clamp boundaries during transition
         clampToMapBounds(entity[Camera], cameraTransform)
 
         // 5. Check for completion
-        if (rawProgress >= 1f) {
+        if (progress >= 1f) {
             cameraTransform.position = transition.targetPosition
             completeTransition(entity, transition)
         }

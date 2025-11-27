@@ -8,7 +8,15 @@ class GameSceneStack<T : Any>(initialScene: T) {
 
     internal val backStack = mutableStateListOf(initialScene)
 
-    fun push(scene: T) = backStack.add(scene)
+    val size: Int
+        get() = backStack.size
+
+    fun push(scene: T): Boolean {
+        if (backStack.lastOrNull() != scene) {
+            return backStack.add(scene)
+        }
+        return false
+    }
 
     fun pop(): T? = if (backStack.size > 1) {
         backStack.removeLast()

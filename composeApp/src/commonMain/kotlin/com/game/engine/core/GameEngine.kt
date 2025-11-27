@@ -1,9 +1,6 @@
 package com.game.engine.core
 
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.geometry.Offset
@@ -22,6 +19,8 @@ import com.game.engine.geometry.DefaultCoordinateTransform
 import com.game.engine.geometry.DefaultViewportTransform
 import com.game.engine.input.DefaultInputManager
 import com.game.engine.input.InputManager
+import com.game.engine.utils.Disposable
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 
@@ -58,20 +57,39 @@ class GameEngine(
     override val scaledSize: Size
         get() = viewportTransform.scaledSize
 
-    override var fps: Int by mutableIntStateOf(0)
+    override var isEnabled: Boolean by atomic(true)
         private set
-    private var frameCount = 0
-    private var timeAccumulator = 0f
 
-    private var onTick: ((Float) -> Unit)? = null
-    private var onEnableChanged: ((Boolean) -> Unit)? = null
+    private var isMusicPlaying = false
 
-    override fun setEnabled(enabled: Boolean) {
-        onEnableChanged?.invoke(enabled)
+    private val onTickCallbacks = mutableListOf<(Float) -> Unit>()
+    private val onEnableChangedCallbacks = mutableListOf<(Boolean) -> Unit>()
+
+
+    override fun enable() {
+        if (isEnabled) return
+        isEnabled = true
+
+        if (isMusicPlaying) {
+            audio.resumeMusic()
+        }
+
+        onEnableChangedCallbacks.forEach { it(true) }
     }
 
-    internal fun onEnableChanged(onEnableChanged: (Boolean) -> Unit) {
-        this.onEnableChanged = onEnableChanged
+    override fun disable() {
+        if (!isEnabled) return
+        isEnabled = false
+
+        isMusicPlaying = audio.isMusicPlaying
+        audio.pauseMusic()
+
+        onEnableChangedCallbacks.forEach { it(false) }
+    }
+
+    internal fun onEnableChanged(onEnableChanged: (Boolean) -> Unit): Disposable {
+        onEnableChangedCallbacks.add(onEnableChanged)
+        return Disposable { onEnableChangedCallbacks.remove(onEnableChanged) }
     }
 
     internal fun actualSizeChanged(size: Size) {
@@ -124,30 +142,22 @@ class GameEngine(
     }
 
     private fun tick(deltaTime: Float) {
-        onTick?.invoke(deltaTime)
-
-        calculateFps(deltaTime)
+        if (isEnabled) {
+            onTickCallbacks.forEach { it(deltaTime) }
+        }
 
         input.endFrame()
     }
 
-    internal fun onTick(onTick: (Float) -> Unit) {
-        this.onTick = onTick
+    internal fun onTick(onTick: (Float) -> Unit): Disposable {
+        onTickCallbacks.add(onTick)
+        return Disposable {  }
     }
 
     internal fun release() {
         audio.shutdown()
-    }
-
-    private fun calculateFps(deltaTime: Float) {
-        frameCount++
-        timeAccumulator += deltaTime
-
-        if (timeAccumulator >= 1.0f) {
-            fps = frameCount
-            frameCount = 0
-            timeAccumulator -= 1.0f
-        }
+        assets.clear()
+        input.clear()
     }
 
 }

@@ -1,5 +1,9 @@
 package com.example.cmp.games
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +29,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.unit.dp
+import cmp.composeapp.generated.resources.Res
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
@@ -32,32 +37,18 @@ import com.game.ecs.IntervalSystem
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
-import com.game.ecs.components.Camera
-import com.game.ecs.components.CameraTarget
-import com.game.ecs.components.Renderable
-import com.game.ecs.components.Rigidbody
-import com.game.ecs.components.SpringEffect
-import com.game.ecs.components.Transform
-import com.game.ecs.components.Visual
-import com.game.ecs.components.applyImpulseFromSegment
-import com.game.ecs.components.applyMovement
-import com.game.ecs.injectables.CoordinateTransform
-import com.game.ecs.injectables.coerceViewportSafeBounds
-import com.game.ecs.systems.CameraSystem
-import com.game.ecs.systems.PhysicsSystem
-import com.game.ecs.systems.RenderSystem
-import com.game.ecs.systems.SteeringSystem
-import com.game.ecs.systems.panTo
-import com.game.ecs.systems.switchCameraSmoothly
 import com.game.engine.asset.AssetsManager
 import com.game.engine.asset.ImageKey
 import com.game.engine.asset.MusicKey
+import com.game.engine.asset.ResourceProvider
 import com.game.engine.asset.SoundKey
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.KSimpleGame
 import com.game.engine.core.rememberGameSceneStack
+import com.game.engine.geometry.CoordinateTransform
+import com.game.engine.geometry.coerceViewportSafeBounds
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
@@ -66,6 +57,26 @@ import com.game.engine.ui.Rectangle
 import com.game.engine.ui.applyToInput
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
+import com.game.plugins.components.Alpha
+import com.game.plugins.components.Animation
+import com.game.plugins.components.Camera
+import com.game.plugins.components.CameraTarget
+import com.game.plugins.components.Renderable
+import com.game.plugins.components.RigidBody
+import com.game.plugins.components.Rotation
+import com.game.plugins.components.Scale
+import com.game.plugins.components.Spring
+import com.game.plugins.components.Transform
+import com.game.plugins.components.Visual
+import com.game.plugins.components.applyImpulseFromSegment
+import com.game.plugins.components.applyKinematicMovement
+import com.game.plugins.systems.AnimationSystem
+import com.game.plugins.systems.CameraSystem
+import com.game.plugins.systems.PhysicsSystem
+import com.game.plugins.systems.RenderSystem
+import com.game.plugins.systems.SteeringSystem
+import com.game.plugins.systems.panTo
+import com.game.plugins.systems.switchCameraSmoothly
 import kotlin.math.hypot
 import kotlin.random.Random
 
@@ -88,7 +99,7 @@ class PlayerTag : Component<PlayerTag> {
     companion object : ComponentType<PlayerTag>()
 }
 
-class EnemyTag(val radius: Float = 15f, var isTrapped: Boolean = false) : Component<EnemyTag> {
+class EnemyTag(var isTrapped: Boolean = false) : Component<EnemyTag> {
     override fun type() = EnemyTag
 
     companion object : ComponentType<EnemyTag>()
@@ -118,10 +129,8 @@ data class SilkComponent(
 // --- Visual 实现 (新增) ---
 
 class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual {
-    override val size: Size = Size(enemyTag.radius * 2, enemyTag.radius * 2)
-
     override fun DrawScope.draw() { // 纯粹的局部绘制
-        drawCircle(color ?: (if (enemyTag.isTrapped) Color.Red else Color.Gray))
+        drawRect(color ?: (if (enemyTag.isTrapped) Color.Red else Color.Gray))
     }
 }
 
@@ -129,23 +138,9 @@ class PlayerVisual(assets: AssetsManager) : Visual {
 
     val player = assets[GameAssets.Texture.Player]
 
-    override val size: Size = Size(50f, 50f)
-
-    // 1. 定义源矩形 (Source Rectangle): 从原图的哪个部分裁剪 (通常是整个图片)
-    val sourceRect = Rect(Offset.Zero, Size(player.width.toFloat(), player.height.toFloat()))
-
-    // 2. 定义目标矩形 (Destination Rectangle): 将原图绘制到画布的哪个区域
-    //    这里我们将图片的左上角放在 (0,0)，并绘制成 PlayerVisual.size 指定的大小
-    val destRect = Rect(Offset.Zero, size) // 使用 PlayerVisual 自己的 size 作为目标尺寸
-
-    override fun DrawScope.draw() { // 纯粹的局部绘制
-        // 3. 使用 drawImage 的重载，指定源和目标矩形
+    override fun DrawScope.draw() {
 //        drawImage(
 //            image = player,
-//            srcOffset = sourceRect.topLeft.toIntOffset(), // 源矩形的左上角
-//            srcSize = sourceRect.size.toIntSize(),         // 源矩形的尺寸
-//            dstOffset = destRect.topLeft.toIntOffset(),   // 目标矩形的左上角
-//            dstSize = destRect.size.toIntSize()           // 目标矩形的尺寸
 //        )
 
         drawCircle(Color.Yellow, )
@@ -162,13 +157,22 @@ class SilkVisual(private val silkComponent: SilkComponent) : Visual {
         path.reset()
         val nodes = silk.nodes
         if (nodes.isNotEmpty()) {
-            path.moveTo(nodes[0].x, nodes[0].y)
+            val halfW = size.width / 2f
+            val halfH = size.height / 2f
+
+            path.moveTo(nodes[0].x + halfW, nodes[0].y + halfH)
             for (i in 0 until nodes.size - 1) {
                 val p1 = nodes[i]
                 val p2 = nodes[i + 1]
-                path.quadraticTo(p1.x, p1.y, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2)
+
+                val p1x = p1.x + halfW
+                val p1y = p1.y + halfH
+                val p2x = p2.x + halfW
+                val p2y = p2.y + halfH
+
+                path.quadraticTo(p1x, p1y, (p1x + p2x) / 2, (p1y + p2y) / 2)
             }
-            path.lineTo(nodes.last().x, nodes.last().y)
+            path.lineTo(nodes.last().x + halfW, nodes.last().y + halfH)
         }
 
         drawPath(path, color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round))
@@ -336,7 +340,7 @@ class CollisionSystem(
         // 3. 遍历所有敌人
         enemyFamily.forEach {
             val enemy = it[EnemyTag]
-            val rigidBody = it[Rigidbody]
+            val rigidBody = it[RigidBody]
             val transform = it[Transform]
 
             val enemyPos = transform.position
@@ -355,7 +359,7 @@ class CollisionSystem(
                     val distSq = distToSegmentSquared(enemyPos, p1, p2)
 
                     // 判定阈值：(敌人半径 + 剑丝粗细)^2
-                    val hitRadius = enemy.radius + 5f
+                    val hitRadius = transform.size.width / 2f + 5f
                     if (distSq < hitRadius * hitRadius) {
                         audio.playSound(eatSound)
 
@@ -444,7 +448,6 @@ class PlayerControlSystem(
 
     override fun onTick() {
         super.onTick()
-
         keyTrigger.check(input) {
             world.system<CameraSystem>().apply {
                 currentCamera = if (currentCamera == "player") {
@@ -490,7 +493,7 @@ class PlayerControlSystem(
             deltaX += 1f
         }
 
-        playerTransform.applyMovement(
+        playerTransform.applyKinematicMovement(
             deltaTime = deltaTime,
             rawDeltaX = deltaX,
             rawDeltaY = deltaY,
@@ -519,12 +522,23 @@ data object Menu
 
 data class Battle(val value: String)
 
+val DefaultResourceProvider = object : ResourceProvider {
+    override suspend fun read(path: String): ByteArray {
+        return Res.readBytes(path)
+    }
+
+    override fun getUri(path: String): String {
+        return Res.getUri(path)
+    }
+}
+
 @Composable
 fun GameDemo(context: PlatformContext) {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
     KGame(
         context = context,
         sceneStack = sceneStack,
+        resourceProvider = DefaultResourceProvider,
         modifier = Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),
     ) {
         // --- 场景 1: 菜单 ---
@@ -546,10 +560,6 @@ fun GameDemo(context: PlatformContext) {
                 if (input.isKeyDown(Key.Spacebar)) {
                     sceneStack.push(Battle("From Key Event"))
                 }
-            }
-
-            onBackgroundUI {
-                Rectangle(Color.Green)
             }
 
             onForegroundUI {
@@ -595,7 +605,10 @@ fun GameDemo(context: PlatformContext) {
                     // 6. 工具/辅助：更新摄像机
                     +CameraSystem()
 
-                    // 7. 输出/渲染：永远在最后
+                    // 7. 动画系统
+                    +AnimationSystem()
+
+                    // 8. 输出/渲染：永远在最后
                     +RenderSystem()
                 }
             }) {
@@ -603,14 +616,15 @@ fun GameDemo(context: PlatformContext) {
                 val safeBounds = viewportTransform.coerceViewportSafeBounds(mapBounds)
 
                 val player = entity {
-                    it += Transform()
+                    it += Transform(size = Size(100f, 100f))
                     it += Renderable(PlayerVisual(assets), zIndex = 1)
                     it += PlayerTag()
                 }
 
                 entity {
                     it += Transform()
-                    it += SpringEffect(stiffness = 80f, damping = 10f)
+                    it += Spring(stiffness = 80f, damping = 10f)
+                    it += RigidBody()
                     it += CameraTarget("player", player)
                     it += Camera(isMain = true, mapBounds = mapBounds)
                 }
@@ -623,23 +637,29 @@ fun GameDemo(context: PlatformContext) {
                 }
 
                 val enemy = entity {
-                    it += Transform(safeBounds.randomOffset())
-                    it += Rigidbody()
+                    it += Transform(safeBounds.randomOffset(), size = Size(100f, 100f))
+                    it += Animation(
+                        Rotation(from = -45f, to = 45f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)),
+                        Scale(from = 1f, to = 0.5f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)),
+                        Alpha(from = 1f, to = 0f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse))
+                    )
+                    it += RigidBody()
                     it += EnemyTag()
-                    it += Renderable(EnemyVisual(EnemyTag(), color = Color.Magenta))
+                    it += Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
                 }
 
                 entity {
                     it += Transform()
-                    it += SpringEffect(stiffness = 80f, damping = 10f)
+                    it += Spring(stiffness = 80f, damping = 10f)
+                    it += RigidBody()
                     it += CameraTarget("enemy", enemy)
                     it += Camera(isActive = false, mapBounds = mapBounds)
                 }
 
                 entities(100) {
                     val enemy = EnemyTag()
-                    it += Transform(mapBounds.randomOffset())
-                    it += Rigidbody()
+                    it += Transform(mapBounds.randomOffset(), size = Size(50f, 50f))
+                    it += RigidBody()
                     it += enemy
                     it += Renderable(EnemyVisual(enemy))
                 }
@@ -663,7 +683,6 @@ fun GameDemo(context: PlatformContext) {
 
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) {
-
                     sceneStack.pop()
                 }
                 if (input.isKeyUp(Key.Back)) {
@@ -675,10 +694,6 @@ fun GameDemo(context: PlatformContext) {
 
             onRender {
                 fpsCalculator.advanceFrame()
-            }
-
-            onBackgroundUI {
-                Rectangle(Color.Green)
             }
 
             onForegroundUI {
@@ -698,15 +713,19 @@ fun GameDemo(context: PlatformContext) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val keys = listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)
                         for ((index, key) in keys.withIndex()) {
-                            Button(modifier = Modifier.size(30.dp, 20.dp), onClick = {
-                                input.simulateKey(key)
-                            }, contentPadding = PaddingValues(0.dp)) {
+                            Button(
+                                modifier = Modifier.size(30.dp, 20.dp),
+                                onClick = { input.simulateKey(key) },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
                                 Text("$index")
                             }
                         }
-                        Button(modifier = Modifier.size(40.dp, 20.dp), onClick = {
-                            sceneStack.pop()
-                        }, contentPadding = PaddingValues(0.dp)) {
+                        Button(
+                            modifier = Modifier.size(40.dp, 20.dp),
+                            onClick = { sceneStack.pop() },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
                             Text("退出")
                         }
                     }
@@ -720,6 +739,7 @@ fun GameDemo(context: PlatformContext) {
 fun SimpleGameDemo(context: PlatformContext) {
     KSimpleGame(
         context = context,
+        resourceProvider = DefaultResourceProvider,
         modifier = Modifier.fillMaxSize(),
     ) {
         var color = Color.Red
@@ -742,7 +762,6 @@ fun SimpleGameDemo(context: PlatformContext) {
 
         onUpdate {
             if (input.isKeyDown(Key.Spacebar)) {
-                println("Spacebar pressed")
                 color = if (color == Color.Red) Color.Yellow else Color.Red
             }
         }

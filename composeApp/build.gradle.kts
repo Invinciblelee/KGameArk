@@ -1,9 +1,6 @@
-import org.gradle.declarative.dsl.schema.FqName.Empty.packageName
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.compose.reload.core.Environment.Companion.application
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -11,7 +8,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
-    alias(libs.plugins.atomicfu)
 }
 
 kotlin {
@@ -46,19 +42,6 @@ kotlin {
         binaries.executable()
     }
 
-    compilerOptions {
-        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
-        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
-        freeCompilerArgs.addAll(
-            "-Xexpect-actual-classes",
-            "-opt-in=kotlin.time.ExperimentalTime",
-            "-opt-in=kotlinx.datetime.format.FormatStringsInDatetimeFormats",
-            "-opt-in=kotlin.uuid.ExperimentalUuidApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
-        )
-    }
-
     sourceSets {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
@@ -76,7 +59,8 @@ kotlin {
             implementation(libs.androidx.navigation3.ui)
             implementation(libs.androidx.navigation3.viewmodel)
             implementation(libs.kotlinx.coroutines)
-            implementation(libs.kotlinx.atomicfu)
+
+            implementation(project(":kgame-engine"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -85,13 +69,6 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
-            implementation(libs.soundlibs.tritonus.share)
-            implementation(libs.soundlibs.mp3spi)
-            implementation(libs.soundlibs.vorbisspi)
-        }
-
-        webMain.dependencies {
-            implementation(libs.kotlin.browser)
         }
     }
 }

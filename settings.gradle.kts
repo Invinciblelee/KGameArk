@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 rootProject.name = "CMP"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
@@ -33,3 +35,4 @@ plugins {
 }
 
 include(":composeApp")
+include(":kgame-engine")

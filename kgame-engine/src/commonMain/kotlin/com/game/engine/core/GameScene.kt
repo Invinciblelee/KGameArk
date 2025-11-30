@@ -22,7 +22,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.game.engine.asset.AssetKey
-import com.game.engine.graphics.withViewportTransform
+import com.game.engine.graphics.drawscope.withViewportTransform
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.launch
 

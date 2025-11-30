@@ -53,11 +53,13 @@ import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.geometry.ViewportTransform
 import com.game.engine.geometry.clampInBounds
 import com.game.engine.geometry.safeBounds
+import com.game.engine.graphics.shader.MesmerizingLens
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
 import com.game.engine.ui.GameJoypad
 import com.game.engine.ui.Rectangle
+import com.game.engine.ui.ShaderCanvas
 import com.game.engine.ui.applyToInput
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
@@ -681,7 +683,11 @@ fun GameDemo(context: PlatformContext) {
 
             onRender { fpsCalculator.advanceFrame() }
 
-            onBackgroundUI { Rectangle(Color.Cyan) }
+            onBackgroundUI {
+                ShaderCanvas(MesmerizingLens) {
+                    drawRect(it)
+                }
+            }
 
             onForegroundUI {
                 GameJoypad(onValue = { it.applyToInput(input) })

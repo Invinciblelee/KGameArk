@@ -1,0 +1,39 @@
+body {
+    margin: 0;
+    background-color: red;
+}
+div.title {
+    background-color: white;
+    position: absolute;
+    text-align: center;
+    width: 300px;
+    height: 100px;
+    border-radius: 20px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: 20px auto auto;
+}
+h1 {
+    color: black;
+    line-height: 100px;
+    margin: auto;
+}
+div.container {
+    position: absolute;
+    width: 300px;
+    height: 240px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+}
+input.box {
+    width: 300px;
+    height: 50px;
+    text-align: center;
+    margin: 10px 0 auto;
+    box-sizing: border-box;
+}

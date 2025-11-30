@@ -17,7 +17,7 @@ inline fun <T : Any> GameSceneProvider(
     builder: GameSceneProviderScope<T>.() -> Unit,
 ): GameSceneProvider<T> = GameSceneProviderScope(engine, fallback).apply(builder).build()
 
-@GameDslMarker
+@GameWorldMarker
 class GameSceneProviderScope<T : Any>(
     private val engine: GameEngine,
     private val fallback: (unknownScene: T) -> NavEntry<T> = {

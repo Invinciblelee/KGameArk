@@ -1,3 +1,4 @@
+import org.gradle.kotlin.dsl.register
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -8,7 +9,6 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
-//    alias(libs.plugins.atomicfu)
 }
 
 kotlin {
@@ -44,10 +44,6 @@ kotlin {
     }
 
     sourceSets {
-        androidMain.dependencies {
-            implementation(libs.androidx.activity.compose)
-            implementation(libs.kotlinx.coroutines.android)
-        }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -59,9 +55,21 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime)
             implementation(libs.androidx.navigation3.ui)
             implementation(libs.androidx.navigation3.viewmodel)
-            implementation(libs.kotlinx.coroutines)
+            implementation(libs.kotlinx.coroutines.core)
 
             implementation(project(":kgame-engine"))
+        }
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.kotlinx.coroutines.android)
+
+            implementation(libs.bundles.ktor.server)
+            implementation(libs.ktor.serialization.json)
+
+            implementation(libs.kotlin.css)
+
+            implementation(libs.logback.android)
+            implementation(libs.slf4j.api)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -86,7 +94,11 @@ android {
     }
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += listOf(
+                "META-INF/{AL2.0,LGPL2.1}",
+                "META-INF/INDEX.LIST",
+                "META-INF/io.netty.versions.properties"
+            )
         }
     }
     buildTypes {
@@ -97,6 +109,16 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    tasks.register<Copy>("copyWasmAssets") {
+        from("build/dist/wasmJs")
+        into("src/androidMain/resources")
+        include("**/*")
+    }
+
+    tasks.getByName("preBuild") {
+        dependsOn("copyWasmAssets")
     }
 }
 

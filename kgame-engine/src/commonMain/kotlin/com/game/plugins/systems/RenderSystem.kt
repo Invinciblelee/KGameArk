@@ -6,9 +6,9 @@ import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.ecs.collection.compareEntityBy
-import com.game.engine.graphics.drawDebugBounds
-import com.game.engine.graphics.withCameraTransform
-import com.game.engine.graphics.withLocalTransform
+import com.game.engine.graphics.drawscope.drawDebugBounds
+import com.game.engine.graphics.drawscope.withCameraTransform
+import com.game.engine.graphics.drawscope.withLocalTransform
 import com.game.plugins.components.Camera
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.Transform

@@ -11,7 +11,7 @@ import com.game.engine.core.GameScene
 import com.game.engine.core.GameScope
 import com.game.engine.core.GameWorld
 
-@GameDslMarker
+@GameWorldMarker
 class SceneBuilderScope<T: Any>(
     val key: T,
     private val engine: GameEngine

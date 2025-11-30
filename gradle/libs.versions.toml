@@ -1,12 +1,12 @@
 [versions]
 agp = "8.13.1"
 android-compileSdk = "36"
-android-minSdk = "24"
+android-minSdk = "26"
 android-targetSdk = "36"
 
 kotlin = "2.2.21"
-
 junit = "4.13.2"
+annotations = "26.0.2-1"
 
 androidx-activity = "1.12.0"
 androidx-core = "1.17.0"
@@ -24,15 +24,23 @@ composeMaterial3 = "1.10.0-alpha05"
 
 kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
+kotlinxAtomicfu = "0.29.0"
 kotlinBrowser = "2025.11.12"
+kotlinCss = "2025.11.12"
 
-atomicfu = "0.29.0"
+ktor = "3.3.3"
+
+logback = "1.5.6"
+logbackAndroid = "3.0.0"
+slf4jApi = "2.0.7"
+
 soundlibsMp3spi = "1.9.5.4"
 soundlibsTritonusShare = "0.3.7.4"
 soundlibVorbisspi = "1.0.3.3"
 
 
 [libraries]
+annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -55,17 +63,65 @@ compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMul
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
 
-kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
-kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
+kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "kotlinxAtomicfu" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
-
 kotlin-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlinBrowser"  }
+kotlin-css = { module = "org.jetbrains.kotlin-wrappers:kotlin-css", version.ref = "kotlinCss" }
+
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-websokets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-html = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-host = { module = "io.ktor:ktor-server-host-common", version.ref = "ktor" }
+ktor-server-sessions = { module = "io.ktor:ktor-server-sessions", version.ref = "ktor" }
+
+ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
+ktor-network-tsl = { module = "io.ktor:ktor-network-tls", version.ref = "ktor" }
+
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+logback-android = { module = "com.github.tony19:logback-android", version.ref = "logbackAndroid" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4jApi" }
 
 soundlibs-mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "soundlibsMp3spi" }
 soundlibs-tritonus-share = { module = "com.googlecode.soundlibs:tritonus-share", version.ref = "soundlibsTritonusShare" }
 soundlibs-vorbisspi = { module = "com.googlecode.soundlibs:vorbisspi", version.ref = "soundlibVorbisspi" }
+
+[bundles]
+ktor-client = [
+    "ktor-client-core",
+    "ktor-client-websokets",
+    "ktor-client-content-negotiation",
+    "ktor-client-logging",
+]
+
+ktor-server = [
+    "ktor-server-core",
+    "ktor-server-netty",
+    "ktor-server-websockets",
+    "ktor-server-call-logging",
+    "ktor-server-html",
+    "ktor-server-content-negotiation",
+    "ktor-server-host",
+    "ktor-server-sessions"
+]
+
+ktor-network = [
+    "ktor-network",
+    "ktor-network-tsl"
+]
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -76,4 +132,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "atomicfu" }
+atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinxAtomicfu" }

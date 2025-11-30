@@ -29,12 +29,14 @@ kotlin {
     jvm()
 
     js {
+        outputModuleName = "KGameEngineKit"
         browser()
         binaries.executable()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
+        outputModuleName = "KGameEngineKit"
         browser()
         binaries.executable()
     }
@@ -52,9 +54,6 @@ kotlin {
     }
 
     sourceSets {
-        androidMain.dependencies {
-            implementation(libs.kotlinx.coroutines.android)
-        }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
@@ -65,9 +64,13 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtime)
             implementation(libs.androidx.navigation3.ui)
             implementation(libs.androidx.collection)
-            implementation(libs.kotlinx.coroutines)
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.annotations)
+        }
+        androidMain.dependencies {
+            implementation(libs.kotlinx.coroutines.android)
         }
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutines.swing)

@@ -3,13 +3,14 @@ package com.game.plugins.components
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.center
-import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.ScaleFactor
+import androidx.compose.ui.layout.lerp
 import androidx.compose.ui.util.lerp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
-import com.game.engine.math.times
+import com.game.engine.math.positionOf
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -22,8 +23,7 @@ data class Transform(
     var size: Size = Size.Unspecified,
     var rotation: Float = 0f,
     var rotationPivot: TransformOrigin = TransformOrigin.Center,
-    var scaleX: Float = 1f,
-    var scaleY: Float = 1f,
+    var scale: ScaleFactor = ScaleFactor(1f, 1f),
     var scalePivot: TransformOrigin = TransformOrigin.Center
 ) : Component<Transform> {
     override fun type() = Transform
@@ -31,10 +31,10 @@ data class Transform(
 }
 
 val Transform.rotationPivotOffset: Offset
-    get() = size * rotationPivot
+    get() = size.positionOf(rotationPivot)
 
 val Transform.scalePivotOffset: Offset
-    get() = size * scalePivot
+    get() = size.positionOf(scalePivot)
 
 /**
  * Calculates the world-axis aligned bounding box (AABB) for the entity.
@@ -58,36 +58,29 @@ fun Transform.getBounds(bounds: MutableRect) {
     val sin = sin(angleRad)
     val cos = cos(angleRad)
 
-    // Pre-calculate absolute pivot offsets in pixels
-    val scalePivotX = scalePivot.pivotFractionX * size.width
-    val scalePivotY = scalePivot.pivotFractionY * size.height
-    val rotationPivotX = rotationPivot.pivotFractionX * size.width
-    val rotationPivotY = rotationPivot.pivotFractionY * size.height
+    // Convert Pivot coordinates to offsets relative to the center of the object (0, 0)
+    // 0.5 (center) -> 0
+    // 0.0 (left/top) -> -halfW
+    // 1.0 (right/bottom) -> +halfW
+    val scalePivotX = (scalePivot.pivotFractionX * size.width) - halfW
+    val scalePivotY = (scalePivot.pivotFractionY * size.height) - halfH
+    val rotationPivotX = (rotationPivot.pivotFractionX * size.width) - halfW
+    val rotationPivotY = (rotationPivot.pivotFractionY * size.height) - halfH
 
     var minX = Float.POSITIVE_INFINITY
     var minY = Float.POSITIVE_INFINITY
     var maxX = Float.NEGATIVE_INFINITY
     var maxY = Float.NEGATIVE_INFINITY
 
-    // Manually process all 4 corners without creating a list or extra Offset objects
     for (i in 0..3) {
-        // Define corner relative to center (0,0)
-        val cornerX = if (i % 3 == 0) -halfW else halfW // corners 0,3 have -halfW; 1,2 have +halfW
-        val cornerY = if (i < 2) -halfH else halfH      // corners 0,1 have -halfH; 2,3 have +halfH
+        // Define corner relative to center (0, 0)
+        val cornerX = if (i and 1 == 0) -halfW else halfW
+        val cornerY = if (i < 2) -halfH else halfH
 
-        // --- Apply transformations directly on float values ---
         var px = cornerX
         var py = cornerY
 
-        // 1. Scale around the scale pivot
-        px -= scalePivotX
-        py -= scalePivotY
-        px *= scaleX
-        py *= scaleY
-        px += scalePivotX
-        py += scalePivotY
-
-        // 2. Rotate around the rotation pivot
+        // 1. Rotate around the rotation pivot
         px -= rotationPivotX
         py -= rotationPivotY
         val rotatedX = px * cos - py * sin
@@ -97,18 +90,27 @@ fun Transform.getBounds(bounds: MutableRect) {
         px += rotationPivotX
         py += rotationPivotY
 
+        // 2. Scale around the scale pivot
+        px -= scalePivotX
+        py -= scalePivotY
+        px *= scale.scaleX
+        py *= scale.scaleY
+        px += scalePivotX
+        py += scalePivotY
+
         // 3. Translate to the final world position
+        // Note: Here we assume that position refers to the center of the object in world coordinates.
+        // If position is defined as the top-left corner, further adjustments would be needed.
+        // However, based on the definition of cornerX, we typically consider the center here.
         px += position.x
         py += position.y
 
-        // 4. Update the min/max extents
         minX = min(minX, px)
         minY = min(minY, py)
         maxX = max(maxX, px)
         maxY = max(maxY, py)
     }
 
-    // 5. Set the final bounds on the provided MutableRect
     bounds.set(minX, minY, maxX, maxY)
 }
 
@@ -118,15 +120,15 @@ fun Transform.getBounds(bounds: MutableRect) {
  * RigidBody, updating its velocity and, consequently, the Transform's position.
  *
  * @param targetPosition The world-space position the spring is attached to.
- * @param deltaTime      The time elapsed since the last frame.
- * @param spring         The component containing the spring's configuration (stiffness k, damping c).
+ * @param elasticity     The component containing the spring's configuration (stiffness k, damping c).
  * @param rigidBody      The component holding the entity's physical state (mass, velocity).
+ * @param deltaTime      The time elapsed since the last frame.
  */
-fun Transform.applySpringFollow(
+fun Transform.applyElasticityFollow(
     targetPosition: Offset,
+    elasticity: Elasticity,
+    rigidBody: RigidBody, // The RigidBody component is now the single source of truth for velocity and mass,
     deltaTime: Float,
-    spring: Spring,
-    rigidBody: RigidBody // The RigidBody component is now the single source of truth for velocity and mass
 ) {
     // This function simulates spring physics (Hooke's Law + Damping).
     // F_total = F_spring + F_damping
@@ -137,9 +139,9 @@ fun Transform.applySpringFollow(
     val displacement = this.position - targetPosition
 
     // Calculate the two main forces.
-    val forceSpring = displacement * -spring.stiffness
+    val forceSpring = displacement * -elasticity.stiffness
     // **CORRECTED**: Use the velocity from the RigidBody for the damping calculation.
-    val forceDamping = rigidBody.velocity * -spring.damping
+    val forceDamping = rigidBody.velocity * -elasticity.damping
     val totalForce = forceSpring + forceDamping
 
     // a = F / m (Newton's Second Law of Motion).
@@ -160,13 +162,13 @@ fun Transform.applySpringFollow(
  * position over time, controlled by a smoothness factor.
  *
  * @param targetPosition Target position in world coordinates.
- * @param deltaTime      Time step.
  * @param lerpSpeed      Velocity multiplier that determines the Lerp factor.
+ * @param deltaTime      Time step.
  */
-fun Transform.applyLerpFollow(
+fun Transform.applySmoothFollow(
     targetPosition: Offset,
+    lerpSpeed: Float,
     deltaTime: Float,
-    lerpSpeed: Float
 ) {
     val t = (lerpSpeed * deltaTime).coerceIn(0f, 1f)
 
@@ -180,16 +182,16 @@ fun Transform.applyLerpFollow(
  * Computes and updates the Transform's position from raw input direction (delta) and speed.
  * Normalizes the input so diagonal movement is not faster.
  *
- * @param deltaTime Time step (dt).
  * @param rawDeltaX Raw X-axis input (-1f, 0f, 1f).
  * @param rawDeltaY Raw Y-axis input (-1f, 0f, 1f).
  * @param speed     Movement speed (e.g. 20f).
+ * @param deltaTime Time step (dt).
  */
 fun Transform.applyKinematicMovement(
-    deltaTime: Float,
     rawDeltaX: Float,
     rawDeltaY: Float,
-    speed: Float
+    speed: Float,
+    deltaTime: Float,
 ) {
     var deltaX = rawDeltaX
     var deltaY = rawDeltaY
@@ -236,3 +238,88 @@ fun Transform.applyCameraTransition(
     return rawProgress
 }
 
+/**
+ * Applies a translation to the Transform.
+ * @param fromPosition The starting position.
+ * @param toPosition The ending position.
+ * @param fraction The fraction of the translation between fromPosition and toPosition.
+ */
+fun Transform.applyTranslation(
+    fromPosition: Offset,
+    toPosition: Offset,
+    fraction: Float
+) {
+    this.position = lerp(fromPosition, toPosition, fraction)
+}
+
+/**
+ * Applies a rotation to the Transform.
+ * @param degrees The rotation angle in degrees.
+ */
+fun Transform.applyRotation(
+    degrees: Float,
+    pivot: TransformOrigin = this.rotationPivot
+) {
+    this.rotation = degrees
+    this.rotationPivot = pivot
+}
+
+/**
+ * Applies a rotation to the Transform.
+ * @param fromDegrees The starting rotation angle in degrees.
+ * @param toDegrees The ending rotation angle in degrees.
+ * @param pivot The pivot point for the rotation.
+ * @param fraction The fraction of the rotation between fromDegrees and toDegrees.
+ */
+fun Transform.applyRotation(
+    fromDegrees: Float,
+    toDegrees: Float,
+    pivot: TransformOrigin = this.rotationPivot,
+    fraction: Float,
+) {
+    this.rotation = lerp(fromDegrees, toDegrees, fraction)
+    this.rotationPivot = pivot
+}
+
+/**
+ * Applies a scale to the Transform.
+ * @param scaleX The scale factor along the X-axis.
+ * @param scaleY The scale factor along the Y-axis.
+ */
+fun Transform.applyScale(
+    scaleX: Float,
+    scaleY: Float,
+    pivot: TransformOrigin = this.scalePivot
+) {
+    this.scale = ScaleFactor(scaleX, scaleY)
+    this.rotationPivot = pivot
+}
+
+/**
+ * Applies a scale to the Transform.
+ * @param scale The scale factor along the X-axis/Y-axis.
+ */
+fun Transform.applyScale(
+    scale: ScaleFactor,
+    pivot: TransformOrigin = this.scalePivot
+) {
+    this.scale = scale
+    this.scalePivot = pivot
+}
+
+/**
+ * Applies a scale to the Transform.
+ * @param fromScale The starting scale factor along the X-axis/Y-axis.
+ * @param toScale The ending scale factor along the X-axis/Y-axis.
+ * @param pivot The pivot point for the scale.
+ * @param fraction
+ */
+fun Transform.applyScale(
+    fromScale: ScaleFactor,
+    toScale: ScaleFactor,
+    pivot: TransformOrigin = this.scalePivot,
+    fraction: Float,
+) {
+    this.scale = lerp(fromScale, toScale, fraction)
+    this.scalePivot = pivot
+}

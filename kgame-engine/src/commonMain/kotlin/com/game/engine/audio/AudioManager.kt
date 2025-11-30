@@ -2,6 +2,7 @@ package com.game.engine.audio
 
 import com.game.engine.asset.SourceUri
 import com.game.engine.context.PlatformContext
+import com.game.engine.log.Logger
 
 /**
  * Manages the audio of the game.
@@ -66,6 +67,11 @@ interface AudioManager {
  * Default implementation of [AudioManager].
  */
 class DefaultAudioManager(private val context: PlatformContext): AudioManager {
+
+    companion object {
+        private const val TAG = "AudioManger"
+    }
+
     private val soundBoard = SoundBoard(context)
     private var music: Audio? = null
     private var musicUri: SourceUri? = null
@@ -93,18 +99,26 @@ class DefaultAudioManager(private val context: PlatformContext): AudioManager {
 
         music?.release()
         music = Audio(context, uri, loop, true)
+
+        Logger.info(TAG, "Play music: ${uri.path}")
     }
 
     override fun pauseMusic() {
         music?.pause()
+
+        musicUri?.let { Logger.info(TAG, "Pause music: ${it.path}") }
     }
 
     override fun resumeMusic() {
         music?.play()
+
+        musicUri?.let { Logger.info(TAG, "Resume music: ${it.path}") }
     }
 
     override fun stopMusic() {
         music?.stop()
+
+        musicUri?.let { Logger.info(TAG, "Stop music: ${it.path}") }
     }
 
     override fun setMusicVolume(volume: Float) {

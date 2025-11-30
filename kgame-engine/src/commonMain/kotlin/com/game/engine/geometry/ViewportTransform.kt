@@ -26,7 +26,7 @@ interface ViewportTransform {
 
     var scaleType: ViewportScaleType
 
-    fun applyToSize(
+    fun applySize(
         actualSize: Size = this.actualSize,
         virtualSize: Size = this.virtualSize,
         scaleType: ViewportScaleType = ViewportScaleType.Fill
@@ -98,7 +98,7 @@ class DefaultViewportTransform: ViewportTransform {
  * @param worldBounds The Rect defining the absolute limits of the game map/world.
  * @return A Rect representing the safe zone for the camera center.
  */
-fun ViewportTransform.coerceViewportSafeBounds(worldBounds: Rect): Rect {
+fun ViewportTransform.safeBounds(worldBounds: Rect): Rect {
     if (worldBounds.isInfinite) return worldBounds
 
     val halfWidth = virtualSize.width / 2f
@@ -133,13 +133,40 @@ fun ViewportTransform.coerceViewportSafeBounds(worldBounds: Rect): Rect {
  * @param position The raw world position (Offset) to be clamped.
  * @return The clamped position (Offset) that respects the viewable bounds.
  */
-fun ViewportTransform.clampPositionInBounds(worldBounds: Rect, position: Offset): Offset {
-    // 1. 获取安全区域 (coerceViewportSafeBounds 逻辑不变)
-    val safeZone = this.coerceViewportSafeBounds(worldBounds)
+fun ViewportTransform.clampInBounds(worldBounds: Rect, position: Offset): Offset {
+    if (worldBounds.isInfinite) return position
 
-    // 2. 将传入的位置钳制在安全区域内。
-    val finalX = position.x.coerceIn(safeZone.left, safeZone.right)
-    val finalY = position.y.coerceIn(safeZone.top, safeZone.bottom)
+    val worldW = worldBounds.width
+    val worldH = worldBounds.height
+    val viewW  = virtualSize.width
+    val viewH  = virtualSize.height
 
-    return Offset(finalX, finalY)
+    val useWholeWorld = worldW <= viewW && worldH <= viewH
+
+    if (useWholeWorld) {
+        return Offset(
+            position.x.coerceIn(worldBounds.left, worldBounds.right),
+            position.y.coerceIn(worldBounds.top, worldBounds.bottom)
+        )
+    }
+
+    val halfW = viewW / 2f
+    val halfH = viewH / 2f
+    val minX = worldBounds.left + halfW
+    val maxX = worldBounds.right - halfW
+    val minY = worldBounds.top + halfH
+    val maxY = worldBounds.bottom - halfH
+
+    val centerX = worldBounds.center.x
+    val centerY = worldBounds.center.y
+
+    val safeLeft = if (minX <= maxX) minX else centerX
+    val safeRight = if (minX <= maxX) maxX else centerX
+    val safeTop = if (minY <= maxY) minY else centerY
+    val safeBottom = if (minY <= maxY) maxY else centerY
+
+    return Offset(
+        position.x.coerceIn(safeLeft, safeRight),
+        position.y.coerceIn(safeTop, safeBottom)
+    )
 }

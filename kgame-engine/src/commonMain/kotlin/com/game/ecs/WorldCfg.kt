@@ -135,9 +135,14 @@ class FamilyConfiguration(
 @WorldCfgMarker
 class WorldConfiguration(@PublishedApi internal val world: World) {
 
+    private var internalInjectableCfg: (InjectableConfiguration.() -> Unit)? = null
     private var injectableCfg: (InjectableConfiguration.() -> Unit)? = null
     private var familyCfg: (FamilyConfiguration.() -> Unit)? = null
     private var systemCfg: (SystemConfiguration.() -> Unit)? = null
+
+    internal fun internalInjectables(cfg: InjectableConfiguration.() -> Unit) {
+        internalInjectableCfg = cfg
+    }
 
     fun injectables(cfg: InjectableConfiguration.() -> Unit) {
         injectableCfg = cfg
@@ -186,6 +191,7 @@ class WorldConfiguration(@PublishedApi internal val world: World) {
      * The order is important to correctly trigger [FamilyHook]s and [EntityHook]s.
      */
     fun configure() {
+        internalInjectableCfg?.invoke(InjectableConfiguration(world))
         injectableCfg?.invoke(InjectableConfiguration(world))
         familyCfg?.invoke(FamilyConfiguration(world))
         SystemConfiguration(world.mutableSystems).also {
@@ -213,12 +219,12 @@ class WorldConfiguration(@PublishedApi internal val world: World) {
  */
 fun configureWorld(entityCapacity: Int = 512, cfg: WorldConfiguration.() -> Unit): World {
     val newWorld = World(entityCapacity)
-    World.CURRENT_WORLD = newWorld
+    World.setCurrentWorld(newWorld)
 
     try {
         WorldConfiguration(newWorld).apply(cfg).configure()
     } finally {
-        World.CURRENT_WORLD = null
+        World.setCurrentWorld(null)
     }
 
     return newWorld

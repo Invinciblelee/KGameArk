@@ -1,11 +1,11 @@
 package com.game.ecs
 
+import com.game.ecs.collection.Bag
 import com.game.ecs.collection.BitArray
 import com.game.ecs.collection.EntityBag
 import com.game.ecs.collection.EntityBagIterator
 import com.game.ecs.collection.EntityComparator
 import com.game.ecs.collection.MutableEntityBag
-import com.game.ecs.collection.bag
 import com.game.ecs.collection.isNullOrEmpty
 
 /**
@@ -99,7 +99,7 @@ data class Family(
     /**
      * Returns the [entities][Entity] that belong to this family.
      */
-    private val activeEntities = bag<Entity>(world.capacity)
+    private val activeEntities = Bag<Entity>(world.capacity)
     private var entityCount = 0
 
     /**
@@ -167,9 +167,14 @@ data class Family(
     }
 
     /**
+     * Returns the [entity][Entity] at the given [index].
+     */
+    operator fun get(index: Int): Entity = mutableEntities[index]
+
+    /**
      * Returns true if and only if the given [entity] is part of the family.
      */
-    operator fun contains(entity: Entity): Boolean = activeEntities.hasValueAtIndex(entity.id)
+    operator fun contains(entity: Entity): Boolean = mutableEntities.contains(entity)
 
     /**
      * Returns true if and only if all given [entities] are part of the family.
@@ -199,6 +204,10 @@ data class Family(
      * that a removed entity of this family will still be part of the [action] for the current iteration.
      */
     inline fun forEach(action: (Entity) -> Unit) {
+        forEachIndexed { _, entity -> action(entity) }
+    }
+
+    inline fun forEachIndexed(action: (index: Int, Entity) -> Unit) {
         // Access entities before the 'forEach' call to properly update them.
         // Check mutableEntities getter for more details.
         val entitiesForIteration = mutableEntities
@@ -206,13 +215,13 @@ data class Family(
         if (!entityService.delayRemoval) {
             entityService.delayRemoval = true
             isIterating = true
-            entitiesForIteration.forEach { action(it) }
+            entitiesForIteration.forEachIndexed(action)
             isIterating = false
             entityService.cleanupDelays()
         } else {
             val origIterating = isIterating
             isIterating = true
-            entitiesForIteration.forEach { action(it) }
+            entitiesForIteration.forEachIndexed(action)
             isIterating = origIterating
         }
     }
@@ -227,7 +236,7 @@ data class Family(
      * Updates this family if needed and returns its first [Entity] matching the given [predicate].
      * @throws [NoSuchElementException] if the family has no such entity.
      */
-    fun first(predicate: (Entity) -> Boolean): Entity = mutableEntities.first(predicate)
+    inline fun first(predicate: (Entity) -> Boolean): Entity = mutableEntities.first(predicate)
 
     /**
      * Updates this family if needed and returns its first [Entity] or null if the family has no entities.
@@ -238,7 +247,7 @@ data class Family(
      * Updates this family if needed and returns its first [Entity] matching the given [predicate],
      * or null if the family has no such entity.
      */
-    fun firstOrNull(predicate: (Entity) -> Boolean): Entity? = mutableEntities.firstOrNull(predicate)
+    inline fun firstOrNull(predicate: (Entity) -> Boolean): Entity? = mutableEntities.firstOrNull(predicate)
 
     /**
      * Sorts the [entities][Entity] of this family by the given [comparator].
@@ -248,34 +257,34 @@ data class Family(
     /**
      * Returns true if all [entities][Entity] of the family match the given [predicate].
      */
-    fun all(predicate: (Entity) -> Boolean): Boolean = mutableEntities.all(predicate)
+    inline fun all(predicate: (Entity) -> Boolean): Boolean = mutableEntities.all(predicate)
 
     /**
      * Returns true if at least one [entity][Entity] of the family matches the given [predicate].
      */
-    fun any(predicate: (Entity) -> Boolean): Boolean = mutableEntities.any(predicate)
+    inline fun any(predicate: (Entity) -> Boolean): Boolean = mutableEntities.any(predicate)
 
     /**
      * Returns true if no [entity][Entity] of the family matches the given [predicate].
      */
-    fun none(predicate: (Entity) -> Boolean): Boolean = mutableEntities.none(predicate)
+    inline fun none(predicate: (Entity) -> Boolean): Boolean = mutableEntities.none(predicate)
 
     /**
      * Returns the number of [entities][Entity] matching the given [predicate].
      */
-    fun count(predicate: (Entity) -> Boolean): Int = mutableEntities.count(predicate)
+    inline fun count(predicate: (Entity) -> Boolean): Int = mutableEntities.count(predicate)
 
     /**
      * Returns the index of the first [Entity] matching the given [predicate],
      * or -1 if the family does not contain such an [Entity].
      */
-    fun indexOfFirst(predicate: (Entity) -> Boolean): Int = mutableEntities.indexOfFirst(predicate)
+    inline fun indexOfFirst(predicate: (Entity) -> Boolean): Int = mutableEntities.indexOfFirst(predicate)
 
     /**
      * Returns the index of the last [Entity] matching the given [predicate],
      * or -1 if the family does not contain such an [Entity].
      */
-    fun indexOfLast(predicate: (Entity) -> Boolean): Int = mutableEntities.indexOfLast(predicate)
+    inline fun indexOfLast(predicate: (Entity) -> Boolean): Int = mutableEntities.indexOfLast(predicate)
 
     /**
      * Creates an [EntityBagIterator] for the family. If the family gets updated
@@ -337,34 +346,34 @@ data class Family(
     /**
      * Returns a [List] containing only [entities][Entity] matching the given [predicate].
      */
-    fun filter(predicate: (Entity) -> Boolean): EntityBag = mutableEntities.filter(predicate)
+    inline fun filter(predicate: (Entity) -> Boolean): EntityBag = mutableEntities.filter(predicate)
 
     /**
      * Returns a [List] containing all [entities][Entity] not matching the given [predicate].
      */
-    fun filterNot(predicate: (Entity) -> Boolean): EntityBag = mutableEntities.filterNot(predicate)
+    inline fun filterNot(predicate: (Entity) -> Boolean): EntityBag = mutableEntities.filterNot(predicate)
 
     /**
      * Returns a [List] containing only [entities][Entity] matching the given [predicate].
      */
-    fun filterIndexed(predicate: (index: Int, Entity) -> Boolean): EntityBag = mutableEntities.filterIndexed(predicate)
+    inline fun filterIndexed(predicate: (index: Int, Entity) -> Boolean): EntityBag = mutableEntities.filterIndexed(predicate)
 
     /**
      * Appends all [entities][Entity] matching the given [predicate] to the given [destination].
      */
-    fun filterTo(destination: MutableEntityBag, predicate: (Entity) -> Boolean): MutableEntityBag =
+    inline fun filterTo(destination: MutableEntityBag, predicate: (Entity) -> Boolean): MutableEntityBag =
         mutableEntities.filterTo(destination, predicate)
 
     /**
      * Appends all [entities][Entity] not matching the given [predicate] to the given [destination].
      */
-    fun filterNotTo(destination: MutableEntityBag, predicate: (Entity) -> Boolean): MutableEntityBag =
+    inline fun filterNotTo(destination: MutableEntityBag, predicate: (Entity) -> Boolean): MutableEntityBag =
         mutableEntities.filterNotTo(destination, predicate)
 
     /**
      * Appends all [entities][Entity] matching the given [predicate] to the given [destination].
      */
-    fun filterIndexedTo(
+    inline fun filterIndexedTo(
         destination: MutableEntityBag,
         predicate: (index: Int, Entity) -> Boolean
     ): MutableEntityBag = mutableEntities.filterIndexedTo(destination, predicate)
@@ -373,7 +382,7 @@ data class Family(
      * Returns the first [entity][Entity] matching the given [predicate], or null if no such
      * [entity][Entity] was found.
      */
-    fun find(predicate: (Entity) -> Boolean): Entity? = mutableEntities.find(predicate)
+    inline fun find(predicate: (Entity) -> Boolean): Entity? = mutableEntities.find(predicate)
 
     /**
      * Returns a single [List] of all elements yielded from the results of [transform] function
@@ -435,14 +444,14 @@ data class Family(
      * applied to each [entity][Entity] and returns a map where each group key is associated with an [EntityBag]
      * of corresponding [entities][Entity].
      */
-    fun <K> groupBy(keySelector: (Entity) -> K): Map<K, MutableEntityBag> = mutableEntities.groupBy(keySelector)
+    inline fun <K> groupBy(keySelector: (Entity) -> K): Map<K, MutableEntityBag> = mutableEntities.groupBy(keySelector)
 
     /**
      * Groups values returned by the [valueTransform] function applied to each [entity][Entity] of the family
      * by the key returned by the given [keySelector] function applied to the [entity][Entity] and returns
      * a map where each group key is associated with a list of corresponding values.
      */
-    fun <K, V> groupBy(keySelector: (Entity) -> K, valueTransform: (Entity) -> V): Map<K, List<V>> =
+    inline fun <K, V> groupBy(keySelector: (Entity) -> K, valueTransform: (Entity) -> V): Map<K, List<V>> =
         mutableEntities.groupBy(keySelector, valueTransform)
 
     /**
@@ -450,7 +459,7 @@ data class Family(
      * applied to each [entity][Entity] and puts to the [destination] map each group key associated with
      * an [EntityBag] of corresponding elements.
      */
-    fun <K, M : MutableMap<in K, MutableEntityBag>> groupByTo(destination: M, keySelector: (Entity) -> K): M =
+    inline fun <K, M : MutableMap<in K, MutableEntityBag>> groupByTo(destination: M, keySelector: (Entity) -> K): M =
         mutableEntities.groupByTo(destination, keySelector)
 
     /**
@@ -458,7 +467,7 @@ data class Family(
      * by the key returned by the given [keySelector] function applied to the [entity][Entity] and puts
      * to the [destination] map each group key associated with a list of corresponding values.
      */
-    fun <K, V, M : MutableMap<in K, MutableList<V>>> groupByTo(
+    inline fun <K, V, M : MutableMap<in K, MutableList<V>>> groupByTo(
         destination: M,
         keySelector: (Entity) -> K,
         valueTransform: (Entity) -> V
@@ -468,39 +477,39 @@ data class Family(
      * Returns a [List] containing the results of applying the given [transform] function
      * to each [entity][Entity] of the family.
      */
-    fun <R> map(transform: (Entity) -> R): List<R> = mutableEntities.map(transform)
+    inline fun <R> map(transform: (Entity) -> R): List<R> = mutableEntities.map(transform)
 
     /**
      * Returns a [List] containing the results of applying the given [transform] function
      * to each [entity][Entity] and its index of the family.
      */
-    fun <R> mapIndexed(transform: (index: Int, Entity) -> R): List<R> = mutableEntities.mapIndexed(transform)
+    inline fun <R> mapIndexed(transform: (index: Int, Entity) -> R): List<R> = mutableEntities.mapIndexed(transform)
 
     /**
      * Applies the given [transform] function to each [entity][Entity] of the family and appends
      * the results to the given [destination].
      */
-    fun <R, C : MutableCollection<in R>> mapTo(destination: C, transform: (Entity) -> R): C =
+    inline fun <R, C : MutableCollection<in R>> mapTo(destination: C, transform: (Entity) -> R): C =
         mutableEntities.mapTo(destination, transform)
 
     /**
      * Applies the given [transform] function to each [entity][Entity] and its index of the family and appends
      * the results to the given [destination].
      */
-    fun <R, C : MutableCollection<in R>> mapIndexedTo(destination: C, transform: (index: Int, Entity) -> R): C =
+    inline fun <R, C : MutableCollection<in R>> mapIndexedTo(destination: C, transform: (index: Int, Entity) -> R): C =
         mutableEntities.mapIndexedTo(destination, transform)
 
     /**
      * Returns a list containing only the non-null results of applying the given [transform] function
      * to each [entity][Entity] of the family.
      */
-    fun <R> mapNotNull(transform: (Entity) -> R?): List<R> = mutableEntities.mapNotNull(transform)
+    inline fun <R> mapNotNull(transform: (Entity) -> R?): List<R> = mutableEntities.mapNotNull(transform)
 
     /**
      * Applies the given [transform] function to each [entity][Entity] of the family and appends only
      * the non-null results to the given [destination].
      */
-    fun <R, C : MutableCollection<in R>> mapNotNullTo(destination: C, transform: (Entity) -> R?): C =
+    inline fun <R, C : MutableCollection<in R>> mapNotNullTo(destination: C, transform: (Entity) -> R?): C =
         mutableEntities.mapNotNullTo(destination, transform)
 
     /**
@@ -508,14 +517,14 @@ data class Family(
      * where the first bag contains elements for which predicate yielded true,
      * while the second bag contains elements for which predicate yielded false.
      */
-    fun partition(predicate: (Entity) -> Boolean): Pair<EntityBag, EntityBag> = mutableEntities.partition(predicate)
+    inline fun partition(predicate: (Entity) -> Boolean): Pair<EntityBag, EntityBag> = mutableEntities.partition(predicate)
 
     /**
      * Splits the original family into two bags,
      * where [first] contains elements for which predicate yielded true,
      * while [second] contains elements for which predicate yielded false.
      */
-    fun partitionTo(first: MutableEntityBag, second: MutableEntityBag, predicate: (Entity) -> Boolean) =
+    inline fun partitionTo(first: MutableEntityBag, second: MutableEntityBag, predicate: (Entity) -> Boolean) =
         mutableEntities.partitionTo(first, second, predicate)
 
     /**
@@ -540,7 +549,7 @@ data class Family(
      * Returns the single [entity][Entity] of the family matching the given [predicate],
      * or throws an exception if the family is empty or has more than one [entity][Entity].
      */
-    fun single(predicate: (Entity) -> Boolean): Entity = mutableEntities.single(predicate)
+    inline fun single(predicate: (Entity) -> Boolean): Entity = mutableEntities.single(predicate)
 
     /**
      * Returns single [entity][Entity] of the family, or null
@@ -552,7 +561,7 @@ data class Family(
      * Returns the single [entity][Entity] of the family matching the given [predicate],
      * or null if the family is empty or has more than one [entity][Entity].
      */
-    fun singleOrNull(predicate: (Entity) -> Boolean): Entity? = mutableEntities.singleOrNull(predicate)
+    inline fun singleOrNull(predicate: (Entity) -> Boolean): Entity? = mutableEntities.singleOrNull(predicate)
 
     /**
      * Returns a [List] containing the first [n][] [entities][Entity].

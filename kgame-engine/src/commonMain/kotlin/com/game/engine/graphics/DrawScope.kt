@@ -5,16 +5,13 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.game.engine.geometry.ViewportScaleType
 import com.game.engine.geometry.ViewportTransform
-import com.game.engine.math.rotate
-import com.game.engine.math.scale
-import com.game.engine.math.times
+import com.game.engine.math.positionOf
 import com.game.plugins.components.Camera
 import com.game.plugins.components.Transform
-import com.game.plugins.components.rotationPivotOffset
-import com.game.plugins.components.scalePivotOffset
 
 /**
  * An extension for `DrawScope` that applies a viewport-adaptive translation and scale.
@@ -106,8 +103,8 @@ inline fun DrawScope.withLocalTransform(
             val offsetX = -currentSize.width / 2f
             val offsetY = -currentSize.height / 2f
             translate(transform.position.x + offsetX, transform.position.y + offsetY)
-            rotate(transform.rotation, currentSize * transform.rotationPivot)
-            scale(transform.scaleX, transform.scaleY, currentSize * transform.scalePivot)
+            rotate(transform.rotation, currentSize.positionOf(transform.rotationPivot))
+            scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.positionOf(transform.scalePivot))
         }) {
             block()
         }
@@ -116,6 +113,8 @@ inline fun DrawScope.withLocalTransform(
         drawContext.size = oldSize
     }
 }
+
+private val DebugStroke = Stroke(width = 1f)
 
 /**
  * Draws a debug visualization for a Transform in the world coordinate system.
@@ -132,53 +131,25 @@ fun DrawScope.drawDebugBounds(
     val size = transform.size
     if (size.isUnspecified) return
 
-    // This function manually calculates the final world positions of the entity's corners
-    // by applying the EXACT same transformation sequence as `withLocalTransform`.
+    // Calculate the top-left corner of the AABB based on the entity's center position and size.
+    // This is the only CPU calculation needed.
+    val topLeftX = transform.position.x - size.width / 2f
+    val topLeftY = transform.position.y - size.height / 2f
 
-    // 1. Define the 4 corners of the rectangle relative to its top-left corner (0,0).
-    val corners = listOf(
-        Offset.Zero,                // Top-Left
-        Offset(size.width, 0f),     // Top-Right
-        Offset(size.width, size.height),// Bottom-Right
-        Offset(0f, size.height)     // Bottom-Left
+    // Draw a simple, non-rotated rectangle.
+    // This is extremely fast and offloads the drawing to the GPU.
+    drawRect(
+        color = color,
+        topLeft = Offset(topLeftX, topLeftY),
+        size = size,
+        style = DebugStroke
     )
 
-    // 2. Apply the full transformation to each corner to get its final world position.
-    val transformedCorners = corners.map { corner ->
-        var p = corner
-
-        // Step A: Apply rotation and scale around their respective pivots.
-        // This is done in the local space where (0,0) is the top-left.
-        // We use the pre-calculated pivot offsets for this.
-        p = p.rotate(transform.rotation, transform.rotationPivotOffset)
-        p = p.scale(transform.scaleX, transform.scaleY, transform.scalePivotOffset)
-
-        // Step B: Translate the transformed local point to its final world position.
-        // This mirrors the `translate(transform.position.x + offsetX, ...)` step.
-        val offsetX = -size.width / 2f
-        val offsetY = -size.height / 2f
-        p += Offset(transform.position.x + offsetX, transform.position.y + offsetY)
-
-        p
-    }
-
-    // 3. Draw the lines connecting the transformed corners to form the exact OBB (Oriented Bounding Box).
-    for (i in 0 until 4) {
-        drawLine(
-            color = color,
-            start = transformedCorners[i],
-            end = transformedCorners[(i + 1) % 4], // Connects back to the start
-            strokeWidth = 1f
-        )
-    }
-
-    // 4. Draw a line from the visual center to the "top" edge to indicate rotation.
-    val worldCenter = (transformedCorners[0] + transformedCorners[2]) / 2f
-    val topMid = (transformedCorners[0] + transformedCorners[1]) / 2f
-    drawLine(
+    // Optional: Draw a small circle or cross at the entity's exact position (its center).
+    // This helps to distinguish the position from the bounding box.
+    drawCircle(
         color = Color.Yellow,
-        start = worldCenter,
-        end = topMid,
-        strokeWidth = 2f
+        radius = 4f,
+        center = transform.position
     )
 }

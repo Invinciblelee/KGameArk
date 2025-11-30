@@ -1,6 +1,7 @@
 package com.game.ecs
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.util.fastForEach
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.ecs.collection.EntityBag
@@ -207,12 +208,14 @@ class World internal constructor(
      * @throws [FleksNoSuchSystemException] if there is no such system.
      */
     inline fun <reified T : IntervalSystem> system(): T {
-        systems.forEach { system ->
-            if (system is T) {
-                return system
-            }
-        }
-        throw FleksNoSuchSystemException(T::class)
+        return systemOrNull<T>() ?: throw FleksNoSuchSystemException(T::class)
+    }
+
+    /**
+     * Returns the specified [system][IntervalSystem] or null if there is no such system.
+     */
+    inline fun <reified T : IntervalSystem> systemOrNull(): T? {
+        return systems.find { it is T } as T?
     }
 
     /**
@@ -220,13 +223,6 @@ class World internal constructor(
      */
     inline fun <reified T : IntervalSystem> contains(): Boolean {
         return systems.any { it is T }
-    }
-
-    /**
-     * Returns the specified [system][IntervalSystem] or null if there is no such system.
-     */
-    inline fun <reified T : IntervalSystem> systemOrNull(): T? {
-        return systems.firstOrNull { it is T } as T?
     }
 
     /**
@@ -453,8 +449,9 @@ class World internal constructor(
      */
     fun update(deltaTime: Float) {
         this.deltaTime = deltaTime
-        for (i in systems.indices) {
-            val system = systems[i]
+        var i = 0
+        while (i < systems.size) {
+            val system = systems[i++]
             if (system.enabled) {
                 system.onUpdate()
             }
@@ -473,8 +470,9 @@ class World internal constructor(
      * Renders all [systems][IntervalSystem] of the world.
      */
     fun render(drawScope: DrawScope) {
-        for (i in systems.indices) {
-            val system = systems[i]
+        var i = 0
+        while (i < systems.size) {
+            val system = systems[i++]
             if (system.enabled) {
                 system.onRender(drawScope)
             }
@@ -548,9 +546,13 @@ class World internal constructor(
 
     @ThreadLocal
     companion object {
-        @PublishedApi
-        internal var CURRENT_WORLD: World? = null
+        private var CURRENT_WORLD: World? = null
 
+        internal fun setCurrentWorld(world: World?) {
+            CURRENT_WORLD = world
+        }
+
+        @PublishedApi
         internal fun requireCurrentWorld(): World {
             return CURRENT_WORLD ?: throw FleksWrongConfigurationUsageException()
         }
@@ -562,7 +564,7 @@ class World internal constructor(
          * @throws FleksWrongConfigurationUsageException if called outside a [WorldConfiguration] scope.
          */
         inline fun <reified T> inject(name: String = T::class.simpleName ?: T::class.toString()): T =
-            CURRENT_WORLD?.inject(name) ?: throw FleksWrongConfigurationUsageException()
+            requireCurrentWorld().inject(name)
 
         /**
          * Creates a new [Family] for the given [cfg][FamilyDefinition].
@@ -579,13 +581,14 @@ class World internal constructor(
          * @throws FleksWrongConfigurationUsageException if called outside a [WorldConfiguration] scope.
          */
         fun family(cfg: FamilyDefinition.() -> Unit): Family =
-            CURRENT_WORLD?.family(cfg) ?: throw FleksWrongConfigurationUsageException()
+            requireCurrentWorld().family(cfg)
     }
 }
 
 private inline fun <T> List<T>.forEachReverse(action: (T) -> Unit) {
-    val lastIndex = this.lastIndex
-    for (i in lastIndex downTo 0) {
-        action(this[i])
+    var lastIndex = this.lastIndex
+    while (lastIndex >= 0) {
+        action(this[lastIndex])
+        lastIndex--
     }
 }

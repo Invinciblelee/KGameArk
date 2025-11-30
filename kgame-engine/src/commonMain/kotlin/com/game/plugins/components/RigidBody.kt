@@ -1,9 +1,9 @@
 package com.game.plugins.components
 
 import androidx.compose.ui.geometry.Offset
-import com.game.engine.math.normalize
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
+import com.game.engine.math.normalize
 import kotlin.math.exp
 
 /**
@@ -54,12 +54,12 @@ data class Arriver(
  * @param stiffness Stiffness of the spring.
  * @param damping Damping of the spring.
  */
-data class Spring(
-    var stiffness: Float = 300f,
-    var damping: Float = 15f,
-) : Component<Spring> {
-    override fun type() = Spring
-    companion object Companion : ComponentType<Spring>()
+data class Elasticity(
+    val stiffness: Float = 300f,
+    val damping: Float = 15f
+) : Component<Elasticity> {
+    override fun type() = Elasticity
+    companion object Companion : ComponentType<Elasticity>()
 }
 
 /**
@@ -77,6 +77,9 @@ fun RigidBody.addForce(force: Offset) {
  * @param impulse The impulse to add.
  */
 fun RigidBody.addImpulse(impulse: Offset) {
+    if (this.mass <= 0f) {
+        return
+    }
     this.velocity += impulse / this.mass
 }
 
@@ -113,14 +116,16 @@ fun RigidBody.addForceAtPosition(force: Offset, point: Offset, center: Offset) {
  * @param segmentStart start point P1 of the segment (world coordinates).
  * @param segmentEnd   end point P2 of the segment (world coordinates).
  * @param center       center C of the colliding entity (i.e., circle’s center).
- * @param magnitude    strength of the impulse to apply (scalar).
+ * @param impulseMag    strength of the impulse to apply (scalar).
  */
 fun RigidBody.applyImpulseFromSegment(
     segmentStart: Offset,
     segmentEnd: Offset,
     center: Offset,
-    magnitude: Float
+    impulseMag: Float
 ) {
+    if (this.mass <= 0f) return
+
     val segmentVector = segmentEnd - segmentStart
     val centerToStart = center - segmentStart
     val segmentLengthSq = segmentVector.getDistanceSquared()
@@ -131,8 +136,9 @@ fun RigidBody.applyImpulseFromSegment(
     t = t.coerceIn(0f, 1f)
 
     val closestPoint = segmentStart + segmentVector * t
+
     val collisionNormal = (center - closestPoint).normalize()
-    val impulse = collisionNormal * magnitude
+    val impulse = collisionNormal * impulseMag
 
     this.addImpulse(impulse)
 }
@@ -175,21 +181,21 @@ fun RigidBody.applyArriverForce(
 /**
  * Computes and applies a spring force (elastic attraction) to the Rigidbody.
  * @param transform      The Transform component of the current entity.
- * @param spring         The Spring configuration.
+ * @param elasticity     The Elasticity configuration.
  * @param targetPosition Anchor point of the spring in world coordinates.
  */
-fun RigidBody.applySpringForce(
+fun RigidBody.applyElasticityForce(
     transform: Transform,
-    spring: Spring,
+    elasticity: Elasticity,
     targetPosition: Offset
 ) {
     val displacement = transform.position - targetPosition
 
     // F_spring = -k * x
-    val forceSpring = displacement * -spring.stiffness
+    val forceSpring = displacement * -elasticity.stiffness
 
     // F_damping = -c * v
-    val forceDamping = this.velocity * -spring.damping
+    val forceDamping = this.velocity * -elasticity.damping
 
     this.addForce(forceSpring + forceDamping)
 }
@@ -226,4 +232,35 @@ fun RigidBody.integrate(transform: Transform, deltaTime: Float) {
 
     // 7. reset
     this.acceleration = Offset.Zero
+}
+
+
+/**
+ * Apply collision response between two rigid bodies.
+ * @param r1 The first rigid body.
+ * @param t1 The transform of the first rigid body.
+ * @param r2 The second rigid body.
+ * @param t2 The transform of the second rigid body.
+ * @param separation The separation vector between the two rigid bodies.
+ * @param impulseMag The magnitude of the impulse to apply.
+ */
+fun RigidBody.Companion.applyCollision(
+    r1: RigidBody, t1: Transform,
+    r2: RigidBody, t2: Transform,
+    separation: Offset,
+    impulseMag: Float = 30f
+) {
+    val invM1 = if (r1.mass <= 0f) 0f else 1f / r1.mass
+    val invM2 = if (r2.mass <= 0f) 0f else 1f / r2.mass
+    val totalInv = invM1 + invM2
+    if (totalInv <= 0f) return
+
+    val corr = separation / totalInv
+    if (r1.mass > 0f) t1.position += corr * invM1
+    if (r2.mass > 0f) t2.position -= corr * invM2
+
+    val normal = separation.normalize()
+    val impulse = normal * impulseMag
+    r1.addImpulse(impulse * invM1)
+    r2.addImpulse(-impulse * invM2)
 }

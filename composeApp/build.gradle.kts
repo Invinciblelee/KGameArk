@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+//    alias(libs.plugins.atomicfu)
 }
 
 kotlin {
@@ -54,21 +55,20 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.ui.tooling.preview)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.androidx.lifecycle.viewmodel)
+            implementation(libs.androidx.lifecycle.runtime)
             implementation(libs.androidx.navigation3.ui)
             implementation(libs.androidx.navigation3.viewmodel)
             implementation(libs.kotlinx.coroutines)
 
             implementation(project(":kgame-engine"))
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
-
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
         }
     }
 }

@@ -43,6 +43,9 @@ value class HttpUri(override val path: String): SourceUri
 value class ImageKey(override val source: String) : AssetKey<String, ImageBitmap>
 
 @JvmInline
+value class AtlasKey(override val source: String) : AssetKey<String, ImageAtlas>
+
+@JvmInline
 value class TextKey(override val source: String) : AssetKey<String, String>
 
 @JvmInline
@@ -121,6 +124,10 @@ class DefaultAssetsManager(
 
             is VideoKey, is SoundKey, is MusicKey -> {
                 AssetUri(resourceProvider.getUri(key.source))
+            }
+
+            is AtlasKey -> {
+                loadImageAtlas(resourceProvider, key.source)
             }
         }
 

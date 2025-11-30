@@ -1,248 +1,261 @@
 package com.game.plugins.components
 
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.AnimationVector
-import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.animation.core.AnimationVector2D
-import androidx.compose.animation.core.TargetBasedAnimation
-import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.VectorizedAnimationSpec
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.ScaleFactor
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-/**
- * Defines the playback state of an animation.
- */
-enum class PlaybackState {
-    Playing,
-    Paused,
-    Stopped
+sealed interface AnimationSpec {
+
+    fun getFraction(elapsedTime: Float): Float
+
 }
 
-internal typealias InternalAnimation<T, V> = androidx.compose.animation.core.Animation<T, V>
+/**
+ * A component of Spring, used to control the spring effect of an entity.
+ * @param stiffness Stiffness of the spring.
+ * @param damping Damping of the spring.
+ */
+data class Spring(
+    val stiffness: Float = 300f,
+    val damping: Float = 15f
+): AnimationSpec {
+
+    private val natFreq = sqrt(stiffness.toDouble())
+    private val dampingRatio = (damping / (2f * sqrt(stiffness))).toDouble()
+
+    override fun getFraction(elapsedTime: Float): Float {
+        val t = elapsedTime.toDouble()
+        val disp = 1.0
+        val vel  = 0.0
+        val newDisp: Double = when {
+            dampingRatio > 1.0  -> overDamped(t, disp, vel)
+            dampingRatio == 1.0 -> criticallyDamped(t, disp, vel)
+            else                -> underDamped(t, disp, vel)
+        }
+        return (1.0 - newDisp).toFloat()
+    }
+
+    private fun overDamped(time: Double, d: Double, v: Double): Double {
+        val r = -dampingRatio * natFreq
+        val s = natFreq * sqrt(dampingRatio * dampingRatio - 1)
+        val gp = r + s; val gm = r - s
+        val b = (gm * d - v) / (gm - gp)
+        val a = d - b
+        return a * exp(gm * time) + b * exp(gp * time)
+    }
+
+    private fun criticallyDamped(time: Double, d: Double, v: Double): Double {
+        val a = d
+        val b = v + natFreq * d
+        return (a + b * time) * exp(-natFreq * time)
+    }
+
+    private fun underDamped(time: Double, d: Double, v: Double): Double {
+        val dampedFreq = natFreq * sqrt(1 - dampingRatio * dampingRatio)
+        val r = -dampingRatio * natFreq
+        val sinCoeff = (v + r * d) / dampedFreq
+        return exp(r * time) * (d * cos(dampedFreq * time) + sinCoeff * sin(dampedFreq * time))
+    }
+
+}
+
+/**
+ * A component of Tween, used to control the tween animation of an entity.
+ * @param duration Duration of the tween animation.
+ * @param easing Easing function of the tween animation.
+ */
+data class Tween(
+    val duration: Float = 1f,
+    val easing: Easing = LinearEasing
+): AnimationSpec {
+    override fun getFraction(elapsedTime: Float): Float {
+        val fraction = if (duration == 0f) 0f else elapsedTime / duration
+        return easing.transform(fraction)
+    }
+}
+
+/**
+ * A component of InfiniteRepeatable, used to control the infinite repeatable animation of an entity.
+ * @param animation Animation to be repeated.
+ * @param repeatMode Repeat mode of the animation.
+ */
+data class InfiniteRepeatable(
+    val animation: Tween,
+    val repeatMode: RepeatMode = RepeatMode.Restart
+) : AnimationSpec {
+
+    override fun getFraction(elapsedTime: Float): Float {
+        val t = if (animation.duration == 0f) 0f else elapsedTime % animation.duration
+        val linear = t / animation.duration
+        val easing = animation.easing
+        return when (repeatMode) {
+            RepeatMode.Restart -> easing.transform(linear)
+            RepeatMode.Reverse -> {
+                val half = 0.5f
+                val mirrored = if (linear <= half) linear else 1f - linear
+                easing.transform(mirrored * 2f)
+            }
+        }
+    }
+
+}
 
 /**
  * Describes a specific animation effect, such as translation or alpha fade.
  *
  * @param from The starting value of the animation.
  * @param to The ending value of the animation.
- * @param spec The `AnimationSpec` (e.g., `tween`, `spring`, `infiniteRepeatable`) that defines the animation's behavior.
+ * @param spec The `AnimationTiming` (e.g., `Tween`, `Spring`, `InfiniteRepeatable`) that defines the animation's behavior.
  */
-sealed class AnimationEffect<T, V: AnimationVector>(
+sealed class Animation<T>(
     val from: T,
     val to: T,
-    val spec: AnimationSpec<T>
+    val spec: AnimationSpec
 ) {
 
     /**
-     * The current elapsed time of the animation in nanoseconds.
+     * The current elapsed time of the animation in seconds.
      */
-    var elapsedTime: Long = 0
-        internal set
-
-    /**
-     * The current playback state of the animation.
-     */
-    var state: PlaybackState = PlaybackState.Stopped
-        internal set
-
-    /**
-     * The real implementation of the animation.
-     */
-    abstract val animation: InternalAnimation<T, V>
-
-    /**
-     * Updates the animation's progress based on the given delta time.
-     */
-    fun update(deltaTime: Float) {
-        val deltaTimeNanos = (deltaTime * 1_000_000_000).toLong()
-        elapsedTime = (elapsedTime + deltaTimeNanos).coerceAtMost(animation.durationNanos)
-    }
+    private var elapsedTime: Float = 0f
 
     /**
      * Whether the animation is currently playing.
      */
-    val isPlaying: Boolean
-        get() = state == PlaybackState.Playing
+    var isPlaying: Boolean = true
+        private set
 
     /**
-     * Whether the animation is currently paused.
+     * Whether the animation has been started.
      */
-    val isPaused: Boolean
-        get() = state == PlaybackState.Paused
-
-    /**
-     * Whether the animation is currently stopped.
-     */
-    val isStopped: Boolean
-        get() = state == PlaybackState.Stopped
+    var isStarted: Boolean = false
+        private set
 
     /**
      * Whether the animation is currently in an infinite loop.
      */
     val isInfinite: Boolean
-        get() = animation.isInfinite
+        get() = spec is InfiniteRepeatable
 
     /**
      * Whether the animation has completed its loop.
      */
     val isFinished: Boolean
-        get() = animation.isFinishedFromNanos(this.elapsedTime)
+        get() = !isInfinite && elapsedTime >= duration()
 
     /**
-     * The current value of the animation.
+     * The current progress of the animation, ranging from 0.0 to 1.0.
      */
-    val currentValue: T
-        get() = animation.getValueFromNanos(this.elapsedTime)
+    val progress: Float
+        get() = spec.getFraction(elapsedTime)
 
     /**
-     * The current velocity of the animation.
+     * Updates the animation's progress based on the given delta time.
+     * @param deltaTime The time elapsed since the last frame in seconds.
+     * @return The current progress of the animation, ranging from 0.0 to 1.0.
      */
-    val currentVelocity: V
-        get() = animation.getVelocityVectorFromNanos(this.elapsedTime)
+    internal fun update(deltaTime: Float): Float {
+        if (!isPlaying) {
+            return spec.getFraction(elapsedTime)
+        }
+        elapsedTime += deltaTime
+        if (!isInfinite && elapsedTime >= duration()) {
+            elapsedTime = duration()
+            isPlaying = false
+            isStarted = false
+        }
+        return spec.getFraction(elapsedTime)
+    }
 
-}
+    /**
+     * Starts the animation.
+     */
+    fun play() {
+        if (!isStarted) {
+            isStarted = true
+            elapsedTime = 0f
+        }
+        isPlaying = true
+    }
 
-class Translation(
-    from: Offset,
-    to: Offset,
-    spec: AnimationSpec<Offset> = tween(1000) // Default to a 1-second tween
-) : AnimationEffect<Offset, AnimationVector2D>(from, to, spec) {
+    /**
+     * Pauses the animation.
+     */
+    fun pause() {
+        isPlaying = false
+    }
 
-    override val animation: InternalAnimation<Offset, AnimationVector2D> by lazy {
-        TargetBasedAnimation(
-            animationSpec = spec,
-            typeConverter = Offset.VectorConverter,
-            initialValue = from,
-            targetValue = to
-        )
+    /**
+     * Stops the animation.
+     */
+    fun stop() {
+        isPlaying = false
+        isStarted = false
+        elapsedTime = 0f
+    }
+
+    private fun duration(): Float = when (spec) {
+        is Tween -> spec.duration
+        is Spring -> 1f
+        is InfiniteRepeatable -> spec.animation.duration
     }
 
 }
 
-class Rotation(
+class TranslationAnimation(
+    from: Offset,
+    to: Offset,
+    spec: AnimationSpec = Tween(1f)
+) : Animation<Offset>(from, to, spec), Component<TranslationAnimation> {
+    override fun type() = TranslationAnimation
+    companion object: ComponentType<TranslationAnimation>()
+}
+
+class RotationAnimation(
     from: Float,
     to: Float,
     val pivot: TransformOrigin = TransformOrigin.Center,
-    spec: AnimationSpec<Float> = tween(1000)
-) : AnimationEffect<Float, AnimationVector1D>(from, to, spec) {
-
-    override val animation: InternalAnimation<Float, AnimationVector1D> by lazy {
-        TargetBasedAnimation(
-            animationSpec = spec,
-            typeConverter = Float.VectorConverter,
-            initialValue = from,
-            targetValue = to
-        )
-    }
-
+    spec: AnimationSpec = Tween(1f)
+) : Animation<Float>(from, to, spec), Component<RotationAnimation> {
+    override fun type() = RotationAnimation
+    companion object: ComponentType<RotationAnimation>()
 }
 
-class Scale(
-    from: Offset,
-    to: Offset,
+class ScaleAnimation(
+    from: ScaleFactor,
+    to: ScaleFactor,
     val pivot: TransformOrigin = TransformOrigin.Center,
-    spec: AnimationSpec<Offset> = tween(1000)
-)  : AnimationEffect<Offset, AnimationVector2D>(from, to, spec) {
-
-    override val animation: InternalAnimation<Offset, AnimationVector2D> by lazy {
-        TargetBasedAnimation(
-            animationSpec = spec,
-            typeConverter = Offset.VectorConverter,
-            initialValue = from,
-            targetValue = to
-        )
-    }
-
+    spec: AnimationSpec = Tween(1f)
+) : Animation<ScaleFactor>(from, to, spec), Component<ScaleAnimation> {
     constructor(
         from: Float,
         to: Float,
         pivot: TransformOrigin = TransformOrigin.Center,
-        spec: AnimationSpec<Offset> = tween(1000)
+        spec: AnimationSpec = Tween(1f)
     ) : this(
-        from = Offset(from, from),
-        to = Offset(to, to),
+        from = ScaleFactor(from, from),
+        to = ScaleFactor(to, to),
         pivot = pivot,
         spec = spec
     )
+
+    override fun type() = ScaleAnimation
+    companion object: ComponentType<ScaleAnimation>()
 }
 
-class Alpha(
+class AlphaAnimation(
     from: Float,
     to: Float,
-    spec: AnimationSpec<Float> = tween(1000)
-) : AnimationEffect<Float, AnimationVector1D>(from, to, spec) {
-
-    override val animation: InternalAnimation<Float, AnimationVector1D> by lazy {
-        TargetBasedAnimation(
-            animationSpec = spec,
-            typeConverter = Float.VectorConverter,
-            initialValue = from,
-            targetValue = to
-        )
-    }
-
-}
-
-/**
- * A component that holds and controls a list of animation effects for an entity.
- *
- * @property effects A mutable list of [AnimationEffect] to be applied to the entity.
- */
-data class Animation(
-    val effects: List<AnimationEffect<*, *>>,
-    val autoPlay: Boolean = true
-) : Component<Animation> {
-    override fun type() = Animation
-
-    companion object : ComponentType<Animation>()
-
-    constructor(effect: AnimationEffect<*, *>, autoPlay: Boolean = true): this(listOf(effect), autoPlay)
-
-    constructor(vararg effects: AnimationEffect<*, *>, autoPlay: Boolean = true): this(effects.toList(), autoPlay)
-
-    init {
-        if (autoPlay) play()
-    }
-
-    /**
-     * Starts playing all animation effects from the beginning or resumes from a paused state.
-     */
-    fun play() {
-        effects.forEach {
-            if (it.state == PlaybackState.Stopped) {
-                // If stopped, reset and play from the beginning.
-                it.elapsedTime = 0L
-            }
-
-            // For both Stopped and Paused states, set to Playing.
-            it.state = PlaybackState.Playing
-        }
-    }
-
-    /**
-     * Pauses all currently playing animation effects, preserving their current progress.
-     * Calling `play()` again will resume the animation from this point.
-     */
-    fun pause() {
-        effects.forEach {
-            if (it.state == PlaybackState.Playing) {
-                it.state = PlaybackState.Paused
-            }
-        }
-    }
-
-    /**
-     * Stops all animation effects and resets their progress to the beginning.
-     * The animated properties will be reset to their initial state on the next frame.
-     */
-    fun stop() {
-        effects.forEach {
-            it.state = PlaybackState.Stopped
-            it.elapsedTime = 0
-        }
-    }
+    spec: AnimationSpec = Tween(1f)
+) : Animation<Float>(from, to, spec), Component<AlphaAnimation> {
+    override fun type() = AlphaAnimation
+    companion object: ComponentType<AlphaAnimation>()
 }

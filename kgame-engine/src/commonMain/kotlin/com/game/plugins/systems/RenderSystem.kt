@@ -1,94 +1,61 @@
 package com.game.plugins.systems
 
-import androidx.compose.ui.geometry.MutableRect
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.withSaveLayer
 import com.game.ecs.Entity
-import com.game.ecs.IntervalSystem
+import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
+import com.game.ecs.World.Companion.inject
 import com.game.ecs.collection.compareEntityBy
 import com.game.engine.graphics.drawDebugBounds
+import com.game.engine.graphics.withCameraTransform
+import com.game.engine.graphics.withLocalTransform
 import com.game.plugins.components.Camera
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.Transform
-import com.game.engine.graphics.withCameraTransform
-import com.game.engine.graphics.withLocalTransform
-import com.game.plugins.components.getBounds
-import com.game.plugins.components.isShowing
-import kotlin.math.min
+import com.game.plugins.components.isHiding
+import com.game.plugins.services.CameraService
 
-class RenderSystem : IntervalSystem() {
+class RenderSystem(
+    val cameraService: CameraService = inject()
+): IteratingSystem(
+    family = family { all(Transform, Renderable) },
+    comparator = compareEntityBy(Renderable)
+) {
 
     companion object {
-        var isDebugging = true
+        var isDebugging = false
     }
-
-    private val cameraFamily = family { all(Camera, Transform) }
-    private val renderableFamily = family { all(Renderable, Transform) }
-    private val renderableComparator = compareEntityBy(Renderable)
-    private val bounds = MutableRect(Offset.Zero, Size.Zero)
-    private val cullRect = MutableRect(Offset.Zero, Size.Zero)
 
     override fun onRender(drawScope: DrawScope) {
-        val cameraEntity = cameraFamily.find { it[Camera].isActive }
-
+        val cameraEntity = cameraService.activeCameraEntity
         if (cameraEntity != null) {
-            drawScope.drawWithCamera(cameraEntity)
+            val camera = cameraEntity[Camera]
+            val camTrans = cameraEntity[Transform]
+
+            drawScope.withCameraTransform(camera, camTrans) {
+                super.onRender(drawScope)
+            }
         } else {
-            drawScope.drawDirectly()
+           super.onRender(drawScope)
         }
     }
 
-    private fun DrawScope.drawWithCamera(camEntity: Entity) {
-        val camera = camEntity[Camera]
-        val camTrans = camEntity[Transform]
+    override fun onRenderEntity(entity: Entity, drawScope: DrawScope) {
+        val renderable = entity[Renderable]
+        val transform = entity[Transform]
+        if (renderable.isHiding) return
 
-        withCameraTransform(camera, camTrans) {
-            val worldW = size.width / camera.zoom
-            val worldH = size.height / camera.zoom
-            val finalX = camTrans.position.x + camera.shakeOffset.x
-            val finalY = camTrans.position.y + camera.shakeOffset.y
+        val shouldDraw = cameraService.culler.overlaps(transform)
 
-            cullRect.set(
-                finalX - worldW, finalY - worldH,
-                finalX + worldW, finalY + worldH
-            )
-
-            cullRect.inflate(min(worldW, worldH) * 0.1f)
-
-            drawRenderables(useCulling = true)
-        }
-    }
-
-    private fun DrawScope.drawDirectly() {
-        drawRenderables(useCulling = false)
-    }
-
-    private fun DrawScope.drawRenderables(useCulling: Boolean) {
-        renderableFamily.sort(renderableComparator)
-        renderableFamily.forEach {
-            val renderable = it[Renderable]
-            val transform = it[Transform]
-            if (!renderable.isShowing) return@forEach
-
-            val shouldDraw = if (useCulling) {
-                transform.getBounds(bounds)
-                cullRect.overlaps(bounds)
-            } else {
-                true
+        if (shouldDraw) {
+            drawScope.withLocalTransform(transform) {
+                with(renderable.visual) { draw() }
             }
 
-            if (shouldDraw) {
-                withLocalTransform(transform) {
-                    with(renderable.visual) { draw() }
-                }
-
-                if (isDebugging) {
-                    drawDebugBounds(transform)
-                }
+            if (isDebugging) {
+                drawScope.drawDebugBounds(transform)
             }
         }
     }
+
 }

@@ -13,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -37,6 +38,7 @@ import com.game.engine.context.PlatformContext
 import com.game.engine.dsl.GameSceneProvider
 import com.game.engine.dsl.GameSceneProviderScope
 import com.game.engine.dsl.SceneBuilderScope
+import kotlinx.coroutines.coroutineScope
 
 /**
  * The main entry point of the game.
@@ -155,7 +157,7 @@ fun <T : Any> KGame(
     }
 
     LaunchedEffect(Unit) {
-        engine.scheduleFrameLoop()
+        engine.startFrameLoop()
     }
 
     GameShell(

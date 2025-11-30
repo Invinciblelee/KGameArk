@@ -3,7 +3,6 @@ package com.game.ecs
 import com.game.ecs.collection.Bag
 import com.game.ecs.collection.BitArray
 import com.game.ecs.collection.MutableEntityBag
-import com.game.ecs.collection.bag
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmName
 
@@ -296,7 +295,7 @@ class DefaultEntityProvider(
     /**
      * Bag of all currently active [entities][Entity].
      */
-    private val activeEntities = bag<Entity>(initialEntityCapacity)
+    private val activeEntities = Bag<Entity>(initialEntityCapacity)
 
     /**
      * Creates a new [entity][Entity]. If there are [recycledEntities] then they will be preferred
@@ -413,7 +412,7 @@ class EntityService(
      */
     @PublishedApi
     internal val compMasks =
-        bag<BitArray>(
+        Bag<BitArray>(
             initialEntityCapacity
         )
 

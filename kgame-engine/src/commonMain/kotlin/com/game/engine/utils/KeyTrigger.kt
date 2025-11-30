@@ -1,19 +1,19 @@
 package com.game.engine.utils
 
+import androidx.collection.MutableLongIntMap
 import androidx.compose.ui.input.key.Key
 import com.game.engine.input.InputManager
 
 /**
  * A simple key trigger. this will only trigger once per key press.
- * @property key The key to trigger.
  */
-class KeyTrigger(@PublishedApi internal val key: Key) {
+object KeyTrigger {
     @PublishedApi
-    internal var wasDown = false
+    internal val downKeys = MutableLongIntMap()
 
-    inline fun check(input: InputManager, block: () -> Unit) {
+    inline fun check(input: InputManager, key: Key, block: () -> Unit) {
         val down = input.isKeyDown(key)
-        if (down && !wasDown) block()
-        wasDown = down
+        if (down && downKeys[key.keyCode] != 1) block()
+        downKeys[key.keyCode] = if (down) 1 else 0
     }
 }

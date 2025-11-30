@@ -1,9 +1,10 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.example.cmp.games
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.unit.dp
 import cmp.composeapp.generated.resources.Res
@@ -38,6 +40,7 @@ import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
+import com.game.engine.asset.AtlasKey
 import com.game.engine.asset.ImageKey
 import com.game.engine.asset.MusicKey
 import com.game.engine.asset.ResourceProvider
@@ -47,8 +50,9 @@ import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.KSimpleGame
 import com.game.engine.core.rememberGameSceneStack
-import com.game.engine.geometry.CoordinateTransform
-import com.game.engine.geometry.coerceViewportSafeBounds
+import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.clampInBounds
+import com.game.engine.geometry.safeBounds
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
@@ -57,34 +61,37 @@ import com.game.engine.ui.Rectangle
 import com.game.engine.ui.applyToInput
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
-import com.game.plugins.components.Alpha
-import com.game.plugins.components.Animation
+import com.game.plugins.components.AlphaAnimation
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraTarget
+import com.game.plugins.components.Elasticity
+import com.game.plugins.components.InfiniteRepeatable
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
-import com.game.plugins.components.Rotation
-import com.game.plugins.components.Scale
+import com.game.plugins.components.RotationAnimation
+import com.game.plugins.components.ScaleAnimation
 import com.game.plugins.components.Spring
+import com.game.plugins.components.Sprite
+import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
+import com.game.plugins.components.Tween
 import com.game.plugins.components.Visual
 import com.game.plugins.components.applyImpulseFromSegment
 import com.game.plugins.components.applyKinematicMovement
+import com.game.plugins.components.applyScale
+import com.game.plugins.components.shake
+import com.game.plugins.services.CameraService
 import com.game.plugins.systems.AnimationSystem
 import com.game.plugins.systems.CameraSystem
+import com.game.plugins.systems.CollisionSystem
 import com.game.plugins.systems.PhysicsSystem
 import com.game.plugins.systems.RenderSystem
 import com.game.plugins.systems.SteeringSystem
-import com.game.plugins.systems.panTo
-import com.game.plugins.systems.switchCameraSmoothly
 import kotlin.math.hypot
 import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
-// ==========================================
-// PART 2: 业务逻辑层 (剑气朝元 Demo)
-// ==========================================
-
-// --- 组件 ---
 enum class WuXing(val color: Color) {
     Metal(Color(0xFFFFD700)),
     Wood(Color(0xFF69F0AE)),
@@ -95,13 +102,11 @@ enum class WuXing(val color: Color) {
 
 class PlayerTag : Component<PlayerTag> {
     override fun type() = PlayerTag
-
     companion object : ComponentType<PlayerTag>()
 }
 
 class EnemyTag(var isTrapped: Boolean = false) : Component<EnemyTag> {
     override fun type() = EnemyTag
-
     companion object : ComponentType<EnemyTag>()
 }
 
@@ -110,133 +115,162 @@ data class SilkNode(
     var y: Float,
     var oldX: Float = x,
     var oldY: Float = y,
+    var worldX: Float = 0f,
+    var worldY: Float = 0f,
     var pinned: Boolean = false
 )
 
 data class SilkComponent(
     var type: WuXing = WuXing.Water,
-    val nodes: ArrayList<SilkNode> = ArrayList() // 存储局部坐标
+    val nodes: ArrayList<SilkNode> = ArrayList()
 ) : Component<SilkComponent> {
     override fun type() = SilkComponent
-
     companion object : ComponentType<SilkComponent>()
 
     init {
-        repeat(40) { nodes.add(SilkNode(0f, 0f)) }
+        var i = 0
+        while (i < 40) {
+            nodes.add(SilkNode(0f, 0f))
+            i++
+        }
     }
 }
 
-// --- Visual 实现 (新增) ---
+class SilkBounds(
+    var minX: Float = 0f,
+    var minY: Float = 0f,
+    var maxX: Float = 0f,
+    var maxY: Float = 0f
+) : Component<SilkBounds> {
+    override fun type() = SilkBounds
+    companion object : ComponentType<SilkBounds>()
+}
 
-class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual {
-    override fun DrawScope.draw() { // 纯粹的局部绘制
-        drawRect(color ?: (if (enemyTag.isTrapped) Color.Red else Color.Gray))
+class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual() {
+    override fun DrawScope.draw() {
+        drawCircle(if (enemyTag.isTrapped) Color.Black else color ?: Color.Gray, alpha = alpha)
     }
 }
 
-class PlayerVisual(assets: AssetsManager) : Visual {
-
-    val player = assets[GameAssets.Texture.Player]
+class PlayerVisual(assets: AssetsManager) : Visual() {
+    val player = assets[GameAssets.Image.Player]
 
     override fun DrawScope.draw() {
-//        drawImage(
-//            image = player,
-//        )
-
-        drawCircle(Color.Yellow, )
+        drawCircle(Color.Yellow, alpha = alpha)
     }
 }
 
-class SilkVisual(private val silkComponent: SilkComponent) : Visual {
-
+class SilkVisual(private val silkComponent: SilkComponent) : Visual() {
     private val path = Path()
 
-    override fun DrawScope.draw() { // 纯粹的局部绘制
-        val silk = silkComponent
-        val color = silk.type.color
+    override fun DrawScope.draw() {
         path.reset()
-        val nodes = silk.nodes
-        if (nodes.isNotEmpty()) {
-            val halfW = size.width / 2f
-            val halfH = size.height / 2f
+        val nodes = silkComponent.nodes
+        if (nodes.isEmpty()) return
 
-            path.moveTo(nodes[0].x + halfW, nodes[0].y + halfH)
-            for (i in 0 until nodes.size - 1) {
-                val p1 = nodes[i]
-                val p2 = nodes[i + 1]
+        val halfW = size.width / 2f
+        val halfH = size.height / 2f
 
-                val p1x = p1.x + halfW
-                val p1y = p1.y + halfH
-                val p2x = p2.x + halfW
-                val p2y = p2.y + halfH
+        path.moveTo(nodes[0].x + halfW, nodes[0].y + halfH)
+        var i = 0
+        while (i < nodes.size - 1) {
+            val p1 = nodes[i]
+            val p2 = nodes[i + 1]
 
-                path.quadraticTo(p1x, p1y, (p1x + p2x) / 2, (p1y + p2y) / 2)
-            }
-            path.lineTo(nodes.last().x + halfW, nodes.last().y + halfH)
+            val p1x = p1.x + halfW
+            val p1y = p1.y + halfH
+            val p2x = p2.x + halfW
+            val p2y = p2.y + halfH
+
+            path.quadraticTo(p1x, p1y, (p1x + p2x) / 2, (p1y + p2y) / 2)
+            i++
         }
+        path.lineTo(nodes.last().x + halfW, nodes.last().y + halfH)
 
-        drawPath(path, color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round))
-        drawPath(path, color, style = Stroke(5f, cap = StrokeCap.Round))
-        drawPath(path, Color.White, style = Stroke(2f, cap = StrokeCap.Round))
+
+        drawPath(path, silkComponent.type.color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round), alpha = alpha)
+        drawPath(path, silkComponent.type.color, style = Stroke(5f, cap = StrokeCap.Round), alpha = alpha)
+        drawPath(path, Color.White, style = Stroke(2f, cap = StrokeCap.Round), alpha = alpha)
     }
-
 }
 
-// --- 系统: 物理 (改造：处理 Local ↔ World 转换) ---
 class SilkPhysicsSystem(
     val input: InputManager = inject(),
-    val coordinateTransform: CoordinateTransform = inject()
+    val cameraService: CameraService = inject()
 ) : IntervalSystem() {
 
     private val playerFamily = family { all(PlayerTag, Transform) }
-    private val silkFamily = family { all(SilkComponent, Transform) }
-
+    private val silkFamily = family { all(SilkComponent, Transform, SilkBounds) }
 
     override fun onTick() {
         val player = playerFamily.firstOrNull() ?: return
         val rootWorldPos = player[Transform].position
-
-        // 假设 coordinateTransform.screenToWorld 使用了 scratch object
-        val targetWorldPos = coordinateTransform.screenToWorld(input.pointerPosition)
+        val targetWorldPos = cameraService.transformer.virtualToWorld(input.pointerPosition)
         val isPointerDown = input.isPointerDown
 
         silkFamily.forEach {
             val silk = it[SilkComponent]
             val silkTransform = it[Transform]
 
-            // 实体在世界中的原点 (Origin)
             val silkWorldOrigin = silkTransform.position
+            val localNodes = silk.nodes
 
-            // 💥 零分配核心：直接操作 silk.nodes 列表
-            // updateVerlet 函数现在负责使用 silkWorldOrigin 偏移量，
-            // 将 World 坐标逻辑转换为 Local 坐标操作
             updateVerlet(
                 silk.type,
-                silk.nodes,
+                localNodes,
                 rootWorldPos,
                 targetWorldPos,
                 silkWorldOrigin,
                 isPointerDown
             )
+
+            var i = 0
+            while (i < localNodes.size) {
+                val node = localNodes[i]
+                node.worldX = node.x + silkWorldOrigin.x
+                node.worldY = node.y + silkWorldOrigin.y
+                i++
+            }
+
+            // Update SilkBounds
+            val silkBounds = it[SilkBounds]
+            if (localNodes.isNotEmpty()) {
+                var minX = localNodes[0].worldX
+                var minY = localNodes[0].worldY
+                var maxX = minX
+                var maxY = minY
+
+                var i = 1
+                while (i < localNodes.size) {
+                    val node = localNodes[i]
+                    val wx = node.worldX
+                    val wy = node.worldY
+
+                    if (wx < minX) minX = wx
+                    if (wy < minY) minY = wy
+                    if (wx > maxX) maxX = wx
+                    if (wy > maxY) maxY = wy
+                    i++
+                }
+
+                silkBounds.minX = minX
+                silkBounds.minY = minY
+                silkBounds.maxX = maxX
+                silkBounds.maxY = maxY
+            }
         }
     }
 
-    /**
-     * 执行 Verlet 积分和约束求解。
-     * 所有读写操作都直接在 nodes 列表的局部坐标上进行，
-     * 仅在设置锚点时，使用 origin 偏移进行世界坐标转换。
-     */
     private fun updateVerlet(
         type: WuXing,
         nodes: MutableList<SilkNode>,
         rootWorldPos: Offset,
         tipWorldPos: Offset,
-        origin: Offset, // 实体的世界坐标原点
-        isTipPinned: Boolean // 💥 新增参数
+        origin: Offset,
+        isTipPinned: Boolean
     ) {
         if (nodes.isEmpty()) return
 
-        // ... (保持 stiffness, drag, WuXing logic 不变) ...
         val (stiffness, drag) = when (type) {
             WuXing.Metal -> 40 to 0.65f
             WuXing.Water -> 4 to 0.94f
@@ -245,55 +279,52 @@ class SilkPhysicsSystem(
             else -> 15 to 0.85f
         }
 
-        // 1. 锚定点修正 (Anchoring) - 需转换为 Local 坐标
-        // 目标世界位置 - 世界原点 = 局部位置
         nodes.first().apply {
             x = rootWorldPos.x - origin.x
             y = rootWorldPos.y - origin.y
             pinned = true
         }
 
-        // 💥 条件锚定：只有当鼠标按下时，才锚定末端顶点
         nodes.last().apply {
-            pinned = isTipPinned // 设置锚定状态
+            pinned = isTipPinned
             if (isTipPinned) {
-                // 如果锚定，强制设置到目标位置
                 x = tipWorldPos.x - origin.x
                 y = tipWorldPos.y - origin.y
             }
         }
 
-        // 2. Verlet 积分 (Verlet Integration) - 运动计算在 Local Space 中与原点无关
-        for (i in 1 until nodes.size - 1) {
+        var i = 1
+        while (i < nodes.size - 1) {
             val p = nodes[i]
             val vx = (p.x - p.oldX) * drag
             val vy = (p.y - p.oldY) * drag
             p.oldX = p.x; p.oldY = p.y
             p.x += vx; p.y += vy
             if (type == WuXing.Fire) {
-                p.x += (Random.nextFloat() - 0.5f) * 4f; p.y += (Random.nextFloat() - 0.5f) * 4f
+                p.x += (Random.nextFloat() - 0.5f) * 4f
+                p.y += (Random.nextFloat() - 0.5f) * 4f
             }
+            i++
         }
 
-        // 3. 约束求解 (Constraint Solving) - 距离差计算与原点无关 (平移不变性)
-        repeat(stiffness) {
-            for (i in 0 until nodes.size - 1) {
-                val p1 = nodes[i];
-                val p2 = nodes[i + 1]
+        var k = 0
+        while (k < stiffness) {
+            var j = 0
+            while (j < nodes.size - 1) {
+                val p1 = nodes[j]
+                val p2 = nodes[j + 1]
 
-                // 由于距离差 (dx, dy) 具有平移不变性，我们直接使用 Local 坐标计算距离
-                val dx = p2.x - p1.x;
+                val dx = p2.x - p1.x
                 val dy = p2.y - p1.y
 
-                val dist = hypot(dx, dy);
+                val dist = hypot(dx, dy)
                 val diff = 10f - dist
 
                 if (dist > 0) {
                     val percent = diff / dist / 2f
-                    val ox = dx * percent;
+                    val ox = dx * percent
                     val oy = dy * percent
 
-                    // 修正结果直接写回 Local 坐标
                     if (!p1.pinned) {
                         p1.x -= ox; p1.y -= oy
                     }
@@ -301,196 +332,190 @@ class SilkPhysicsSystem(
                         p2.x += ox; p2.y += oy
                     }
                 }
+                j++
             }
+            k++
         }
     }
 }
 
-// --- 系统: 绞杀 (改造：处理 Local -> World 转换) ---
-class CollisionSystem(
+class SilkCollisionSystem(
     assets: AssetsManager = inject(),
     val audio: AudioManager = inject()
 ) : IntervalSystem() {
 
-    private val silkFamily = family { all(SilkComponent, Transform) }
-    private val enemyFamily = family { all(EnemyTag) }
-
+    private val silkFamily = family { all(SilkComponent, Transform, SilkBounds) }
+    private val enemyFamily = family { all(EnemyTag, RigidBody, Transform) }
     private val eatSound = assets[GameAssets.Sound.Eat]
 
+    private fun Float.sq() = this * this
+
     override fun onTick() {
-        // 1. 获取剑丝数据及 Transform
         val silkEntity = silkFamily.firstOrNull() ?: return
         val silk = silkEntity[SilkComponent]
-        val silkTransform = silkEntity[Transform]
+        val silkBounds = silkEntity[SilkBounds]
+        val nodes = silk.nodes
 
-        val worldOrigin = silkTransform.position
-        val localNodes = silk.nodes
+        if (nodes.size < 2) return
 
-        // 💥 Local -> World: 转换为世界坐标节点列表，用于碰撞检测
-        val worldNodes = localNodes.map { localNode ->
-            Offset(x = localNode.x + worldOrigin.x, y = localNode.y + worldOrigin.y)
-        }
+        val head = nodes.first()
+        val tail = nodes.last()
 
-        // 2. 计算是否闭环 (使用世界坐标)
-        val head = worldNodes.first()
-        val tail = worldNodes.last()
-        val isClosed = (head.x - tail.x) * (head.x - tail.x) +
-                (head.y - tail.y) * (head.y - tail.y) < 200 * 200
-
-        // 3. 遍历所有敌人
         enemyFamily.forEach {
             val enemy = it[EnemyTag]
             val rigidBody = it[RigidBody]
             val transform = it[Transform]
 
             val enemyPos = transform.position
+            val radius = transform.size.width / 2f + 5f
 
-            // --- 逻辑 A: 绞杀判定 (使用世界坐标) ---
-            enemy.isTrapped = if (isClosed) isPointInPolygon(enemyPos, worldNodes) else false
+            // COARSE AABB CHECK: Use SilkBounds to quickly reject enemies far away
+            val enemyMinX = enemyPos.x - radius
+            val enemyMinY = enemyPos.y - radius
+            val enemyMaxX = enemyPos.x + radius
+            val enemyMaxY = enemyPos.y + radius
 
-            // --- 逻辑 B: 物理切割/碰撞 (使用世界坐标) ---
+            val overlapX = enemyMaxX >= silkBounds.minX && enemyMinX <= silkBounds.maxX
+            val overlapY = enemyMaxY >= silkBounds.minY && enemyMinY <= silkBounds.maxY
+
+            if (!overlapX || !overlapY) {
+                enemy.isTrapped = false
+                return@forEach
+            }
+            // END COARSE AABB CHECK
+
+            val dxClose = head.worldX - tail.worldX
+            val dyClose = head.worldY - tail.worldY
+            val isClosed = (dxClose.sq() + dyClose.sq()) < 200f.sq()
+
+            enemy.isTrapped = isClosed && isPointInPolygon(enemyPos, nodes)
+
             if (!enemy.isTrapped) {
-                // 遍历剑丝的每一段线段 (使用世界坐标)
-                for (i in 0 until worldNodes.size - 1) {
-                    val p1 = worldNodes[i]
-                    val p2 = worldNodes[i + 1]
+                val hitRadiusSq = radius.sq()
+                var i = 0
+                while (i < nodes.size - 1) {
+                    val p1 = nodes[i]
+                    val p2 = nodes[i + 1]
 
-                    // 计算圆心到线段的距离平方 (使用世界坐标)
-                    val distSq = distToSegmentSquared(enemyPos, p1, p2)
+                    val distSq = distToSegmentSquared(
+                        enemyPos,
+                        Offset(p1.worldX, p1.worldY),
+                        Offset(p2.worldX, p2.worldY)
+                    )
 
-                    // 判定阈值：(敌人半径 + 剑丝粗细)^2
-                    val hitRadius = transform.size.width / 2f + 5f
-                    if (distSq < hitRadius * hitRadius) {
+                    if (distSq < hitRadiusSq) {
                         audio.playSound(eatSound)
-
-                        val baseImpulse = 50f
-
-                        // ⚡️ 极简调用：将线段和冲量大小直接交给 Rigidbody 处理 (使用世界坐标)
                         rigidBody.applyImpulseFromSegment(
-                            segmentStart = p1,
-                            segmentEnd = p2,
-                            center = transform.position,
-                            magnitude = baseImpulse
+                            segmentStart = Offset(p1.worldX, p1.worldY),
+                            segmentEnd = Offset(p2.worldX, p2.worldY),
+                            center = enemyPos,
+                            impulseMag = 50f
                         )
-
-                        break // 一帧只撞一次，避免鬼畜
+                        break
                     }
+                    i++
                 }
             }
         }
     }
 
-    // 💥 完整实现：使用 Offset 列表作为多边形顶点
-    private fun isPointInPolygon(p: Offset, nodes: List<Offset>): Boolean {
+    private fun isPointInPolygon(p: Offset, nodes: List<SilkNode>): Boolean {
         var inside = false
         var j = nodes.size - 1
-        for (i in nodes.indices) {
-            if ((nodes[i].y > p.y) != (nodes[j].y > p.y) &&
-                (p.x < (nodes[j].x - nodes[i].x) * (p.y - nodes[i].y) / (nodes[j].y - nodes[i].y) + nodes[i].x)
+        var i = 0
+        while (i < nodes.size) {
+            val nodeI = nodes[i]
+            val nodeJ = nodes[j]
+            if ((nodeI.worldY > p.y) != (nodeJ.worldY > p.y) &&
+                (p.x < (nodeJ.worldX - nodeI.worldX) * (p.y - nodeI.worldY) / (nodeJ.worldY - nodeI.worldY) + nodeI.worldX)
             ) {
                 inside = !inside
             }
             j = i
+            i++
         }
         return inside
     }
 
-    // 💥 完整实现
     private fun distToSegmentSquared(p: Offset, v: Offset, w: Offset): Float {
         val l2 = (v - w).getDistanceSquared()
         if (l2 == 0f) return (p - v).getDistanceSquared()
 
-        // 投影点 t (0..1)
         var t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2
         t = t.coerceIn(0f, 1f)
 
-        // 投影坐标
         val projX = v.x + t * (w.x - v.x)
         val projY = v.y + t * (w.y - v.y)
 
         val dx = p.x - projX
         val dy = p.y - projY
 
-        return dx * dx + dy * dy
+        return dx.sq() + dy.sq()
     }
 }
 
-// --- 系统: 控制 ---
 class SilkControlSystem(
     val input: InputManager = inject()
 ) : IteratingSystem(
     family = family { all(SilkComponent) }
 ) {
-
     override fun onTickEntity(entity: Entity) {
         val silk = entity[SilkComponent]
-        if (input.isKeyDown(Key.One)) silk.type = WuXing.Metal
-        if (input.isKeyDown(Key.Two)) silk.type = WuXing.Wood
-        if (input.isKeyDown(Key.Three)) silk.type = WuXing.Water
-        if (input.isKeyDown(Key.Four)) silk.type = WuXing.Fire
-        if (input.isKeyDown(Key.Five)) silk.type = WuXing.Earth
+        silk.type = when {
+            input.isKeyDown(Key.One) -> WuXing.Metal
+            input.isKeyDown(Key.Two) -> WuXing.Wood
+            input.isKeyDown(Key.Three) -> WuXing.Water
+            input.isKeyDown(Key.Four) -> WuXing.Fire
+            input.isKeyDown(Key.Five) -> WuXing.Earth
+            else -> silk.type
+        }
     }
-
 }
 
-// -- 系统：玩家控制 ---
 class PlayerControlSystem(
-    val input: InputManager = inject()
+    val input: InputManager = inject(),
+    val cameraService: CameraService = inject()
 ) : IteratingSystem(
     family = family { all(PlayerTag, Transform) }
 ) {
-
-
-    private val keyTrigger by lazy { KeyTrigger(Key.Six) }
-    private val keyTrigger2 by lazy { KeyTrigger(Key.Seven) }
-
     private var currentCamera = "player"
 
     override fun onTick() {
         super.onTick()
-        keyTrigger.check(input) {
-            world.system<CameraSystem>().apply {
-                currentCamera = if (currentCamera == "player") {
-                    switchCameraSmoothly("enemy"); "enemy"
-                } else {
-                    switchCameraSmoothly("player"); "player"
-                }
+        KeyTrigger.check(input, Key.Six) {
+            currentCamera = if (currentCamera == "player") {
+                cameraService.director.switchCameraSmoothly("enemy")
+                "enemy"
+            } else {
+                cameraService.director.switchCameraSmoothly("player")
+                "player"
             }
         }
-
-        keyTrigger2.check(input) {
-            val system = world.system<CameraSystem>()
-//            val camera = system.findActiveCamera() ?: return@check
-//            camera.shake(10f)
-            val x = (-400f..1200f).random()
-            val y = (-300f..900f).random()
-            system.panTo(Offset(x, y))
+        KeyTrigger.check(input, Key.Seven) {
+            cameraService.activeCamera?.shake(10f)
         }
     }
 
     override fun onTickEntity(entity: Entity) {
         val playerTransform = entity[Transform]
-
-        // 2. 初始化位移向量
         var deltaX = 0f
         var deltaY = 0f
 
-        // 3. 读取输入并计算位移
-        // W/上箭头：向上移动 (Y轴负方向)
         if (input.isKeyDown(Key.W) || input.isKeyDown(Key.DirectionUp)) {
             deltaY -= 1f
         }
-        // S/下箭头：向下移动 (Y轴正方向)
         if (input.isKeyDown(Key.S) || input.isKeyDown(Key.DirectionDown)) {
             deltaY += 1f
         }
-        // A/左箭头：向左移动 (X轴负方向)
         if (input.isKeyDown(Key.A) || input.isKeyDown(Key.DirectionLeft)) {
             deltaX -= 1f
+
+            playerTransform.applyScale(scaleX = -1f, scaleY = 1f)
         }
-        // D/右箭头：向右移动 (X轴正方向)
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) {
             deltaX += 1f
+
+            playerTransform.applyScale(scaleX = 1f, scaleY = 1f)
         }
 
         playerTransform.applyKinematicMovement(
@@ -503,33 +528,27 @@ class PlayerControlSystem(
 }
 
 object GameAssets {
-
-    object Texture {
+    object Image {
         val Player = ImageKey("drawable/image.jpeg")
     }
-
     object Sound {
         val Eat = SoundKey("files/eat.mp3")
     }
-
     object Music {
         val BGM = MusicKey("files/bgm3.wav")
     }
 
+    object Atlas {
+        val Walk = AtlasKey("files/Walk.json")
+    }
 }
 
 data object Menu
-
 data class Battle(val value: String)
 
 val DefaultResourceProvider = object : ResourceProvider {
-    override suspend fun read(path: String): ByteArray {
-        return Res.readBytes(path)
-    }
-
-    override fun getUri(path: String): String {
-        return Res.getUri(path)
-    }
+    override suspend fun read(path: String): ByteArray = Res.readBytes(path)
+    override fun getUri(path: String): String = Res.getUri(path)
 }
 
 @Composable
@@ -538,22 +557,14 @@ fun GameDemo(context: PlatformContext) {
     KGame(
         context = context,
         sceneStack = sceneStack,
+        virtualSize = Size(600f, 800f),
         resourceProvider = DefaultResourceProvider,
         modifier = Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),
     ) {
-        // --- 场景 1: 菜单 ---
         scene<Menu> {
             resources {
                 it += GameAssets.Music.BGM
                 it += GameAssets.Sound.Eat
-            }
-
-            onEnter {
-                println("Menu Scene Entered")
-            }
-
-            onExit {
-                println("Menu Scene Exited")
             }
 
             onUpdate {
@@ -561,6 +572,8 @@ fun GameDemo(context: PlatformContext) {
                     sceneStack.push(Battle("From Key Event"))
                 }
             }
+
+            onBackgroundUI { Rectangle(Color.White) }
 
             onForegroundUI {
                 Column(
@@ -570,60 +583,40 @@ fun GameDemo(context: PlatformContext) {
                 ) {
                     Text("=== 跨平台测试用例 ===", style = MaterialTheme.typography.titleLarge)
                     Text("按 [SPACE] 开始", style = MaterialTheme.typography.bodyLarge)
-
-                    Button(
-                        onClick = {
-                            sceneStack.push(Battle("From Click Event"))
-                        }
-                    ) {
+                    Button(onClick = { sceneStack.push(Battle("From Click Event")) }) {
                         Text("开始")
                     }
                 }
             }
         }
 
-        // --- 场景 2: 战斗 (改造：添加 Renderable) ---
         scene<Battle> {
             world(configuration = {
                 systems {
-                    // 1. 输入/控制：处理意图
                     +PlayerControlSystem()
                     +SilkControlSystem()
-
-                    // 2. 逻辑/计算：将意图转化为力
                     +SteeringSystem()
-
-                    // 3. 物理/运动：通用运动计算
                     +PhysicsSystem()
-
-                    // 4. 物理/特殊：处理 Silk 特有约束
                     +SilkPhysicsSystem()
-
-                    // 5. 修正/解决：修复碰撞后的位置
-                    +CollisionSystem()
-
-                    // 6. 工具/辅助：更新摄像机
+                    +SilkCollisionSystem()
                     +CameraSystem()
-
-                    // 7. 动画系统
                     +AnimationSystem()
-
-                    // 8. 输出/渲染：永远在最后
                     +RenderSystem()
                 }
             }) {
                 val mapBounds = Rect(-800f, -600f, 800f, 600f)
-                val safeBounds = viewportTransform.coerceViewportSafeBounds(mapBounds)
+                val safeBounds = viewportTransform.safeBounds(mapBounds)
 
                 val player = entity {
-                    it += Transform(size = Size(100f, 100f))
-                    it += Renderable(PlayerVisual(assets), zIndex = 1)
+                    it += Transform(size = Size(50f, 50f))
                     it += PlayerTag()
+                    it += SpriteAnimation("run")
+                    it += Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"), zIndex = 1)
                 }
 
                 entity {
                     it += Transform()
-                    it += Spring(stiffness = 80f, damping = 10f)
+                    it += Elasticity(stiffness = 80f, damping = 10f)
                     it += RigidBody()
                     it += CameraTarget("player", player)
                     it += Camera(isMain = true, mapBounds = mapBounds)
@@ -634,15 +627,11 @@ fun GameDemo(context: PlatformContext) {
                     it += Transform()
                     it += silk
                     it += Renderable(SilkVisual(silk), zIndex = 2)
+                    it += SilkBounds()
                 }
 
                 val enemy = entity {
-                    it += Transform(safeBounds.randomOffset(), size = Size(100f, 100f))
-                    it += Animation(
-                        Rotation(from = -45f, to = 45f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)),
-                        Scale(from = 1f, to = 0.5f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse)),
-                        Alpha(from = 1f, to = 0f, spec = infiniteRepeatable(tween(1000, easing = LinearEasing), repeatMode = RepeatMode.Reverse))
-                    )
+                    it += Transform(safeBounds.randomOffset(), size = Size(50f, 50f))
                     it += RigidBody()
                     it += EnemyTag()
                     it += Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
@@ -650,76 +639,74 @@ fun GameDemo(context: PlatformContext) {
 
                 entity {
                     it += Transform()
-                    it += Spring(stiffness = 80f, damping = 10f)
+                    it += Elasticity(stiffness = 80f, damping = 10f)
                     it += RigidBody()
                     it += CameraTarget("enemy", enemy)
                     it += Camera(isActive = false, mapBounds = mapBounds)
                 }
 
-                entities(100) {
-                    val enemy = EnemyTag()
-                    it += Transform(mapBounds.randomOffset(), size = Size(50f, 50f))
+                entities(500) {
+                    val enemyInstance = EnemyTag()
+                    it += Transform(mapBounds.randomOffset(), size = Size(25f, 25f))
                     it += RigidBody()
-                    it += enemy
-                    it += Renderable(EnemyVisual(enemy))
+                    it += enemyInstance
+                    it += Renderable(EnemyVisual(enemyInstance, color = Color.random()))
                 }
             }
 
             resources {
-                it += GameAssets.Texture.Player
+                it += GameAssets.Image.Player
                 it += GameAssets.Sound.Eat
                 it += GameAssets.Music.BGM
+                it += GameAssets.Atlas.Walk
             }
 
             onEnter {
-                println("Battle Scene Entered: ${key.value}")
                 audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
+                println("Game enter")
             }
 
             onExit {
-                println("Battle Scene Exited")
                 audio.stopMusic()
+                println("Game exit")
             }
 
             onUpdate {
-                if (input.isKeyUp(Key.Escape)) {
-                    sceneStack.pop()
-                }
-                if (input.isKeyUp(Key.Back)) {
+                if (input.isKeyUp(Key.Escape) || input.isKeyUp(Key.Back)) {
                     sceneStack.pop()
                 }
             }
 
             val fpsCalculator = FpsCalculator()
 
-            onRender {
-                fpsCalculator.advanceFrame()
-            }
+            onRender { fpsCalculator.advanceFrame() }
+
+            onBackgroundUI { Rectangle(Color.Cyan) }
 
             onForegroundUI {
-                GameJoypad(
-                    onValue = { it.applyToInput(input) }
-                )
-
+                GameJoypad(onValue = { it.applyToInput(input) })
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 30.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text("Battle Mode | FPS: ${fpsCalculator.fps}")
                     Text("[1-5] Switch Element  [ESC] Menu")
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val keys = listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)
-                        for ((index, key) in keys.withIndex()) {
+                        var i = 0
+                        while (i < keys.size) {
+                            val key = keys[i]
                             Button(
                                 modifier = Modifier.size(30.dp, 20.dp),
                                 onClick = { input.simulateKey(key) },
                                 contentPadding = PaddingValues(0.dp)
                             ) {
-                                Text("$index")
+                                Text("${i + 1}")
                             }
+                            i++
                         }
                         Button(
                             modifier = Modifier.size(40.dp, 20.dp),
@@ -735,6 +722,141 @@ fun GameDemo(context: PlatformContext) {
     }
 }
 
+// ==============================================================================
+// 5. 渲染组件 Visual (用于显示实体)
+// ==============================================================================
+
+class CircleVisual(val color: Color) : Visual() {
+    override fun DrawScope.draw() {
+        drawCircle(color, radius = size.minDimension / 2f, alpha = alpha)
+    }
+}
+
+class MovementSystem(
+    val viewportTransform: ViewportTransform = inject()
+) : IteratingSystem(
+    family { all(Transform, RigidBody) }
+) {
+
+    val worldBounds = Rect(Offset.Zero, viewportTransform.virtualSize)
+
+    override fun onTickEntity(entity: Entity) {
+        val t = entity[Transform]
+        val r = entity[RigidBody]
+
+        /* 运动（复用基本类型） */
+        t.position = t.position.copy(
+            x = t.position.x + r.velocity.x * deltaTime,
+            y = t.position.y + r.velocity.y * deltaTime
+        )
+
+        /* 边界反弹：一行调用你的封装（零临时对象） */
+        val clamped = viewportTransform.clampInBounds(
+            worldBounds = worldBounds,
+            position = t.position
+        )
+
+        /* 若被 clamp → 反弹速度 */
+        if (clamped.x != t.position.x) r.velocity = r.velocity.copy(x = -r.velocity.x)
+        if (clamped.y != t.position.y) r.velocity = r.velocity.copy(y = -r.velocity.y)
+
+        /* 写回最终位置（零临时对象） */
+        t.position = clamped
+    }
+}
+
+@Composable
+fun ZeroGCCollisionDemo(context: PlatformContext) {
+    KSimpleGame(
+        context = context,
+        resourceProvider = DefaultResourceProvider,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+       val anim = ScaleAnimation(
+            from = 0f,
+            to = 1f,
+            spec = Spring(
+                stiffness = 80f,
+                damping   = 15f,
+            )
+        )
+
+        world(configuration = {
+            systems {
+                +CollisionSystem()
+                +MovementSystem()
+                +AnimationSystem()
+                +RenderSystem()
+            }
+        }) {
+            val entityCount = 50
+            val entitySize = Size(40f, 40f)
+
+            val bounds = Rect(0f, 0f, 800f, 600f)
+
+            entities(entityCount) {
+                val velX = (-40f..40f).random()
+                val velY = (-40f..40f).random()
+                val mass = 1f + Random.nextFloat()
+                val color = Color.random()
+
+                // 创建随机移动和碰撞的实体
+                it += Transform(bounds.randomOffset(), entitySize)
+                it += RigidBody(Offset(velX, velY), mass = mass)
+                it += ScaleAnimation(
+                    from = 0f,
+                    to = 1f,
+                    spec = InfiniteRepeatable(
+                        Tween(1f, easing = EaseOutOvershoot),
+                        RepeatMode.Reverse
+                    )
+                )
+                it += AlphaAnimation(
+                    from = 0f,
+                    to = 1f,
+                    spec = InfiniteRepeatable(
+                        Tween(2f, easing = LinearEasing),
+                        RepeatMode.Reverse
+                    )
+                )
+                it += Renderable(CircleVisual(color), zIndex = 1)
+            }
+
+            // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
+            entity {
+                it += Transform(Offset(400f, 300f), Size(100f, 100f))
+                it += RigidBody(Offset.Zero, mass = 0f)
+                it += anim
+                it += SpriteAnimation("run")
+                it += Renderable(
+                    visual = Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"),
+                    zIndex = 1
+                )
+            }
+        }
+
+        resources {
+            it += GameAssets.Atlas.Walk
+        }
+
+        val fpsCalculator = FpsCalculator()
+
+        onRender { fpsCalculator.advanceFrame() }
+
+        onForegroundUI {
+            Text("FPS: ${fpsCalculator.fps}")
+
+            Button(
+                onClick = { anim.play() },
+                modifier = Modifier.padding(top = 100.dp)
+            ) {
+                Text("Test")
+            }
+        }
+    }
+}
+val EaseOutOvershoot = CubicBezierEasing(0.4f, 1.5f, 0.8f, 1.0f)
+
 @Composable
 fun SimpleGameDemo(context: PlatformContext) {
     KSimpleGame(
@@ -744,42 +866,19 @@ fun SimpleGameDemo(context: PlatformContext) {
     ) {
         var color = Color.Red
 
-        onEnter {
-            println("Game Entered")
-        }
-
-        onExit {
-            println("Menu Scene Exited")
-        }
-
-        onEnable {
-            println("Game Enabled")
-        }
-
-        onDisable {
-            println("Game Disabled")
-        }
-
         onUpdate {
             if (input.isKeyDown(Key.Spacebar)) {
                 color = if (color == Color.Red) Color.Yellow else Color.Red
             }
         }
 
-        onRender {
-            println("render: $color")
-            drawCircle(color, radius = 50f)
-        }
+        onRender { drawCircle(color, radius = 50f) }
 
-        onBackgroundUI {
-            Rectangle(Color.Blue)
-        }
+        onBackgroundUI { Rectangle(Color.Blue) }
 
         onForegroundUI {
             Button(
-                onClick = {
-
-                } ,
+                onClick = {} ,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
             ) {
                 Text(
@@ -787,8 +886,6 @@ fun SimpleGameDemo(context: PlatformContext) {
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
-
-//            Text("Fps: $fps")
         }
     }
 }

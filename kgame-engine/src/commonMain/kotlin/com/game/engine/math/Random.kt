@@ -2,6 +2,7 @@ package com.game.engine.math
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -42,4 +43,8 @@ fun Rect.randomOffset(): Offset {
     val x = Random.nextFloat() * width  + left
     val y = Random.nextFloat() * height + top
     return Offset(x, y)
+}
+
+fun Color.Companion.random(): Color {
+    return Color(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
 }

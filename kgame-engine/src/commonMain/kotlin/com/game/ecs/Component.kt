@@ -1,10 +1,9 @@
 package com.game.ecs
 
-import com.game.ecs.collection.bag
+import com.game.ecs.collection.Bag
 import kotlinx.atomicfu.atomic
 import kotlinx.serialization.Serializable
 import kotlin.math.max
-import kotlin.native.concurrent.ThreadLocal
 
 /**
  * Store the id of [Component]
@@ -208,7 +207,7 @@ class ComponentService {
      * Returns [com.game.ecs.collection.Bag] of [ComponentsHolder].
      */
     @PublishedApi
-    internal val holdersBag = bag<ComponentsHolder<*>>()
+    internal val holdersBag = Bag<ComponentsHolder<*>>()
 
     /**
      * Returns a [ComponentsHolder] for the given [componentType]. This function is only

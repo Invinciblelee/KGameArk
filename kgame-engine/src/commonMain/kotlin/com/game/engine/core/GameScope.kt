@@ -2,11 +2,10 @@ package com.game.engine.core
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.TextMeasurer
-import com.game.engine.geometry.CoordinateTransform
-import com.game.engine.geometry.ViewportTransform
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
+import com.game.engine.geometry.ViewportTransform
 import com.game.engine.input.InputManager
 
 /**
@@ -37,11 +36,6 @@ interface GameScope {
      * The viewport transform.
      */
     val viewportTransform: ViewportTransform
-
-    /**
-     * The coordinate transform.
-     */
-    val coordinateTransform: CoordinateTransform
 
     /**
      * The text measurer.

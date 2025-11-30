@@ -74,3 +74,10 @@ fun Offset.scale(scaleX: Float, scaleY: Float, pivot: Offset): Offset {
     val newY = p.y * scaleY
     return Offset(newX, newY) + pivot
 }
+
+/**
+ * Translates this Offset by the given offsets.
+ */
+fun Offset.dot(other: Offset): Float {
+    return this.x * other.x + this.y * other.y
+}

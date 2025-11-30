@@ -4,15 +4,12 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.game.ecs.World
-import com.game.ecs.World.Companion.family
 import com.game.ecs.WorldConfiguration
-import com.game.plugins.components.Camera
-import com.game.ecs.configureWorld
 import com.game.engine.asset.AssetKey
 import com.game.engine.core.GameEngine
 import com.game.engine.core.GameScene
 import com.game.engine.core.GameScope
-import com.game.engine.geometry.DefaultCoordinateTransform
+import com.game.engine.core.GameWorld
 
 @GameDslMarker
 class SceneBuilderScope<T: Any>(
@@ -105,7 +102,6 @@ class SceneBuilderScope<T: Any>(
     )
 }
 
-@GameDslMarker
 class AssetSet(
     private val assets: MutableSet<AssetKey<*, *>>
 ) {
@@ -119,51 +115,5 @@ class AssetSet(
     }
 
     internal fun build(): Set<AssetKey<*, *>> = assets
-
-}
-
-internal class GameWorld(
-    private val scope: GameScope,
-    private val entityCapacity: Int,
-    private val configuration: WorldConfiguration.() -> Unit,
-    private val initWorld: World.() -> Unit
-) {
-    private var instance: World? = null
-
-    private fun ensureWorld(): World {
-        return instance ?: configureWorld(entityCapacity) {
-            injectables {
-                add(scope)
-                add(scope.input)
-                add(scope.audio)
-                add(scope.assets)
-                add(scope.viewportTransform)
-                add(scope.coordinateTransform)
-                add(scope.textMeasurer)
-            }
-            configuration()
-
-            val coordinateTransform = scope.coordinateTransform
-            if (coordinateTransform is DefaultCoordinateTransform) {
-                coordinateTransform.setCameraFamily(family { all(Camera) })
-            }
-        }.also { instance = it }
-    }
-
-    fun enter() {
-        initWorld(ensureWorld())
-    }
-
-    fun update(deltaTime: Float) {
-        instance?.update(deltaTime)
-    }
-
-    fun render(drawScope: DrawScope) {
-        instance?.render(drawScope)
-    }
-
-    fun exit() {
-        instance?.dispose()
-    }
 
 }

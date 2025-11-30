@@ -13,7 +13,7 @@ import kotlin.math.min
 typealias EntityComparator = Comparator<Entity>
 
 fun compareEntity(
-    world: World = World.CURRENT_WORLD ?: throw FleksWrongConfigurationUsageException(),
+    world: World = World.requireCurrentWorld(),
     compareFun: World.(Entity, Entity) -> Int,
 ): EntityComparator {
     return EntityComparator { entityA, entityB -> compareFun(world, entityA, entityB) }
@@ -21,7 +21,7 @@ fun compareEntity(
 
 inline fun <reified T> compareEntityBy(
     componentType: ComponentType<T>,
-    world: World = World.CURRENT_WORLD ?: throw FleksWrongConfigurationUsageException(),
+    world: World = World.requireCurrentWorld(),
 ): EntityComparator where T : Component<T>, T : Comparable<T> {
     return object : EntityComparator {
         private val holder = world.componentService.holder(componentType)

@@ -16,6 +16,9 @@ import com.game.plugins.components.applyAlpha
 import com.game.plugins.components.applyRotation
 import com.game.plugins.components.applyScale
 import com.game.plugins.components.applyTranslation
+import com.game.plugins.components.getCurrentFrameName
+import com.game.plugins.components.progress
+import com.game.plugins.components.update
 import com.game.plugins.services.CameraService
 
 /**
@@ -40,33 +43,33 @@ class AnimationSystem(
 
         val translationAnimation = entity.getOrNull(TranslationAnimation)
         if (translationAnimation != null) {
-            val progress = translationAnimation.update(deltaTime)
+            translationAnimation.update(deltaTime)
             transform.applyTranslation(
                 fromPosition = translationAnimation.from,
                 toPosition = translationAnimation.to,
-                fraction = progress
+                fraction = translationAnimation.progress
             )
         }
 
         val rotationAnimation = entity.getOrNull(RotationAnimation)
         if (rotationAnimation != null) {
-            val progress = rotationAnimation.update(deltaTime)
+            rotationAnimation.update(deltaTime)
             transform.applyRotation(
                 fromDegrees = rotationAnimation.from,
                 toDegrees = rotationAnimation.to,
                 pivot = rotationAnimation.pivot,
-                fraction = progress,
+                fraction = rotationAnimation.progress,
             )
         }
 
         val scaleAnimation = entity.getOrNull(ScaleAnimation)
         if (scaleAnimation != null) {
-            val progress = scaleAnimation.update(deltaTime)
+            scaleAnimation.update(deltaTime)
             transform.applyScale(
                 fromScale = scaleAnimation.from,
                 toScale = scaleAnimation.to,
                 pivot = scaleAnimation.pivot,
-                fraction = progress,
+                fraction = scaleAnimation.progress,
             )
         }
 
@@ -76,18 +79,18 @@ class AnimationSystem(
             if (sprite != null) {
                 val spriteAnimation = entity.getOrNull(SpriteAnimation)
                 if (spriteAnimation != null) {
-                    val name = spriteAnimation.update(sprite.atlas, deltaTime)
-                    sprite.setFrame(name)
+                    spriteAnimation.update(sprite.atlas, deltaTime)
+                    sprite.setFrame(spriteAnimation.getCurrentFrameName(sprite.atlas))
                 }
             }
 
             val alphaAnimation = entity.getOrNull(AlphaAnimation)
             if (alphaAnimation != null) {
-                val progress = alphaAnimation.update(deltaTime)
+                alphaAnimation.update(deltaTime)
                 renderable.applyAlpha(
                     fromAlpha = alphaAnimation.from,
                     toAlpha = alphaAnimation.to,
-                    fraction = progress
+                    fraction = alphaAnimation.progress
                 )
             }
         }

@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.preferredFrameRate
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import cmp.composeapp.generated.resources.Res
 import com.game.ecs.Component
@@ -52,6 +53,7 @@ import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.geometry.ViewportTransform
 import com.game.engine.geometry.clampInBounds
 import com.game.engine.geometry.safeBounds
+import com.game.engine.graphics.shader.BlueSky
 import com.game.engine.graphics.shader.GlossyGradient
 import com.game.engine.graphics.shader.MeshGradient
 import com.game.engine.input.InputManager
@@ -80,6 +82,7 @@ import com.game.plugins.components.Visual
 import com.game.plugins.components.applyImpulseFromSegment
 import com.game.plugins.components.applyKinematicMovement
 import com.game.plugins.components.applyScale
+import com.game.plugins.components.play
 import com.game.plugins.components.shake
 import com.game.plugins.services.CameraService
 import com.game.plugins.systems.AnimationSystem
@@ -611,6 +614,11 @@ fun GameDemo(context: PlatformContext) {
                     it += Transform(size = Size(50f, 50f))
                     it += PlayerTag()
                     it += SpriteAnimation("run")
+                    it += ScaleAnimation(
+                        from = 0f,
+                        to = 1.0f,
+                        spec = Spring()
+                    )
                     it += Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"), zIndex = 1)
                 }
 
@@ -646,10 +654,30 @@ fun GameDemo(context: PlatformContext) {
                 }
 
                 entities(500) {
+                    val velX = (-40f..40f).random()
+                    val velY = (-40f..40f).random()
+                    val mass = 1f + Random.nextFloat()
+
                     val enemyInstance = EnemyTag()
-                    it += Transform(mapBounds.randomOffset(), size = Size(25f, 25f))
-                    it += RigidBody()
+                    it += Transform(mapBounds.randomOffset(), size = Size((25f..50f).random(), (25f..50f).random()))
+                    it += RigidBody(Offset(velX, velY), mass = mass)
                     it += enemyInstance
+                    it += ScaleAnimation(
+                        from = 0f,
+                        to = 1f,
+                        spec = InfiniteRepeatable(
+                            Tween(1f, easing = EaseOutOvershoot),
+                            RepeatMode.Reverse
+                        )
+                    )
+                    it += AlphaAnimation(
+                        from = 0f,
+                        to = 1f,
+                        spec = InfiniteRepeatable(
+                            Tween(2f, easing = LinearEasing),
+                            RepeatMode.Reverse
+                        )
+                    )
                     it += Renderable(EnemyVisual(enemyInstance, color = Color.random()))
                 }
             }
@@ -682,7 +710,7 @@ fun GameDemo(context: PlatformContext) {
             onRender { fpsCalculator.advanceFrame() }
 
             onBackgroundUI {
-                ActiveRectangle(MeshGradient(arrayOf(Color.Red, Color.Blue, Color.Green, Color.Yellow)))
+                ActiveRectangle(BlueSky())
             }
 
             onForegroundUI {
@@ -735,6 +763,7 @@ class CircleVisual(val color: Color) : Visual() {
 }
 
 class MovementSystem(
+    val cameraService: CameraService = inject(),
     val viewportTransform: ViewportTransform = inject()
 ) : IteratingSystem(
     family { all(Transform, RigidBody) }

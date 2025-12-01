@@ -9,8 +9,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.util.lerp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
-import com.game.engine.asset.AtlasRegion
-import com.game.engine.asset.ImageAtlas
+import com.game.engine.image.AtlasRegion
+import com.game.engine.image.ImageAtlas
 
 
 /**

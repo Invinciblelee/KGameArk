@@ -2,7 +2,7 @@ package com.game.plugins.components
 
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
-import com.game.engine.asset.ImageAtlas
+import com.game.engine.image.ImageAtlas
 
 /**
  * A component of SpriteAnimation, used to control the animation of a sprite.
@@ -20,80 +20,85 @@ data class SpriteAnimation(
     override fun type() = SpriteAnimation
     companion object Companion : ComponentType<SpriteAnimation>()
 
-    /**
-     * Whether the animation is currently playing.
-     */
-    var isPlaying: Boolean = autoPlay
-        private set
+    internal var elapsedTime: Float = 0f
+    internal var state: AnimationState = if (autoPlay) AnimationState.Playing else AnimationState.Stopped
+    internal var currentFrameIndex = 0
 
-    /**
-     * Whether the animation has been started.
-     */
-    var isStarted: Boolean = false
-        private set
+}
 
-    private var escapedTime = 0f
-    private var currentFrameIndex = 0
+/**
+ * Updates the animation state of the sprite.
+ * @param atlas The image atlas of the sprite.
+ * @param deltaTime The time elapsed since the last frame.
+ */
+fun SpriteAnimation.update(atlas: ImageAtlas, deltaTime: Float) {
+    if (state != AnimationState.Playing) return
 
-    internal fun update(atlas: ImageAtlas, deltaTime: Float): String {
-        val animationSequence = atlas.getAnimatedFrames(name)
+    val animationSequence = atlas.getAnimatedFrames(name)
 
-        val currentFrame = animationSequence[currentFrameIndex]
-        val currentFrameDuration = currentFrame.duration * speed
-        if (!isPlaying) return currentFrame.name
+    val frameIndex = currentFrameIndex.coerceIn(0, animationSequence.lastIndex)
+    val currentFrame = animationSequence[frameIndex]
+    val currentFrameDuration = currentFrame.duration
 
-        escapedTime += deltaTime
+    if (currentFrameDuration <= 0f) {
+        currentFrameIndex++
+        elapsedTime = 0f
+        return
+    }
 
-        if (escapedTime >= currentFrameDuration) {
-            escapedTime -= currentFrameDuration
+    elapsedTime += deltaTime * speed
 
-            currentFrameIndex++
+    while (elapsedTime >= currentFrameDuration) {
+        elapsedTime -= currentFrameDuration
+        currentFrameIndex++
 
-            if (currentFrameIndex >= animationSequence.size) {
-                if (loop) {
-                    currentFrameIndex = 0
-                } else {
-                    currentFrameIndex = animationSequence.size - 1
-                    isPlaying = false
-                    isStarted = false
-                }
+        if (currentFrameIndex >= animationSequence.size) {
+            if (loop) {
+                currentFrameIndex = 0
+            } else {
+                currentFrameIndex = animationSequence.size - 1
+                elapsedTime = currentFrameDuration
+                state = AnimationState.Stopped
+                break
             }
-
-            val nextFrame = animationSequence[currentFrameIndex]
-            return nextFrame.name
-        } else {
-            return currentFrame.name
         }
     }
+}
 
-    /**
-     * Starts the animation.
-     */
-    fun play() {
-        if (!isStarted) {
-            isStarted = true
-            escapedTime = 0f
-            currentFrameIndex = 0
-        }
+/**
+ * Gets the current frame name of the animation.
+ * @param atlas The image atlas of the sprite.
+ * @return The name of the current frame.
+ */
+fun SpriteAnimation.getCurrentFrameName(atlas: ImageAtlas): String {
+    val animationSequence = atlas.getAnimatedFrames(name)
+    val safeIndex = currentFrameIndex.coerceIn(0, animationSequence.lastIndex)
+    return animationSequence[safeIndex].name
+}
 
-        isPlaying = true
-    }
-
-    /**
-     * Pauses the animation.
-     */
-    fun pause() {
-        isPlaying = false
-    }
-
-    /**
-     * Stops the animation.
-     */
-    fun stop() {
-        isPlaying = false
-        isStarted = false
-        escapedTime = 0f
+/**
+ * Starts the animation.
+ */
+fun SpriteAnimation.play() {
+    if (state == AnimationState.Stopped) {
+        elapsedTime = 0f
         currentFrameIndex = 0
     }
+    state = AnimationState.Playing
+}
 
+/**
+ * Pauses the animation.
+ */
+fun SpriteAnimation.pause() {
+    state = AnimationState.Paused
+}
+
+/**
+ * Stops the animation.
+ */
+fun SpriteAnimation.stop() {
+    state = AnimationState.Stopped
+    elapsedTime = 0f
+    currentFrameIndex = 0
 }

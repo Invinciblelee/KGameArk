@@ -1,4 +1,4 @@
-package com.game.engine.asset
+package com.game.engine.image
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
+import com.game.engine.asset.ResourceProvider
 import com.game.engine.utils.getBoolean
 import com.game.engine.utils.getFloat
 import com.game.engine.utils.getInt

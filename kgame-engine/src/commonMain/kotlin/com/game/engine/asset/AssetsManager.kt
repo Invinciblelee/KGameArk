@@ -4,6 +4,8 @@ package com.game.engine.asset
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.decodeToImageBitmap
+import com.game.engine.image.ImageAtlas
+import com.game.engine.image.loadImageAtlas
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.Dispatchers

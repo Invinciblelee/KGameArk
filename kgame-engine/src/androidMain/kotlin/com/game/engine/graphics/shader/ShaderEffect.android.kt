@@ -9,19 +9,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
 
 internal class AndroidFallbackShaderEffect : ShaderEffect {
+    companion object {
+       val FallbackBrush = Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+    }
 
     override val supported: Boolean = false
     override var ready: Boolean = false
 
-    override fun build(): Brush {
-        return Brush.horizontalGradient(listOf(Color.White, Color.White))
+    override fun obtain(): Brush {
+        return FallbackBrush
     }
 
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-internal class AndroidShaderEffect(shader: Shader) : ShaderEffect {
+internal class AndroidShaderEffect(val shader: Shader) : ShaderEffect {
     private val compositeRuntimeEffect = RuntimeShader(shader.sksl)
+
+    private var brush: ShaderBrush? = null
+    private var size: Size = Size.Unspecified
 
     override val supported: Boolean = true
     override var ready: Boolean = false
@@ -58,15 +64,18 @@ internal class AndroidShaderEffect(shader: Shader) : ShaderEffect {
         compositeRuntimeEffect.setFloatUniform(name, values)
     }
 
-    override fun update(shader: Shader, time: Float, size: Size) {
-        if (size.isEmpty()) return
-        shader.applyUniforms(this, time, size.width, size.height)
+    override fun updateResolution(size: Size) {
+        if (this.size == size || size.isEmpty()) return
+        this.size = size
+        super.updateResolution(size)
         ready = true
     }
 
-    override fun build(): Brush {
-        return ShaderBrush(compositeRuntimeEffect)
+    override fun obtain(): Brush {
+        with(shader) { applyUniforms() }
+        return brush ?: ShaderBrush(compositeRuntimeEffect).also { brush = it }
     }
+
 }
 
 actual fun ShaderEffect(shader: Shader): ShaderEffect {

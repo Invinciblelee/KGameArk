@@ -2,6 +2,9 @@ package com.game.engine.graphics.shader
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.game.engine.graphics.shader.Shader.Companion.RESOLUTION
+import com.game.engine.graphics.shader.Shader.Companion.TIME
 
 /**
  * Describes a platform-independent shader effect
@@ -38,11 +41,29 @@ interface ShaderEffect {
     /** Sets a float array uniform for this shader */
     fun uniform(name: String, values: FloatArray) = Unit
 
-    /** Updates the uniforms for the shader, on changes of the size or time.*/
-    fun update(shader: Shader, time: Float, size: Size) {}
+    /** Sets a color uniform for this shader */
+    fun uniform(name: String, value: Color) {
+        uniform(name, value.red, value.green, value.blue)
+    }
 
-    /** Builds an updates ShaderBrush*/
-    fun build(): Brush
+    /** Sets colors uniform for this shader */
+    fun uniform(name: String, values: Array<Color>) {
+        uniform(name, values.flatMap { listOf(it.red, it.green, it.blue) }.toFloatArray())
+    }
+
+    /** Updates the resolution uniform.*/
+    fun updateResolution(size: Size) {
+        if (size.isEmpty()) return
+        uniform(RESOLUTION, size.width, size.height, size.width / size.height)
+    }
+
+    /** Updates the time uniform. */
+    fun updateTime(time: Float) {
+        uniform(TIME, time)
+    }
+
+    /** Obtains an updates ShaderBrush*/
+    fun obtain(): Brush
 }
 
 expect fun ShaderEffect(shader: Shader): ShaderEffect

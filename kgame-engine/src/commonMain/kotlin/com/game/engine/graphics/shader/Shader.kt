@@ -1,5 +1,8 @@
 package com.game.engine.graphics.shader
 
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontVariation.width
 
 data class ShaderMetadata(
     /** The name for this shader. */
@@ -23,9 +26,17 @@ data class ShaderMetadata(
 }
 
 /**
- * Interface to describe shaders supported by the [shaderBackground] Modifier.
+ * Interface to describe shaders supported by the [com.game.engine.ui.ShaderCanvas] Modifier.
  */
 interface Shader {
+
+    companion object {
+        const val RESOLUTION = "uResolution"
+        const val TIME = "uTime"
+
+        const val COLOR = "uColor"
+        const val COLORS = "uColors"
+    }
 
     /**
      * Contains the metadata for this shader
@@ -33,17 +44,14 @@ interface Shader {
     val metadata: ShaderMetadata
         get() = ShaderMetadata.Default
 
-    /** Defaut time modifier for this shader */
+    /** Default time modifier for this shader */
     val speedModifier: Float
-        get() = 0.5f
+        get() = 1f
 
     /** Contains the sksl shader*/
     val sksl: String
 
     /** Applies the uniforms required for this shader to the effect */
-    fun applyUniforms(runtimeEffect: ShaderEffect, time: Float, width: Float, height: Float) {
-        runtimeEffect.uniform("uResolution", width, height, width / height)
-        runtimeEffect.uniform("uTime", time)
-    }
+    fun ShaderEffect.applyUniforms() = Unit
 
 }

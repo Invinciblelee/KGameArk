@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.unit.dp
 import cmp.composeapp.generated.resources.Res
@@ -53,13 +52,14 @@ import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.geometry.ViewportTransform
 import com.game.engine.geometry.clampInBounds
 import com.game.engine.geometry.safeBounds
-import com.game.engine.graphics.shader.MesmerizingLens
+import com.game.engine.graphics.shader.GlossyGradient
+import com.game.engine.graphics.shader.MeshGradient
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
+import com.game.engine.ui.ActiveRectangle
 import com.game.engine.ui.GameJoypad
 import com.game.engine.ui.Rectangle
-import com.game.engine.ui.ShaderCanvas
 import com.game.engine.ui.applyToInput
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
@@ -70,7 +70,6 @@ import com.game.plugins.components.Elasticity
 import com.game.plugins.components.InfiniteRepeatable
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
-import com.game.plugins.components.RotationAnimation
 import com.game.plugins.components.ScaleAnimation
 import com.game.plugins.components.Spring
 import com.game.plugins.components.Sprite
@@ -91,7 +90,6 @@ import com.game.plugins.systems.RenderSystem
 import com.game.plugins.systems.SteeringSystem
 import kotlin.math.hypot
 import kotlin.random.Random
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 enum class WuXing(val color: Color) {
@@ -684,9 +682,7 @@ fun GameDemo(context: PlatformContext) {
             onRender { fpsCalculator.advanceFrame() }
 
             onBackgroundUI {
-                ShaderCanvas(MesmerizingLens) {
-                    drawRect(it)
-                }
+                ActiveRectangle(MeshGradient(arrayOf(Color.Red, Color.Blue, Color.Green, Color.Yellow)))
             }
 
             onForegroundUI {

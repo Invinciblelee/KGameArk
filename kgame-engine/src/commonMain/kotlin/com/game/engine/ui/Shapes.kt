@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.isUnspecified
+import com.game.engine.graphics.shader.Shader
+import com.game.engine.graphics.shader.ShaderEffect
 
 @Composable
 fun Circle(color: Color, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
@@ -28,6 +30,34 @@ fun Circle(brush: Brush, radius: Dp = Dp.Unspecified, modifier: Modifier = Modif
 }
 
 @Composable
+fun StaticCircle(shader: Shader, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
+    val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
+    StaticShaderCanvas(shader, modifier.then(sizeModifier)) {
+        drawCircle(it)
+    }
+}
+
+@Composable
+fun ActiveCircle(
+    shader: Shader,
+    radius: Dp = Dp.Unspecified,
+    speed: Float = 1f,
+    modifier: Modifier = Modifier,
+    onUpdate: ShaderEffect.() -> Unit = {}
+) {
+    val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
+    ActiveShaderCanvas(
+        shader = shader,
+        speed = speed,
+        modifier = modifier.then(sizeModifier),
+        onUpdate = onUpdate
+    ) {
+        drawCircle(it)
+    }
+}
+
+
+@Composable
 fun Rectangle(color: Color, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
     Canvas(modifier.then(sizeModifier)) {
@@ -40,5 +70,32 @@ fun Rectangle(brush: Brush, size: DpSize = DpSize.Unspecified, modifier: Modifie
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
     Canvas(modifier.then(sizeModifier)) {
         drawRect(brush)
+    }
+}
+
+@Composable
+fun Rectangle(shader: Shader, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
+    val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
+    StaticShaderCanvas(shader, modifier.then(sizeModifier)) {
+        drawRect(it)
+    }
+}
+
+@Composable
+fun ActiveRectangle(
+    shader: Shader,
+    size: DpSize = DpSize.Unspecified,
+    speed: Float = 1f,
+    modifier: Modifier = Modifier,
+    onUpdate: ShaderEffect.() -> Unit = {}
+) {
+    val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
+    ActiveShaderCanvas(
+        shader = shader,
+        speed = speed,
+        modifier = modifier.then(sizeModifier),
+        onUpdate = onUpdate
+    ) {
+        drawRect(it)
     }
 }

@@ -10,7 +10,7 @@ import androidx.compose.ui.layout.lerp
 import androidx.compose.ui.util.lerp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
-import com.game.engine.math.positionOf
+import com.game.engine.geometry.toOffset
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.max
@@ -31,10 +31,10 @@ data class Transform(
 }
 
 val Transform.rotationPivotOffset: Offset
-    get() = size.positionOf(rotationPivot)
+    get() = size.toOffset(rotationPivot)
 
 val Transform.scalePivotOffset: Offset
-    get() = size.positionOf(scalePivot)
+    get() = size.toOffset(scalePivot)
 
 /**
  * Calculates the world-axis aligned bounding box (AABB) for the entity.

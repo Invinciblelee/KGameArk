@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.game.engine.geometry.ViewportScaleType
 import com.game.engine.geometry.ViewportTransform
-import com.game.engine.math.positionOf
+import com.game.engine.geometry.toOffset
 import com.game.plugins.components.Camera
 import com.game.plugins.components.Transform
 
@@ -103,8 +103,8 @@ inline fun DrawScope.withLocalTransform(
             val offsetX = -currentSize.width / 2f
             val offsetY = -currentSize.height / 2f
             translate(transform.position.x + offsetX, transform.position.y + offsetY)
-            rotate(transform.rotation, currentSize.positionOf(transform.rotationPivot))
-            scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.positionOf(transform.scalePivot))
+            rotate(transform.rotation, currentSize.toOffset(transform.rotationPivot))
+            scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.toOffset(transform.scalePivot))
         }) {
             block()
         }

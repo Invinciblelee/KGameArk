@@ -1,9 +1,5 @@
 package com.game.engine.graphics.shader
 
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontVariation.width
-
 data class ShaderMetadata(
     /** The name for this shader. */
     val name: String,

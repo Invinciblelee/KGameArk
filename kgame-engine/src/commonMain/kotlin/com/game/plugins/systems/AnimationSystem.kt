@@ -30,7 +30,15 @@ class AnimationSystem(
     val cameraService: CameraService = inject()
 ) : IteratingSystem(
     family = family {
-        all(Transform).any(TranslationAnimation, RotationAnimation, ScaleAnimation, AlphaAnimation, SpriteAnimation, Renderable)
+        all(Transform)
+        any(
+            TranslationAnimation,
+            RotationAnimation,
+            ScaleAnimation,
+            AlphaAnimation,
+            SpriteAnimation,
+            Renderable
+        )
     }
 ) {
 

@@ -3,37 +3,57 @@ package com.game.plugins.systems
 import com.game.ecs.Entity
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
-import com.game.plugins.components.Arriver
-import com.game.plugins.components.FollowTarget
-import com.game.plugins.components.RigidBody
-import com.game.plugins.components.Elasticity
-import com.game.plugins.components.Transform
-import com.game.plugins.components.applyArriverForce
-import com.game.plugins.components.applyElasticityForce
+import com.game.plugins.components.* // Import all components
 
 /**
- * The SteeringSystem is responsible for updating all entities with rigid bodies.
+ * The SteeringSystem is responsible for applying forces to entities to create
+ * autonomous movement behaviors like arriving, following, or wandering.
  */
-class SteeringSystem: IteratingSystem(
-    family = family { all(Transform, RigidBody, FollowTarget).any(Arriver, Elasticity) }
+class SteeringSystem : IteratingSystem(
+    family = family {
+        all(Transform, RigidBody)
+        // An entity can have any of these behaviors
+        any(Wander, Arriver, Elasticity, ArriveTarget, FollowTarget)
+    }
 ) {
-
     override fun onTickEntity(entity: Entity) {
         val transform = entity[Transform]
-
-        val target = entity[FollowTarget]
-        val targetPosition = target.entity[Transform].position
         val rigidBody = entity[RigidBody]
 
-        val arriver = entity.getOrNull(Arriver)
-        if (arriver != null) {
-            rigidBody.applyArriverForce(transform, arriver, targetPosition)
+        // 1. Check for one-shot "ArriveTarget" command first.
+        val arriveTarget = entity.getOrNull(ArriveTarget)
+        if (arriveTarget != null) {
+            val distanceToTarget = (arriveTarget.position - transform.position).getDistance()
+            // Check if we have arrived (e.g., within a small threshold)
+            if (distanceToTarget < 10f) { // 10 pixels is our arrival threshold
+                entity.configure { it -= ArriveTarget } // Remove the component to stop the behavior.
+            } else {
+                // We still need an Arriver component to define *how* to arrive.
+                entity.getOrNull(Arriver)?.let { arriver ->
+                    rigidBody.applyArriverForce(transform, arriver, arriveTarget.position)
+                }
+            }
+            return
         }
 
-        val elasticity = entity.getOrNull(Elasticity)
-        if (elasticity != null) {
-            rigidBody.applyElasticityForce(transform, elasticity, targetPosition)
+        // 2. Check for persistent "FollowTarget" behavior.
+        val followTarget = entity.getOrNull(FollowTarget)
+        if (followTarget != null) {
+            val targetPosition = followTarget.entity[Transform].position
+
+            entity.getOrNull(Arriver)?.let { arriver ->
+                rigidBody.applyArriverForce(transform, arriver, targetPosition)
+                return
+            }
+            entity.getOrNull(Elasticity)?.let { elasticity ->
+                rigidBody.applyElasticityForce(transform, elasticity, targetPosition)
+                return
+            }
+        }
+
+        // 3. If no other behaviors are active, wander.
+        entity.getOrNull(Wander)?.let { wander ->
+            rigidBody.applyWanderForce(wander)
         }
     }
-
 }

@@ -19,7 +19,7 @@ fun Offset.getAngleRadians(): Float {
  * The angle degrees of the Offset
  */
 fun Offset.getAngleDegrees(): Float {
-    val angle = getAngleDegrees()
+    val angle = getAngleRadians()
     return (angle * 180 / PI).toFloat()
 }
 

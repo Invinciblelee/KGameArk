@@ -599,7 +599,7 @@ fun GameDemo(context: PlatformContext) {
                     +PlayerControlSystem()
                     +SilkControlSystem()
                     +SteeringSystem()
-                    +PhysicsSystem()
+                    +PhysicsSystem(gravity = Offset.Zero)
                     +SilkPhysicsSystem()
                     +SilkCollisionSystem()
                     +CameraSystem()

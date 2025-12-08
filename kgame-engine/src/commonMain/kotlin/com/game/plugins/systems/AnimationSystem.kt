@@ -50,8 +50,7 @@ class AnimationSystem(
         }
 
         val translationAnimation = entity.getOrNull(TranslationAnimation)
-        if (translationAnimation != null) {
-            translationAnimation.update(deltaTime)
+        if (translationAnimation != null && translationAnimation.update(deltaTime)) {
             transform.applyTranslation(
                 fromPosition = translationAnimation.from,
                 toPosition = translationAnimation.to,
@@ -60,8 +59,7 @@ class AnimationSystem(
         }
 
         val rotationAnimation = entity.getOrNull(RotationAnimation)
-        if (rotationAnimation != null) {
-            rotationAnimation.update(deltaTime)
+        if (rotationAnimation != null && rotationAnimation.update(deltaTime)) {
             transform.applyRotation(
                 fromDegrees = rotationAnimation.from,
                 toDegrees = rotationAnimation.to,
@@ -71,8 +69,7 @@ class AnimationSystem(
         }
 
         val scaleAnimation = entity.getOrNull(ScaleAnimation)
-        if (scaleAnimation != null) {
-            scaleAnimation.update(deltaTime)
+        if (scaleAnimation != null && scaleAnimation.update(deltaTime)) {
             transform.applyScale(
                 fromScale = scaleAnimation.from,
                 toScale = scaleAnimation.to,
@@ -86,15 +83,13 @@ class AnimationSystem(
             val sprite = renderable.visual as? Sprite
             if (sprite != null) {
                 val spriteAnimation = entity.getOrNull(SpriteAnimation)
-                if (spriteAnimation != null) {
-                    spriteAnimation.update(sprite.atlas, deltaTime)
+                if (spriteAnimation != null && spriteAnimation.update(sprite.atlas, deltaTime)) {
                     sprite.setFrame(spriteAnimation.getCurrentFrameName(sprite.atlas))
                 }
             }
 
             val alphaAnimation = entity.getOrNull(AlphaAnimation)
-            if (alphaAnimation != null) {
-                alphaAnimation.update(deltaTime)
+            if (alphaAnimation != null && alphaAnimation.update(deltaTime)) {
                 renderable.applyAlpha(
                     fromAlpha = alphaAnimation.from,
                     toAlpha = alphaAnimation.to,

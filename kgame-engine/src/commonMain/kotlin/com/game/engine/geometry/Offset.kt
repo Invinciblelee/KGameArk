@@ -2,6 +2,7 @@ package com.game.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ScaleFactor
+import com.game.engine.geometry.normalized
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -9,19 +10,22 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * The angle radians of the Offset
+ * The angle of this [Offset] in degrees, in the range from -180 to 180.
  */
-fun Offset.getAngleRadians(): Float {
+fun Offset.angleDegrees(): Float {
+    return (angleRadians() * 180 / PI).toFloat()
+}
+
+
+
+/**
+ * The angle of this [Offset] in radians, in the range from -PI to PI.
+ * This is calculated using `atan2(y, x)`.
+ */
+fun Offset.angleRadians(): Float {
     return atan2(y, x)
 }
 
-/**
- * The angle degrees of the Offset
- */
-fun Offset.getAngleDegrees(): Float {
-    val angle = getAngleDegrees()
-    return (angle * 180 / PI).toFloat()
-}
 
 /**
  * The normalized Offset
@@ -66,7 +70,7 @@ fun Offset.radiansTo(other: Offset): Float {
  * The angle degrees to the target Offset
  */
 fun Offset.degreesTo(other: Offset): Float {
-    val rad = degreesTo(other)
+    val rad = radiansTo(other)
     return (rad * 180 / PI).toFloat()
 }
 

@@ -117,15 +117,16 @@ class AlphaAnimation(
 /**
  * Updates the animation's progress based on the given delta time.
  * @param deltaTime The time elapsed since the last frame in seconds.
- * @return The current progress of the animation, ranging from 0.0 to 1.0.
+ * @return Whether the animation has updated its loop.
  */
-fun Animation<*>.update(deltaTime: Float) {
-    if (this.state != AnimationState.Playing) return
+fun Animation<*>.update(deltaTime: Float): Boolean {
+    if (this.state != AnimationState.Playing) return false
     this.elapsedTime += deltaTime
     if (!this.isInfinite && this.elapsedTime >= this.duration()) {
         this.elapsedTime = this.duration()
         this.state = AnimationState.Stopped
     }
+    return true
 }
 
 /**

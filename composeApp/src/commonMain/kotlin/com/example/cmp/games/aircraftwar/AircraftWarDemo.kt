@@ -35,6 +35,7 @@ import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.clampInBounds
 import com.game.engine.geometry.safeBounds
 import com.game.engine.graphics.shader.BlueSky
 import com.game.engine.input.InputManager

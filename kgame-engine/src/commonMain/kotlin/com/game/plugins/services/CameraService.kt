@@ -353,6 +353,16 @@ class CoordinateTransformer(
 
         return Offset(x + cx, y + cy)
     }
+
+    /**
+     * Clamps an offset within the camera's world bounds.
+     * @param position The offset to be clamped.
+     */
+    fun clampInBounds(position: Offset): Offset {
+        val worldBounds = cameraService.mainCamera?.worldBounds ?: return position
+        return viewportTransform.clampInBounds(worldBounds, position)
+    }
+
 }
 
 class CameraFrustumCuller(

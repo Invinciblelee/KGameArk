@@ -46,12 +46,10 @@ import kotlin.random.Random
 
 private class MovementSystem(
     val cameraService: CameraService = inject(),
-    val viewportTransform: ViewportTransform = inject()
 ) : IteratingSystem(
     family { all(Transform, RigidBody) }
 ) {
 
-    val worldBounds = Rect(Offset.Zero, viewportTransform.virtualSize)
 
     override fun onTickEntity(entity: Entity) {
         val t = entity[Transform]
@@ -64,10 +62,7 @@ private class MovementSystem(
         )
 
         /* 边界反弹：一行调用你的封装（零临时对象） */
-        val clamped = viewportTransform.clampInBounds(
-            worldBounds = worldBounds,
-            position = t.position
-        )
+        val clamped = cameraService.transformer.clampInBounds(t.position)
 
         /* 若被 clamp → 反弹速度 */
         if (clamped.x != t.position.x) r.velocity = r.velocity.copy(x = -r.velocity.x)

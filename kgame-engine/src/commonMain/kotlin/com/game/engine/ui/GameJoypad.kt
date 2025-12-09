@@ -21,7 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.game.engine.geometry.getAngleDegrees
+import com.game.engine.geometry.angleDegrees
 import com.game.engine.input.InputManager
 import kotlinx.coroutines.isActive
 
@@ -69,7 +69,7 @@ fun GameJoypad(
         val clampVec = if (len == 0f) Offset.Zero else vec * (clampLen / len)
         JoypadValue(
             vector = if (inDead) Offset.Zero else clampVec / pxRadius,
-            angle = vec.getAngleDegrees(),
+            angle = vec.angleDegrees(),
             strength = (len / pxRadius).coerceIn(0f, 1f)
         )
     }

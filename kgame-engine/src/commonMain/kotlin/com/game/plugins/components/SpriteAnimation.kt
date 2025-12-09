@@ -30,9 +30,10 @@ data class SpriteAnimation(
  * Updates the animation state of the sprite.
  * @param atlas The image atlas of the sprite.
  * @param deltaTime The time elapsed since the last frame.
+ * @return Whether the animation has updated its loop.
  */
-fun SpriteAnimation.update(atlas: ImageAtlas, deltaTime: Float) {
-    if (state != AnimationState.Playing) return
+fun SpriteAnimation.update(atlas: ImageAtlas, deltaTime: Float): Boolean {
+    if (state != AnimationState.Playing) return false
 
     val animationSequence = atlas.getAnimatedFrames(name)
 
@@ -43,7 +44,7 @@ fun SpriteAnimation.update(atlas: ImageAtlas, deltaTime: Float) {
     if (currentFrameDuration <= 0f) {
         currentFrameIndex++
         elapsedTime = 0f
-        return
+        return true
     }
 
     elapsedTime += deltaTime * speed
@@ -63,6 +64,7 @@ fun SpriteAnimation.update(atlas: ImageAtlas, deltaTime: Float) {
             }
         }
     }
+    return true
 }
 
 /**

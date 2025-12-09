@@ -662,22 +662,22 @@ fun GameDemo(context: PlatformContext) {
                     it += Transform(mapBounds.randomOffset(), size = Size((25f..50f).random(), (25f..50f).random()))
                     it += RigidBody(Offset(velX, velY), mass = mass)
                     it += enemyInstance
-                    it += ScaleAnimation(
-                        from = 0f,
-                        to = 1f,
-                        spec = InfiniteRepeatable(
-                            Tween(1f, easing = EaseOutOvershoot),
-                            RepeatMode.Reverse
-                        )
-                    )
-                    it += AlphaAnimation(
-                        from = 0f,
-                        to = 1f,
-                        spec = InfiniteRepeatable(
-                            Tween(2f, easing = LinearEasing),
-                            RepeatMode.Reverse
-                        )
-                    )
+//                    it += ScaleAnimation(
+//                        from = 0f,
+//                        to = 1f,
+//                        spec = InfiniteRepeatable(
+//                            Tween(1f, easing = EaseOutOvershoot),
+//                            RepeatMode.Reverse
+//                        )
+//                    )
+//                    it += AlphaAnimation(
+//                        from = 0f,
+//                        to = 1f,
+//                        spec = InfiniteRepeatable(
+//                            Tween(2f, easing = LinearEasing),
+//                            RepeatMode.Reverse
+//                        )
+//                    )
                     it += Renderable(EnemyVisual(enemyInstance, color = Color.random()))
                 }
             }

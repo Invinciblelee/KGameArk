@@ -13,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.cmp.games.CoolGeometricSilk
 
 @Composable
 fun HomeScreen(
@@ -27,12 +26,6 @@ fun HomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Welcome to Nav3")
-
-            CoolGeometricSilk(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            )
 
             Button(onClick = {
                 // To navigate to a new route, just add that route to the back stack

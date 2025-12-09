@@ -1,7 +1,6 @@
 package com.game.ecs
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.util.fastForEach
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.ecs.collection.EntityBag
@@ -152,47 +151,29 @@ class World internal constructor(
      *
      * ```
      * entity {
-     *     // modifying the current entity is allowed ✅
-     *     it += Position()
-     *     // don't modify other entities ❌
-     *     someOtherEntity += Position()
+     *    + Position()
      * }
      * ```
      */
-    inline fun entity(configuration: EntityCreateContext.(Entity) -> Unit = {}): Entity {
+    inline fun entity(configuration: EntityCreateScope.() -> Unit = {}): Entity {
         return entityService.create(configuration)
     }
 
     /**
      * Adds a new [entity][Entity] to the world using the given [configuration][EntityCreateContext].
      */
-    inline fun entities(count: Int, configuration: EntityCreateContext.(Entity) -> Unit = {}) {
-        repeat(count) {
-            entityService.create(configuration)
-        }
-    }
-
-    /**
-     * Returns true if and only if the [entity] is not removed and is part of the [World].
-     */
-    operator fun contains(entity: Entity) = entityService.contains(entity)
-
-    /**
-     * Removes the given [entity] from the world. The [entity] will be recycled and reused for
-     * future calls to [World.entity].
-     */
-    operator fun minusAssign(entity: Entity) {
-        entityService -= entity
+    inline fun entities(count: Int, configuration: EntityCreateScope.() -> Unit = {}) {
+        repeat(count) { entityService.create(configuration) }
     }
 
     /**
      * Removes all [entities][Entity] from the world. The entities will be recycled and reused for
      * future calls to [World.entity].
-     * If [clearRecycled] is true then the recycled entities are cleared and the ids for newly
+     * If [reset] is true then the recycled entities are cleared and the ids for newly
      * created entities start at 0 again.
      */
-    fun removeAll(clearRecycled: Boolean = false) {
-        entityService.removeAll(clearRecycled)
+    fun removeAll(reset: Boolean = false) {
+        entityService.removeAll(reset)
     }
 
     /**

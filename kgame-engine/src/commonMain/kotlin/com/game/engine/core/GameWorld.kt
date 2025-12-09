@@ -19,13 +19,13 @@ internal class GameWorld(
             val cameraService = CameraService(scope.viewportTransform)
 
             internalInjectables {
-                add(scope)
-                add(scope.input)
-                add(scope.audio)
-                add(scope.assets)
-                add(scope.viewportTransform)
-                add(scope.textMeasurer)
-                add(cameraService)
+                +scope
+                +scope.input
+                +scope.audio
+                +scope.assets
+                +scope.viewportTransform
+                +scope.textMeasurer
+                +cameraService
             }
 
             configuration()

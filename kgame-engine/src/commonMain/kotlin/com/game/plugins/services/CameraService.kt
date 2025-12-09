@@ -104,7 +104,7 @@ class CameraDirector(
         if (progress >= 1f) {
             transform.position = transition.targetPosition
 
-            entity.configure { it -= CameraTransition }
+            entity.configure { -CameraTransition }
             val cameraTargetName = entity.getOrNull(CameraTarget)?.name
             if (cameraTargetName == transition.targetCamera) {
                 entity[Camera].isTracking = !transition.finishTracking
@@ -175,13 +175,13 @@ class CameraDirector(
 
         if (activeCameraEntity != null) {
             // Start the transition on the currently active camera
+            val camera = activeCameraEntity[Camera]
             activeCameraEntity.configure {
-                val camera = it[Camera]
                 val clampedTargetPos = viewportTransform.clampInBounds(
                     worldBounds = camera.mapBounds,
                     position = targetPosition
                 )
-                it += CameraTransition(
+                +CameraTransition(
                     targetCamera = name,
                     targetPosition = clampedTargetPos,
                     duration = duration,
@@ -209,10 +209,9 @@ class CameraDirector(
     ) {
         // 1. Find the currently active camera entity
         val activeCameraEntity = cameraService.activeCameraEntity ?: return
-
+        val camera = activeCameraEntity[Camera]
+        val cameraTarget = activeCameraEntity[CameraTarget]
         activeCameraEntity.configure {
-            val camera = it[Camera]
-
             // 2. Clamp the raw target position to ensure the viewport remains in bounds.
             val clampedTargetPos = viewportTransform.clampInBounds(
                 worldBounds = camera.mapBounds,
@@ -220,11 +219,11 @@ class CameraDirector(
             )
 
             // 3. Initiate the transition
-            it += CameraTransition(
+            +CameraTransition(
                 // Use the existing CameraTarget name as the 'next' name.
                 // This signals 'completeTransition' to *not* switch active camera,
                 // but simply remove the component and resume normal follow logic.
-                targetCamera = it[CameraTarget].name,
+                targetCamera = cameraTarget.name,
                 targetPosition = clampedTargetPos,
                 duration = duration,
                 finishTracking = finishTracking

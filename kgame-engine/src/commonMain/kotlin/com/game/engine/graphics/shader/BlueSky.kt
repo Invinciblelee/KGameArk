@@ -26,7 +26,7 @@ class BlueSky(
     )
 
     override val speedModifier: Float
-        get() = 0.5f
+        get() = 1f
 
     @Language("AGSL")
     override val sksl: String = """

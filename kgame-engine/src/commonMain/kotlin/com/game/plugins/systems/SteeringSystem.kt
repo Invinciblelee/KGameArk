@@ -26,7 +26,7 @@ class SteeringSystem : IteratingSystem(
             val distanceToTarget = (arriveTarget.position - transform.position).getDistance()
             // Check if we have arrived (e.g., within a small threshold)
             if (distanceToTarget < 10f) { // 10 pixels is our arrival threshold
-                entity.configure { it -= ArriveTarget } // Remove the component to stop the behavior.
+                entity.configure { -ArriveTarget } // Remove the component to stop the behavior.
             } else {
                 // We still need an Arriver component to define *how* to arrive.
                 entity.getOrNull(Arriver)?.let { arriver ->

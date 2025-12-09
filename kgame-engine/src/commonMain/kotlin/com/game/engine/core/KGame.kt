@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalResourceApi::class)
+
 package com.game.engine.core
 
 import androidx.compose.animation.ContentTransform
@@ -7,13 +9,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -33,12 +35,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.ui.NavDisplay
 import com.game.engine.asset.DefaultAssetsManager
-import com.game.engine.asset.ResourceProvider
 import com.game.engine.context.PlatformContext
 import com.game.engine.dsl.GameSceneProvider
 import com.game.engine.dsl.GameSceneProviderScope
 import com.game.engine.dsl.SceneBuilderScope
-import kotlinx.coroutines.coroutineScope
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.LocalResourceReader
 
 /**
  * The main entry point of the game.
@@ -87,21 +89,21 @@ import kotlinx.coroutines.coroutineScope
  *          world(configuration = {
  *              injectables {
  *                  "key" + "value"
- *                  + ViewModel()
+ *                  +ViewModel()
  *              }
  *              systems {
- *                  + PhysicsSystem()
- *                  + RenderSystem()
+ *                  +PhysicsSystem()
+ *                  +RenderSystem()
  *              }
  *          }) {
  *              entity {
- *                  it += Transform()
- *                  it += Camera()
+ *                  +Transform()
+ *                  +Camera()
  *              }
  *
  *              entities(100) {
- *                  it += Transform()
- *                  it += Renderable(Rectangle(Color.Red))
+ *                  +Transform()
+ *                  +Renderable(Rectangle(Color.Red))
  *              }
  *          }
  *
@@ -120,7 +122,6 @@ import kotlinx.coroutines.coroutineScope
 fun <T : Any> KGame(
     context: PlatformContext,
     sceneStack: GameSceneStack<T>,
-    resourceProvider: ResourceProvider,
     virtualSize: Size = Size(800f, 600f),
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
@@ -128,11 +129,12 @@ fun <T : Any> KGame(
     sceneBuilder: GameSceneProviderScope<T>.() -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
+    val resourceReader = LocalResourceReader.current
     val engine = remember {
         GameEngine(
             context = context,
             textMeasurer = textMeasurer,
-            assets = DefaultAssetsManager(resourceProvider)
+            assets = DefaultAssetsManager(resourceReader)
         )
     }
 
@@ -157,7 +159,7 @@ fun <T : Any> KGame(
     }
 
     LaunchedEffect(Unit) {
-        engine.startFrameLoop()
+        engine.startTicking()
     }
 
     GameShell(
@@ -166,14 +168,13 @@ fun <T : Any> KGame(
         background = background,
         foreground = foreground,
         sceneBuilder = sceneBuilder,
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
     )
 }
 
 @Composable
 fun KSimpleGame(
     context: PlatformContext,
-    resourceProvider: ResourceProvider,
     virtualSize: Size = Size(800f, 600f),
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
@@ -183,7 +184,6 @@ fun KSimpleGame(
     KGame(
         context = context,
         sceneStack = rememberGameSceneStack(Unit),
-        resourceProvider = resourceProvider,
         virtualSize = virtualSize,
         modifier = modifier,
         foreground = foreground,

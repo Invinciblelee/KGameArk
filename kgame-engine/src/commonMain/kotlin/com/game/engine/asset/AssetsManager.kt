@@ -1,4 +1,5 @@
 @file:Suppress("UNCHECKED_CAST")
+@file:OptIn(ExperimentalResourceApi::class)
 
 package com.game.engine.asset
 
@@ -10,6 +11,8 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.ResourceReader
 import kotlin.jvm.JvmInline
 
 /**
@@ -60,17 +63,6 @@ value class SoundKey(override val source: String) : AssetKey<String, SourceUri>
 value class MusicKey(override val source: String): AssetKey<String, SourceUri>
 
 /**
- * Provides access to resources.
- */
-interface ResourceProvider {
-
-    suspend fun read(path: String): ByteArray
-
-    fun getUri(path: String): String
-
-}
-
-/**
  * Manages the loading and unloading of assets.
  */
 interface AssetsManager {
@@ -106,7 +98,7 @@ interface AssetsManager {
  * Default implementation of [AssetsManager].
  */
 class DefaultAssetsManager(
-    private val resourceProvider: ResourceProvider
+    private val resourceReader: ResourceReader
 ): AssetsManager {
 
     private val cache = HashMap<AssetKey<*, *>, Any>()
@@ -117,19 +109,19 @@ class DefaultAssetsManager(
 
         val loadedObject = when (key) {
             is ImageKey -> {
-                resourceProvider.read(key.source).decodeToImageBitmap()
+                resourceReader.read(key.source).decodeToImageBitmap()
             }
 
             is TextKey -> {
-                resourceProvider.read(key.source).decodeToString()
+                resourceReader.read(key.source).decodeToString()
             }
 
             is VideoKey, is SoundKey, is MusicKey -> {
-                AssetUri(resourceProvider.getUri(key.source))
+                AssetUri(resourceReader.getUri(key.source))
             }
 
             is AtlasKey -> {
-                loadImageAtlas(resourceProvider, key.source)
+                loadImageAtlas(resourceReader, key.source)
             }
         }
 

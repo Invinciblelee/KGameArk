@@ -1,23 +1,25 @@
 @file:OptIn(ExperimentalTime::class)
 
-package com.example.cmp.games
+package com.example.cmp.games.common
 
-import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.FrameRateCategory
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -28,10 +30,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.preferredFrameRate
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import cmp.composeapp.generated.resources.Res
+import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
@@ -40,29 +40,22 @@ import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
-import com.game.engine.asset.AtlasKey
-import com.game.engine.asset.ImageKey
-import com.game.engine.asset.MusicKey
-import com.game.engine.asset.ResourceProvider
-import com.game.engine.asset.SoundKey
 import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
-import com.game.engine.core.KSimpleGame
 import com.game.engine.core.rememberGameSceneStack
-import com.game.engine.geometry.ViewportTransform
-import com.game.engine.geometry.clampInBounds
 import com.game.engine.geometry.safeBounds
 import com.game.engine.graphics.shader.BlueSky
-import com.game.engine.graphics.shader.GlossyGradient
-import com.game.engine.graphics.shader.MeshGradient
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
 import com.game.engine.ui.ActiveRectangle
+import com.game.engine.ui.DraggableWindow
+import com.game.engine.ui.DraggableWindowGroup
 import com.game.engine.ui.GameJoypad
 import com.game.engine.ui.Rectangle
 import com.game.engine.ui.applyToInput
+import com.game.engine.ui.rememberDraggableWindowManager
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
 import com.game.plugins.components.AlphaAnimation
@@ -82,20 +75,19 @@ import com.game.plugins.components.Visual
 import com.game.plugins.components.applyImpulseFromSegment
 import com.game.plugins.components.applyKinematicMovement
 import com.game.plugins.components.applyScale
-import com.game.plugins.components.play
 import com.game.plugins.components.shake
 import com.game.plugins.services.CameraService
 import com.game.plugins.systems.AnimationSystem
 import com.game.plugins.systems.CameraSystem
-import com.game.plugins.systems.CollisionSystem
 import com.game.plugins.systems.PhysicsSystem
 import com.game.plugins.systems.RenderSystem
 import com.game.plugins.systems.SteeringSystem
 import kotlin.math.hypot
 import kotlin.random.Random
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
-enum class WuXing(val color: Color) {
+private enum class WuXing(val color: Color) {
     Metal(Color(0xFFFFD700)),
     Wood(Color(0xFF69F0AE)),
     Water(Color(0xFF40C4FF)),
@@ -103,17 +95,19 @@ enum class WuXing(val color: Color) {
     Earth(Color(0xFF8D6E63))
 }
 
-class PlayerTag : Component<PlayerTag> {
+private class PlayerTag : Component<PlayerTag> {
     override fun type() = PlayerTag
+
     companion object : ComponentType<PlayerTag>()
 }
 
-class EnemyTag(var isTrapped: Boolean = false) : Component<EnemyTag> {
+private class EnemyTag(var isTrapped: Boolean = false) : Component<EnemyTag> {
     override fun type() = EnemyTag
+
     companion object : ComponentType<EnemyTag>()
 }
 
-data class SilkNode(
+private data class SilkNode(
     var x: Float,
     var y: Float,
     var oldX: Float = x,
@@ -123,11 +117,12 @@ data class SilkNode(
     var pinned: Boolean = false
 )
 
-data class SilkComponent(
+private data class SilkComponent(
     var type: WuXing = WuXing.Water,
     val nodes: ArrayList<SilkNode> = ArrayList()
 ) : Component<SilkComponent> {
     override fun type() = SilkComponent
+
     companion object : ComponentType<SilkComponent>()
 
     init {
@@ -139,23 +134,24 @@ data class SilkComponent(
     }
 }
 
-class SilkBounds(
+private class SilkBounds(
     var minX: Float = 0f,
     var minY: Float = 0f,
     var maxX: Float = 0f,
     var maxY: Float = 0f
 ) : Component<SilkBounds> {
     override fun type() = SilkBounds
+
     companion object : ComponentType<SilkBounds>()
 }
 
-class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual() {
+private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual() {
     override fun DrawScope.draw() {
         drawCircle(if (enemyTag.isTrapped) Color.Black else color ?: Color.Gray, alpha = alpha)
     }
 }
 
-class PlayerVisual(assets: AssetsManager) : Visual() {
+private class PlayerVisual(assets: AssetsManager) : Visual() {
     val player = assets[GameAssets.Image.Player]
 
     override fun DrawScope.draw() {
@@ -163,7 +159,7 @@ class PlayerVisual(assets: AssetsManager) : Visual() {
     }
 }
 
-class SilkVisual(private val silkComponent: SilkComponent) : Visual() {
+private class SilkVisual(private val silkComponent: SilkComponent) : Visual() {
     private val path = Path()
 
     override fun DrawScope.draw() {
@@ -191,13 +187,23 @@ class SilkVisual(private val silkComponent: SilkComponent) : Visual() {
         path.lineTo(nodes.last().x + halfW, nodes.last().y + halfH)
 
 
-        drawPath(path, silkComponent.type.color.copy(0.2f), style = Stroke(20f, cap = StrokeCap.Round), alpha = alpha)
-        drawPath(path, silkComponent.type.color, style = Stroke(5f, cap = StrokeCap.Round), alpha = alpha)
+        drawPath(
+            path,
+            silkComponent.type.color.copy(0.2f),
+            style = Stroke(20f, cap = StrokeCap.Round),
+            alpha = alpha
+        )
+        drawPath(
+            path,
+            silkComponent.type.color,
+            style = Stroke(5f, cap = StrokeCap.Round),
+            alpha = alpha
+        )
         drawPath(path, Color.White, style = Stroke(2f, cap = StrokeCap.Round), alpha = alpha)
     }
 }
 
-class SilkPhysicsSystem(
+private class SilkPhysicsSystem(
     val input: InputManager = inject(),
     val cameraService: CameraService = inject()
 ) : IntervalSystem() {
@@ -342,7 +348,7 @@ class SilkPhysicsSystem(
     }
 }
 
-class SilkCollisionSystem(
+private class SilkCollisionSystem(
     assets: AssetsManager = inject(),
     val audio: AudioManager = inject()
 ) : IntervalSystem() {
@@ -457,7 +463,7 @@ class SilkCollisionSystem(
     }
 }
 
-class SilkControlSystem(
+private class SilkControlSystem(
     val input: InputManager = inject()
 ) : IteratingSystem(
     family = family { all(SilkComponent) }
@@ -475,7 +481,7 @@ class SilkControlSystem(
     }
 }
 
-class PlayerControlSystem(
+private class PlayerControlSystem(
     val input: InputManager = inject(),
     val cameraService: CameraService = inject()
 ) : IteratingSystem(
@@ -530,29 +536,10 @@ class PlayerControlSystem(
     }
 }
 
-object GameAssets {
-    object Image {
-        val Player = ImageKey("drawable/image.jpeg")
-    }
-    object Sound {
-        val Eat = SoundKey("files/eat.mp3")
-    }
-    object Music {
-        val BGM = MusicKey("files/bgm3.wav")
-    }
+private data object Menu
+private data class Battle(val value: String)
 
-    object Atlas {
-        val Walk = AtlasKey("files/Walk.json")
-    }
-}
-
-data object Menu
-data class Battle(val value: String)
-
-val DefaultResourceProvider = object : ResourceProvider {
-    override suspend fun read(path: String): ByteArray = Res.readBytes(path)
-    override fun getUri(path: String): String = Res.getUri(path)
-}
+private data class GameState(var score: Int)
 
 @Composable
 fun GameDemo(context: PlatformContext) {
@@ -561,13 +548,11 @@ fun GameDemo(context: PlatformContext) {
         context = context,
         sceneStack = sceneStack,
         virtualSize = Size(600f, 800f),
-        resourceProvider = DefaultResourceProvider,
-        modifier = Modifier.fillMaxSize().preferredFrameRate(FrameRateCategory.High),
     ) {
         scene<Menu> {
             resources {
-                it += GameAssets.Music.BGM
-                it += GameAssets.Sound.Eat
+                +GameAssets.Music.BGM
+                +GameAssets.Sound.Eat
             }
 
             onUpdate {
@@ -595,6 +580,10 @@ fun GameDemo(context: PlatformContext) {
 
         scene<Battle> {
             world(configuration = {
+                injectables {
+                    "key" + "value"
+                    +GameState(0)
+                }
                 systems {
                     +PlayerControlSystem()
                     +SilkControlSystem()
@@ -611,46 +600,46 @@ fun GameDemo(context: PlatformContext) {
                 val safeBounds = viewportTransform.safeBounds(mapBounds)
 
                 val player = entity {
-                    it += Transform(size = Size(50f, 50f))
-                    it += PlayerTag()
-                    it += SpriteAnimation("run")
-                    it += ScaleAnimation(
+                    +Transform(size = Size(50f, 50f))
+                    +PlayerTag()
+                    +SpriteAnimation("run")
+                    +ScaleAnimation(
                         from = 0f,
                         to = 1.0f,
                         spec = Spring()
                     )
-                    it += Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"), zIndex = 1)
+                    +Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"), zIndex = 1)
                 }
 
                 entity {
-                    it += Transform()
-                    it += Elasticity(stiffness = 80f, damping = 10f)
-                    it += RigidBody()
-                    it += CameraTarget("player", player)
-                    it += Camera(isMain = true, mapBounds = mapBounds)
+                    +Transform()
+                    +Elasticity(stiffness = 80f, damping = 10f)
+                    +RigidBody()
+                    +CameraTarget("player", player)
+                    +Camera(isMain = true, mapBounds = mapBounds)
                 }
 
                 entity {
                     val silk = SilkComponent(WuXing.Water)
-                    it += Transform()
-                    it += silk
-                    it += Renderable(SilkVisual(silk), zIndex = 2)
-                    it += SilkBounds()
+                    +Transform()
+                    +silk
+                    +Renderable(SilkVisual(silk), zIndex = 2)
+                    +SilkBounds()
                 }
 
                 val enemy = entity {
-                    it += Transform(safeBounds.randomOffset(), size = Size(50f, 50f))
-                    it += RigidBody()
-                    it += EnemyTag()
-                    it += Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
+                    +Transform(safeBounds.randomOffset(), size = Size(50f, 50f))
+                    +RigidBody()
+                    +EnemyTag()
+                    +Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
                 }
 
                 entity {
-                    it += Transform()
-                    it += Elasticity(stiffness = 80f, damping = 10f)
-                    it += RigidBody()
-                    it += CameraTarget("enemy", enemy)
-                    it += Camera(isActive = false, mapBounds = mapBounds)
+                    +Transform()
+                    +Elasticity(stiffness = 80f, damping = 10f)
+                    +RigidBody()
+                    +CameraTarget("enemy", enemy)
+                    +Camera(isActive = false, mapBounds = mapBounds)
                 }
 
                 entities(500) {
@@ -659,34 +648,37 @@ fun GameDemo(context: PlatformContext) {
                     val mass = 1f + Random.nextFloat()
 
                     val enemyInstance = EnemyTag()
-                    it += Transform(mapBounds.randomOffset(), size = Size((25f..50f).random(), (25f..50f).random()))
-                    it += RigidBody(Offset(velX, velY), mass = mass)
-                    it += enemyInstance
-//                    it += ScaleAnimation(
-//                        from = 0f,
-//                        to = 1f,
-//                        spec = InfiniteRepeatable(
-//                            Tween(1f, easing = EaseOutOvershoot),
-//                            RepeatMode.Reverse
-//                        )
-//                    )
-//                    it += AlphaAnimation(
-//                        from = 0f,
-//                        to = 1f,
-//                        spec = InfiniteRepeatable(
-//                            Tween(2f, easing = LinearEasing),
-//                            RepeatMode.Reverse
-//                        )
-//                    )
-                    it += Renderable(EnemyVisual(enemyInstance, color = Color.random()))
+                    +Transform(
+                        mapBounds.randomOffset(),
+                        size = Size((25f..50f).random(), (25f..50f).random())
+                    )
+                    +RigidBody(Offset(velX, velY), mass = mass)
+                    +enemyInstance
+                    +ScaleAnimation(
+                        from = 0f,
+                        to = 1f,
+                        spec = InfiniteRepeatable(
+                            Tween(1f, easing = FastOutSlowInEasing),
+                            RepeatMode.Reverse
+                        )
+                    )
+                    +AlphaAnimation(
+                        from = 0f,
+                        to = 1f,
+                        spec = InfiniteRepeatable(
+                            Tween(2f, easing = LinearEasing),
+                            RepeatMode.Reverse
+                        )
+                    )
+                    +Renderable(EnemyVisual(enemyInstance, color = Color.random()))
                 }
             }
 
             resources {
-                it += GameAssets.Image.Player
-                it += GameAssets.Sound.Eat
-                it += GameAssets.Music.BGM
-                it += GameAssets.Atlas.Walk
+                +GameAssets.Image.Player
+                +GameAssets.Sound.Eat
+                +GameAssets.Music.BGM
+                +GameAssets.Atlas.Walk
             }
 
             onEnter {
@@ -713,7 +705,11 @@ fun GameDemo(context: PlatformContext) {
                 ActiveRectangle(BlueSky())
             }
 
+            var nextWindowIndex = 0
+
             onForegroundUI {
+                val windowManager = rememberDraggableWindowManager()
+
                 GameJoypad(onValue = { it.applyToInput(input) })
                 Column(
                     modifier = Modifier
@@ -740,6 +736,24 @@ fun GameDemo(context: PlatformContext) {
                         }
                         Button(
                             modifier = Modifier.size(40.dp, 20.dp),
+                            onClick = {
+                                val bounds = Rect(0f, 0f, 800f, 600f)
+
+                                windowManager.addWindow(
+                                    DraggableWindow(
+                                        id = "window-${Clock.System.now().toEpochMilliseconds()}",
+                                        title = "Window${++nextWindowIndex}",
+                                        position = bounds.randomOffset()
+                                    )
+                                )
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("窗口")
+                        }
+
+                        Button(
+                            modifier = Modifier.size(40.dp, 20.dp),
                             onClick = { sceneStack.pop() },
                             contentPadding = PaddingValues(0.dp)
                         ) {
@@ -747,176 +761,19 @@ fun GameDemo(context: PlatformContext) {
                         }
                     }
                 }
-            }
-        }
-    }
-}
 
-// ==============================================================================
-// 5. 渲染组件 Visual (用于显示实体)
-// ==============================================================================
-
-class CircleVisual(val color: Color) : Visual() {
-    override fun DrawScope.draw() {
-        drawCircle(color, radius = size.minDimension / 2f, alpha = alpha)
-    }
-}
-
-class MovementSystem(
-    val cameraService: CameraService = inject(),
-    val viewportTransform: ViewportTransform = inject()
-) : IteratingSystem(
-    family { all(Transform, RigidBody) }
-) {
-
-    val worldBounds = Rect(Offset.Zero, viewportTransform.virtualSize)
-
-    override fun onTickEntity(entity: Entity) {
-        val t = entity[Transform]
-        val r = entity[RigidBody]
-
-        /* 运动（复用基本类型） */
-        t.position = t.position.copy(
-            x = t.position.x + r.velocity.x * deltaTime,
-            y = t.position.y + r.velocity.y * deltaTime
-        )
-
-        /* 边界反弹：一行调用你的封装（零临时对象） */
-        val clamped = viewportTransform.clampInBounds(
-            worldBounds = worldBounds,
-            position = t.position
-        )
-
-        /* 若被 clamp → 反弹速度 */
-        if (clamped.x != t.position.x) r.velocity = r.velocity.copy(x = -r.velocity.x)
-        if (clamped.y != t.position.y) r.velocity = r.velocity.copy(y = -r.velocity.y)
-
-        /* 写回最终位置（零临时对象） */
-        t.position = clamped
-    }
-}
-
-@Composable
-fun ZeroGCCollisionDemo(context: PlatformContext) {
-    KSimpleGame(
-        context = context,
-        resourceProvider = DefaultResourceProvider,
-        modifier = Modifier.fillMaxSize(),
-    ) {
-       val anim = ScaleAnimation(
-            from = 0f,
-            to = 1f,
-            spec = Spring(
-                stiffness = 80f,
-                damping   = 15f,
-            )
-        )
-
-        world(configuration = {
-            systems {
-                +CollisionSystem()
-                +MovementSystem()
-                +AnimationSystem()
-                +RenderSystem()
-            }
-        }) {
-            val entityCount = 50
-            val entitySize = Size(40f, 40f)
-
-            val bounds = Rect(0f, 0f, 800f, 600f)
-
-            entities(entityCount) {
-                val velX = (-40f..40f).random()
-                val velY = (-40f..40f).random()
-                val mass = 1f + Random.nextFloat()
-                val color = Color.random()
-
-                // 创建随机移动和碰撞的实体
-                it += Transform(bounds.randomOffset(), entitySize)
-                it += RigidBody(Offset(velX, velY), mass = mass)
-                it += ScaleAnimation(
-                    from = 0f,
-                    to = 1f,
-                    spec = InfiniteRepeatable(
-                        Tween(1f, easing = EaseOutOvershoot),
-                        RepeatMode.Reverse
-                    )
-                )
-                it += AlphaAnimation(
-                    from = 0f,
-                    to = 1f,
-                    spec = InfiniteRepeatable(
-                        Tween(2f, easing = LinearEasing),
-                        RepeatMode.Reverse
-                    )
-                )
-                it += Renderable(CircleVisual(color), zIndex = 1)
+                DraggableWindowGroup(windowManager = windowManager) { window ->
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Text("这是窗口 #${window.id}")
+                        Text("你可以为每个窗口定制不同的内容。")
+                        Spacer(Modifier.height(10.dp))
+                        Button(onClick = { windowManager.removeWindow(window) }) {
+                            Text("通过内容关闭")
+                        }
+                    }
+                }
             }
 
-            // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
-            entity {
-                it += Transform(Offset(400f, 300f), Size(100f, 100f))
-                it += RigidBody(Offset.Zero, mass = 0f)
-                it += anim
-                it += SpriteAnimation("run")
-                it += Renderable(
-                    visual = Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"),
-                    zIndex = 1
-                )
-            }
-        }
-
-        resources {
-            it += GameAssets.Atlas.Walk
-        }
-
-        val fpsCalculator = FpsCalculator()
-
-        onRender { fpsCalculator.advanceFrame() }
-
-        onForegroundUI {
-            Text("FPS: ${fpsCalculator.fps}")
-
-            Button(
-                onClick = { anim.play() },
-                modifier = Modifier.padding(top = 100.dp)
-            ) {
-                Text("Test")
-            }
-        }
-    }
-}
-val EaseOutOvershoot = CubicBezierEasing(0.4f, 1.5f, 0.8f, 1.0f)
-
-@Composable
-fun SimpleGameDemo(context: PlatformContext) {
-    KSimpleGame(
-        context = context,
-        resourceProvider = DefaultResourceProvider,
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        var color = Color.Red
-
-        onUpdate {
-            if (input.isKeyDown(Key.Spacebar)) {
-                color = if (color == Color.Red) Color.Yellow else Color.Red
-            }
-        }
-
-        onRender { drawCircle(color, radius = 50f) }
-
-        onBackgroundUI { Rectangle(Color.Blue) }
-
-        onForegroundUI {
-            Button(
-                onClick = {} ,
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
-            ) {
-                Text(
-                    text = "Hello World",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
         }
     }
 }

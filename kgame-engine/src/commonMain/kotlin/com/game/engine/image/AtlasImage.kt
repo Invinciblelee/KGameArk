@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalResourceApi::class)
+
 package com.game.engine.image
 
 import androidx.compose.ui.geometry.Size
@@ -6,7 +8,6 @@ import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
-import com.game.engine.asset.ResourceProvider
 import com.game.engine.utils.getBoolean
 import com.game.engine.utils.getFloat
 import com.game.engine.utils.getInt
@@ -16,6 +17,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.jetbrains.compose.resources.ResourceReader
 
 /**
  * This comment block illustrates the JSON data structure this module is designed to parse.
@@ -126,7 +129,8 @@ data class ImageAtlas(
      * @return A list of [AtlasAnimatedFrame] objects.
      */
     fun getAnimatedFrames(animationName: String): List<AtlasAnimatedFrame> {
-        return animations[animationName] ?: throw IllegalArgumentException("Animation '$animationName' not found")
+        return animations[animationName]
+            ?: throw IllegalArgumentException("Animation '$animationName' not found")
     }
 
     /**
@@ -160,8 +164,8 @@ data class ImageAtlas(
 
 }
 
-internal suspend fun loadImageAtlas(resourceProvider: ResourceProvider, path: String): ImageAtlas {
-    val json = resourceProvider.read(path).decodeToString()
+internal suspend fun loadImageAtlas(resourceReader: ResourceReader, path: String): ImageAtlas {
+    val json = resourceReader.read(path).decodeToString()
     val jsonObject = Json.decodeFromString<JsonObject>(json)
 
     val metadata = jsonObject.getValue("meta").let {
@@ -183,7 +187,7 @@ internal suspend fun loadImageAtlas(resourceProvider: ResourceProvider, path: St
                 frame = region.getObject("frame").let { frame ->
                     IntRect(
                         IntOffset(frame.getInt("x"), frame.getInt("y")),
-                       IntSize(frame.getInt("w"), frame.getInt("h"))
+                        IntSize(frame.getInt("w"), frame.getInt("h"))
                     )
                 },
                 rotated = region.getBoolean("rotated"),
@@ -208,7 +212,7 @@ internal suspend fun loadImageAtlas(resourceProvider: ResourceProvider, path: St
         }
     }
 
-    val imageData = resourceProvider.read(path.substringBeforeLast("/") + "/" + metadata.image)
+    val imageData = resourceReader.read(path.substringBeforeLast("/") + "/" + metadata.image)
     val bitmap = imageData.decodeToImageBitmap()
 
     return ImageAtlas(

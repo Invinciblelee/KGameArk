@@ -26,22 +26,14 @@ class InjectableConfiguration(private val world: World) {
      *
      * @throws [FleksInjectableAlreadyAddedException] if the dependency was already added before.
      */
-    fun <T : Any> add(name: String, dependency: T) {
+    @PublishedApi
+    internal fun <T : Any> add(name: String, dependency: T) {
         if (name in world.injectables) {
             throw FleksInjectableAlreadyAddedException(name)
         }
 
         world.injectables[name] = Injectable(dependency)
     }
-
-    /**
-     * Adds the specified [dependency] via its [simpleName][KClass.simpleName],
-     * or via its [toString][KClass.toString] if it has no name.
-     * It can then be injected via [World.inject].
-     *
-     * @throws [FleksInjectableAlreadyAddedException] if the dependency was already added before.
-     */
-    inline fun <reified T : Any> add(dependency: T) = add(T::class.simpleName ?: T::class.toString(), dependency)
 
     /**
      * Adds the specified [dependency]
@@ -55,7 +47,7 @@ class InjectableConfiguration(private val world: World) {
      *
      * @see add
      */
-    inline operator fun <reified T: Any> T.unaryPlus() = add(this)
+    inline operator fun <reified T: Any> T.unaryPlus() = add(T::class.simpleName ?: T::class.toString(), this)
 
 }
 
@@ -72,7 +64,7 @@ class SystemConfiguration(
      *
      * @throws [FleksSystemAlreadyAddedException] if the system was already added before.
      */
-    fun <T : IntervalSystem> add(system: T) {
+    private fun <T : IntervalSystem> add(system: T) {
         if (systems.any { it::class == system::class }) {
             throw FleksSystemAlreadyAddedException(system::class)
         }

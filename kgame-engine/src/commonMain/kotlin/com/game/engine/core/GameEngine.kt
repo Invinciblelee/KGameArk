@@ -1,6 +1,7 @@
 package com.game.engine.core
 
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +38,7 @@ import kotlinx.coroutines.isActive
  * @property scaledSize The scaled size of the game.
  * @property isEnabled Whether the game is enabled.
  */
+@Stable
 class GameEngine(
     override val context: PlatformContext,
     override val viewportTransform: ViewportTransform = DefaultViewportTransform(),
@@ -121,7 +123,7 @@ class GameEngine(
         )
     }
 
-    internal suspend fun startFrameLoop() {
+    internal suspend fun startTicking() {
         var lastFrameTime = 0L
         while (currentCoroutineContext().isActive) {
             withFrameMillis { frameTimeMillis ->

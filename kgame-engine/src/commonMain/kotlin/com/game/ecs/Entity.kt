@@ -65,32 +65,19 @@ abstract class EntityComponentContext(
      * Returns true if and only if the [entity][Entity] doesn't have a [component][Component] or [tag][EntityTag] of the given [type].
      */
     infix fun Entity.hasNo(type: UniqueId<*>): Boolean =
-        componentService.world.entityService.compMasks.getOrNull(this.id)?.get(type.id)?.not()
-            ?: true
+        componentService.world.entityService.compMasks.getOrNull(this.id)?.get(type.id)?.not() ?: true
 
     /**
      * Updates the [entity][Entity] using the given [configuration] to add and remove [components][Component].
-     *
-     * **Attention** Make sure that you only modify the entity of the current scope.
-     * Otherwise, you will get wrong behavior for families. E.g., don't do this:
-     *
-     * ```
-     * entity.configure {
-     *     // modifying the current entity is allowed ✅
-     *     it += Position()
-     *     // don't modify other entities ❌
-     *     someOtherEntity += Position()
-     * }
-     * ```
      */
-    inline fun Entity.configure(configuration: EntityUpdateContext.(Entity) -> Unit) =
+    inline fun Entity.configure(configuration: EntityUpdateScope.() -> Unit) =
         componentService.world.entityService.configure(this, configuration)
 
     /**
      * Removes the [entity][Entity] from the world. The [entity][Entity] will be recycled and reused for
      * future calls to [World.entity].
      */
-    fun Entity.remove() = componentService.world.minusAssign(this)
+    fun Entity.remove() = componentService.world.entityService.minusAssign(this)
 
     /**
      * Returns true, if and only if an [entity][Entity] will be removed at the end of the current [IteratingSystem].
@@ -148,15 +135,15 @@ open class EntityCreateContext(
     }
 
     /**
-     * Sets the [tag][EntityTag] to the [entity][Entity].
+     * Sets the [tag][EntityTags] to the [entity][Entity].
      */
-    operator fun Entity.plusAssign(tag: EntityTags) {
-        compMasks[this.id].set(tag.id)
+    operator fun Entity.plusAssign(tags: EntityTags) {
+        compMasks[this.id].set(tags.id)
         // We need to remember used tags to correctly return and load them using
         // the snapshot functionality, because tags are not managed via ComponentHolder and
         // the entity's component mask just knows about the tag's id.
         // However, a snapshot should contain the real object instances related to an entity.
-        componentService.world.tagCache[tag.id] = tag
+        componentService.world.tagCache[tags.id] = tags
     }
 
     /**
@@ -165,6 +152,43 @@ open class EntityCreateContext(
     @JvmName("plusAssignTags")
     operator fun Entity.plusAssign(tags: List<EntityTags>) {
         tags.forEach { this += it }
+    }
+
+}
+
+/**
+ * A scope for creating a new [entity][Entity].
+ */
+open class EntityCreateScope(
+    @PublishedApi
+    internal open val context: EntityCreateContext
+) {
+
+    @PublishedApi
+    internal lateinit var entity: Entity
+
+    /**
+     * Adds a [component][Component] to the [entity][Entity].
+     * This is a syntax sugar for the [EntityCreateContext.plusAssign] operator.
+     */
+    inline operator fun <reified T : Component<T>> T.unaryPlus() = with(context) {
+        entity += this@unaryPlus
+    }
+
+    /**
+     * Adds a list of [components][Component] to the [entity][Entity].
+     * This is a syntax sugar for the [EntityCreateContext.plusAssign] operator.
+     */
+    operator fun EntityTags.unaryPlus() = with(context) {
+        entity += this@unaryPlus
+    }
+
+    /**
+     * Adds a list of [components][Component] to the [entity][Entity].
+     * This is a syntax sugar for the [EntityCreateContext.plusAssign] operator.
+     */
+    operator fun List<EntityTags>.unaryPlus() = with(context) {
+        entity += this@unaryPlus
     }
 
 }
@@ -186,10 +210,15 @@ class EntityUpdateContext(
      * @throws [IndexOutOfBoundsException] if the id of the [entity][Entity] exceeds the internal components' capacity.
      * This can only happen when the [entity][Entity] never had such a component.
      */
-    inline operator fun <reified T : Component<*>> Entity.minusAssign(type: ComponentType<T>) {
+    inline operator fun <reified T : Component<T>> Entity.minusAssign(type: ComponentType<T>) {
         compMasks[this.id].clear(type.id)
         componentService.holder(type) -= this
     }
+
+    /**
+     * Removes the [tag][EntityTags] from the [entity][Entity].
+     */
+    operator fun Entity.minusAssign(tags: EntityTags) = compMasks[this.id].clear(tags.id)
 
     /**
      * Returns a [component][Component] of the given [type] for the [entity][Entity].
@@ -197,7 +226,7 @@ class EntityUpdateContext(
      * If the [entity][Entity] does not have such a [component][Component] then [add] is called
      * to assign it to the [entity][Entity] and return it.
      */
-    inline fun <reified T : Component<T>> Entity.getOrAdd(type: ComponentType<T>, add: () -> T): T {
+    inline fun <reified T : Component<T>> Entity.addIfAbsent(type: ComponentType<T>, add: () -> T): T {
         val holder: ComponentsHolder<T> = componentService.holder(type)
         val existingCmp = holder.getOrNull(this)
         if (existingCmp != null) {
@@ -210,10 +239,44 @@ class EntityUpdateContext(
         return newCmp
     }
 
+}
+
+/**
+ * A scope for updating an [entity][Entity].
+ */
+class EntityUpdateScope(
+    @PublishedApi
+    override val context: EntityUpdateContext
+) : EntityCreateScope(context) {
+
     /**
-     * Removes the [tag][EntityTag] from the [entity][Entity].
+     * Removes a component of the given [type][T] from the entity of this scope.
+     * This is a syntax sugar for the [EntityUpdateContext.minusAssign] operator.
      */
-    operator fun Entity.minusAssign(tag: UniqueId<*>) = compMasks[this.id].clear(tag.id)
+    inline operator fun <reified T : Component<T>> ComponentType<T>.unaryMinus() = with(context) {
+        entity -= this@unaryMinus
+    }
+
+    /**
+     * Removes the [tag][EntityTags] from the entity of this scope.
+     * This is a syntax sugar for the [EntityUpdateContext.minusAssign] operator.
+     */
+    operator fun EntityTags.unaryMinus() = with(context) {
+        entity -= this@unaryMinus
+    }
+
+    /**
+     * Returns a [component][Component] of the given [type] for the entity of this scope.
+     *
+     * If the entity does not have such a [component][Component] then [add] is called
+     * to assign it to the entity and return it.
+     */
+    inline fun <reified T : Component<T>> addIfAbsent(type: ComponentType<T>, add: () -> T): T {
+        return with(context) {
+            entity.addIfAbsent(type, add)
+        }
+    }
+
 }
 
 /**
@@ -420,10 +483,16 @@ class EntityService(
     internal val createCtx = EntityCreateContext(compService, compMasks)
 
     @PublishedApi
+    internal val createScope = EntityCreateScope(createCtx)
+
+    @PublishedApi
     internal var createId = -1
 
     @PublishedApi
     internal val updateCtx = EntityUpdateContext(compService, compMasks)
+
+    @PublishedApi
+    internal val updateScope = EntityUpdateScope(updateCtx)
 
     @PublishedApi
     internal var updateId = -1
@@ -459,14 +528,14 @@ class EntityService(
      * Creates and returns a new [entity][Entity] and applies the given [configuration].
      * Notifies all [families][World.allFamilies].
      */
-    inline fun create(configuration: EntityCreateContext.(Entity) -> Unit): Entity =
+    inline fun create(configuration: EntityCreateScope.() -> Unit): Entity =
         postCreate(entityProvider.create(), configuration)
 
     /**
      * Creates and returns a new [entity][Entity] with the given [id] and applies the given [configuration].
      * Notifies all [families][World.allFamilies].
      */
-    inline fun create(id: Int, configuration: EntityCreateContext.(Entity) -> Unit): Entity =
+    inline fun create(id: Int, configuration: EntityCreateScope.() -> Unit): Entity =
         postCreate(entityProvider.create(id), configuration)
 
     /**
@@ -476,7 +545,7 @@ class EntityService(
     @PublishedApi
     internal inline fun postCreate(
         entity: Entity,
-        configuration: EntityCreateContext.(Entity) -> Unit
+        configuration: EntityCreateScope.() -> Unit
     ): Entity {
         // add components
         if (entity.id >= compMasks.size) {
@@ -485,7 +554,8 @@ class EntityService(
 
         val prevCreateId = createId
         createId = entity.id
-        createCtx.configuration(entity)
+        createScope.entity = entity
+        createScope.configuration()
         createId = prevCreateId
 
         // update families
@@ -502,12 +572,13 @@ class EntityService(
      * Updates an [entity] with the given [configuration].
      * Notifies all [families][World.allFamilies].
      */
-    inline fun configure(entity: Entity, configuration: EntityUpdateContext.(Entity) -> Unit) {
+    inline fun configure(entity: Entity, configuration: EntityUpdateScope.() -> Unit) {
         val skipFamilyNotify = updateId == entity.id || createId == entity.id
 
         val prevUpdateId = updateId
         updateId = entity.id
-        updateCtx.configuration(entity)
+        updateScope.entity = entity
+        updateScope.configuration()
         updateId = prevUpdateId
 
         // notify families
@@ -591,20 +662,19 @@ class EntityService(
             compMask.clearAndForEachSetBit { compId ->
                 compService.holderByIndexOrNull(compId)?.minusAssign(entity)
             }
-
         }
     }
 
     /**
-     * Removes all [entities][Entity]. If [clearRecycled] is true then the
+     * Removes all [entities][Entity]. If [reset] is true then the
      * recycled entities are cleared and the ids for newly created entities start at 0 again.
      *
      * Refer to [remove] for more details.
      */
-    fun removeAll(clearRecycled: Boolean = false) {
-        entityProvider.forEach { this -= it }
+    fun removeAll(reset: Boolean = false) {
+        entityProvider.forEach { entityService -= it }
 
-        if (clearRecycled) {
+        if (reset) {
             entityProvider.reset()
             compMasks.clear()
         }

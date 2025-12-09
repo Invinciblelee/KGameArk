@@ -45,8 +45,8 @@ class SceneBuilderScope<T: Any>(
         this.world = world
     }
 
-    fun resources(builder: (AssetSet) -> Unit) {
-        AssetSet(requiredAssets).also(builder).build()
+    fun resources(builder: AssetSet.() -> Unit) {
+        AssetSet(requiredAssets).apply(builder).build()
     }
 
     fun onProgress(block: (Float) -> Unit) {
@@ -106,13 +106,9 @@ class AssetSet(
     private val assets: MutableSet<AssetKey<*, *>>
 ) {
 
-    operator fun plusAssign(key: AssetKey<*, *>) {
-        assets.add(key)
-    }
+    operator fun AssetKey<*, *>.unaryPlus() = assets.add(this)
 
-    operator fun plusAssign(keys: Collection<AssetKey<*, *>>) {
-        assets.addAll(keys)
-    }
+    operator fun Collection<AssetKey<*, *>>.unaryPlus() = assets.addAll(this)
 
     internal fun build(): Set<AssetKey<*, *>> = assets
 

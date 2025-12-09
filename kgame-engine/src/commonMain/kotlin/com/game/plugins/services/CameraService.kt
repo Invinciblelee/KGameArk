@@ -12,12 +12,13 @@ import com.game.engine.math.radians
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraTarget
 import com.game.plugins.components.CameraTransition
-import com.game.plugins.components.RigidBody
 import com.game.plugins.components.Elasticity
+import com.game.plugins.components.RigidBody
+import com.game.plugins.components.Smooth
 import com.game.plugins.components.Transform
 import com.game.plugins.components.applyCameraTransition
-import com.game.plugins.components.applySmoothFollow
 import com.game.plugins.components.applyElasticityFollow
+import com.game.plugins.components.applySmoothFollow
 import com.game.plugins.components.getBounds
 import kotlin.math.cos
 import kotlin.math.min
@@ -53,7 +54,7 @@ class CameraDirector(
     private val viewportTransform: ViewportTransform
 ): EntityComponentContext(cameraService.componentService) {
 
-    fun update(deltaTime: Float) {
+    internal fun update(deltaTime: Float) {
         cameraService.family.forEach { entity ->
             val camera = entity[Camera]
             val transform = entity[Transform]
@@ -70,7 +71,7 @@ class CameraDirector(
 
             updateShake(camera, deltaTime)
 
-            clampToMapBounds(camera, transform)
+            clampToWorldBounds(camera, transform)
         }
     }
 
@@ -81,13 +82,44 @@ class CameraDirector(
         deltaTime: Float
     ) {
         val targetTransform = target.entity.getOrNull(Transform) ?: return
-        val elasticity = entity.getOrNull(Elasticity)
-        val rigidBody = entity.getOrNull(RigidBody)
 
-        if (elasticity != null && rigidBody != null) {
+        val smooth = entity.getOrNull(Smooth)
+        if (smooth != null) {
+            val camera = entity[Camera]
+            val deadZone = camera.deadZone
+            val cameraPosition = transform.position
+            val targetPosition = targetTransform.position
+            val delta = targetPosition - cameraPosition
+
+            val deadZoneHalfWidth = deadZone.width / 2f
+            val deadZoneHalfHeight = deadZone.height / 2f
+
+            var offsetX = 0f
+            var offsetY = 0f
+
+            if (delta.x > deadZoneHalfWidth) {
+                offsetX = delta.x - deadZoneHalfWidth
+            } else if (delta.x < -deadZoneHalfWidth) {
+                offsetX = delta.x + deadZoneHalfWidth
+            }
+
+            if (delta.y > deadZoneHalfHeight) {
+                offsetY = delta.y - deadZoneHalfHeight
+            } else if (delta.y < -deadZoneHalfHeight) {
+                offsetY = delta.y + deadZoneHalfHeight
+            }
+
+            if (offsetX != 0f || offsetY != 0f) {
+                val newTargetPos = cameraPosition + Offset(offsetX, offsetY)
+                transform.applySmoothFollow(newTargetPos, smooth.lerpSpeed, deltaTime)
+            }
+            return
+        }
+
+        val elasticity = entity.getOrNull(Elasticity)
+        if (elasticity != null) {
+            val rigidBody = entity.getOrNull(RigidBody) ?: return
             transform.applyElasticityFollow(targetTransform.position, elasticity, rigidBody, deltaTime)
-        } else {
-            transform.applySmoothFollow(targetTransform.position, entity[Camera].lerpSpeed, deltaTime)
         }
     }
 
@@ -133,11 +165,11 @@ class CameraDirector(
         }
     }
 
-    private fun clampToMapBounds(camera: Camera, transform: Transform) {
+    private fun clampToWorldBounds(camera: Camera, transform: Transform) {
         // Clamps the camera position within the defined map boundaries
-        val mapBounds = camera.mapBounds
+        val worldBounds = camera.worldBounds
         val cameraPosition = transform.position
-        transform.position = viewportTransform.clampInBounds(mapBounds, cameraPosition)
+        transform.position = viewportTransform.clampInBounds(worldBounds, cameraPosition)
     }
 
 
@@ -178,7 +210,7 @@ class CameraDirector(
             val camera = activeCameraEntity[Camera]
             activeCameraEntity.configure {
                 val clampedTargetPos = viewportTransform.clampInBounds(
-                    worldBounds = camera.mapBounds,
+                    worldBounds = camera.worldBounds,
                     position = targetPosition
                 )
                 +CameraTransition(
@@ -214,7 +246,7 @@ class CameraDirector(
         activeCameraEntity.configure {
             // 2. Clamp the raw target position to ensure the viewport remains in bounds.
             val clampedTargetPos = viewportTransform.clampInBounds(
-                worldBounds = camera.mapBounds,
+                worldBounds = camera.worldBounds,
                 position = targetPosition
             )
 

@@ -126,7 +126,7 @@ private val DebugStroke = Stroke(width = 1f)
  */
 fun DrawScope.drawDebugBounds(
     transform: Transform,
-    color: Color = Color.Magenta
+    color: Color = Color.Green
 ) {
     val size = transform.size
     if (size.isUnspecified) return

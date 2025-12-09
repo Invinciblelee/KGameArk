@@ -4,9 +4,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.toRect
 import kotlin.math.max
 import kotlin.math.min
 
@@ -144,10 +146,7 @@ fun ViewportTransform.clampInBounds(worldBounds: Rect, position: Offset): Offset
     val useWholeWorld = worldW <= viewW && worldH <= viewH
 
     if (useWholeWorld) {
-        return Offset(
-            position.x.coerceIn(worldBounds.left, worldBounds.right),
-            position.y.coerceIn(worldBounds.top, worldBounds.bottom)
-        )
+        return worldBounds.center
     }
 
     val halfW = viewW / 2f

@@ -58,20 +58,6 @@ data class Arriver(
 }
 
 /**
- * A component of Spring, used to control the spring effect of an entity.
- * @param stiffness Stiffness of the spring.
- * @param damping Damping of the spring.
- */
-data class Elasticity(
-    val stiffness: Float = 300f,
-    val damping: Float = 15f
-) : Component<Elasticity> {
-    override fun type() = Elasticity
-
-    companion object Companion : ComponentType<Elasticity>()
-}
-
-/**
  * A component that enables a wandering behavior for an entity.
  * It works by projecting a "wander circle" in front of the entity and
  * steering towards a random point on that circle.

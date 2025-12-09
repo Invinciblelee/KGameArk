@@ -94,12 +94,34 @@ interface AssetsManager {
 
 }
 
+private class ResourceReaderWrapper(
+    private val delegate: ResourceReader
+): ResourceReader {
+    private companion object {
+        const val PATH_PREFIX = "composeResources/cmp.composeapp.generated.resources/"
+    }
+
+    override suspend fun read(path: String): ByteArray {
+        return delegate.read(PATH_PREFIX + path)
+    }
+
+    override suspend fun readPart(path: String, offset: Long, size: Long): ByteArray {
+        return delegate.readPart(PATH_PREFIX + path, offset, size)
+    }
+
+    override fun getUri(path: String): String {
+        return delegate.getUri(PATH_PREFIX + path)
+    }
+}
+
 /**
  * Default implementation of [AssetsManager].
  */
 class DefaultAssetsManager(
-    private val resourceReader: ResourceReader
+    resourceReader: ResourceReader
 ): AssetsManager {
+
+    private val resourceReader = ResourceReaderWrapper(resourceReader)
 
     private val cache = HashMap<AssetKey<*, *>, Any>()
     private val lock = SynchronizedObject()

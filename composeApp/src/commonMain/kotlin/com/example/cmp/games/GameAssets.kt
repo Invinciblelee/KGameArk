@@ -13,7 +13,7 @@ object GameAssets {
         val Eat = SoundKey("files/eat.mp3")
     }
     object Music {
-        val BGM = MusicKey("files/bgm3.wav")
+        val BGM = MusicKey("files/bgm4.mp3")
     }
 
     object Atlas {

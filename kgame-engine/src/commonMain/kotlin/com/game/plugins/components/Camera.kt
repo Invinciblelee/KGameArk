@@ -52,9 +52,8 @@ data class Viewport(
  * @param isTracking Whether the camera is tracking the [CameraTarget].
  * @param zoom The zoom level of the camera.
  * @param rotation The rotation of the camera.
- * @param lerpSpeed The speed of camera movement.
  * @param deadZone The dead zone of the camera.
- * @param mapBounds The bounds of the map.
+ * @param worldBounds The bounds of the world.
  * @param trauma The trauma of the camera.
  * @param traumaDecay The decay of the trauma.
  * @param maxShakeOffset The maximum offset of the shake.
@@ -71,15 +70,6 @@ data class Camera(
     var zoom: Float = 1f,
     var rotation: Float = 0f,
 
-    var lerpSpeed: Float = 5f,
-    var deadZone: Size = Size(50f, 50f),
-    var mapBounds: Rect = Rect(
-        Float.NEGATIVE_INFINITY,
-        Float.NEGATIVE_INFINITY,
-        Float.POSITIVE_INFINITY,
-        Float.POSITIVE_INFINITY
-    ),
-
     var trauma: Float = 0f,
     var traumaDecay: Float = 2.0f,
     var maxShakeOffset: Float = 50f,
@@ -88,6 +78,14 @@ data class Camera(
     var shakeOffset: Offset = Offset.Zero,
     var shakeRotation: Float = 0f,
     var viewport: Viewport = Viewport(0f, 0f, 1f, 1f),
+
+    val deadZone: Size = Size(50f, 50f),
+    val worldBounds: Rect = Rect(
+        Float.NEGATIVE_INFINITY,
+        Float.NEGATIVE_INFINITY,
+        Float.POSITIVE_INFINITY,
+        Float.POSITIVE_INFINITY
+    ),
 ) : Component<Camera> {
 
     override fun type() = Camera
@@ -146,27 +144,6 @@ fun Camera.shake(
     if (maxAngle != null) {
         this.maxShakeAngle = maxAngle.coerceAtLeast(0f)
     }
-}
-
-/**
- * Set the map bounds of the camera.
- * @param mapWidth The width of the map.
- * @param mapHeight The height of the map.
- * @param centerX The center X of the map.
- * @param centerY The center Y of the map.
- */
-fun Camera.setMapBounds(
-    mapWidth: Float,
-    mapHeight: Float,
-    centerX: Float = 0f,
-    centerY: Float = 0f
-) {
-    mapBounds = Rect(
-        left = centerX - mapWidth / 2f,
-        top = centerY - mapHeight / 2f,
-        right = centerX + mapWidth / 2f,
-        bottom = centerY + mapHeight / 2f
-    )
 }
 
 /**

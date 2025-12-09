@@ -11,12 +11,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.dp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -32,37 +34,38 @@ import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
+import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.safeBounds
+import com.game.engine.graphics.shader.BlueSky
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
-import com.game.plugins.components.Arriver
+import com.game.engine.math.randomOffset
+import com.game.engine.ui.ActiveRectangle
+import com.game.plugins.components.Boundary
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraTarget
+import com.game.plugins.components.CharacterStats
+import com.game.plugins.components.CleanupTag
+import com.game.plugins.components.EnemyTag
+import com.game.plugins.components.PlayerBulletTag
+import com.game.plugins.components.PlayerTag
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
+import com.game.plugins.components.Smooth
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Visual
 import com.game.plugins.components.applyKinematicMovement
+import com.game.plugins.components.cleanupOnExit
 import com.game.plugins.services.CameraService
+import com.game.plugins.systems.BoundarySystem
 import com.game.plugins.systems.CameraSystem
+import com.game.plugins.systems.CleanupSystem
 import com.game.plugins.systems.PhysicsSystem
 import com.game.plugins.systems.RenderSystem
+import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
-
-// --- 1. 新增游戏组件 (New Components) ---
-
-private object PlayerTag : EntityTag()
-private object EnemyTag : EntityTag()
-private object CleanupTag : EntityTag()
-
-private data class HealthComponent(var hp: Float) : Component<HealthComponent> {
-    override fun type() = HealthComponent; companion object : ComponentType<HealthComponent>()
-}
-
-private data class BulletTag(
-    val damage: Float,
-    val isPlayerBullet: Boolean
-) : Component<BulletTag> { override fun type() = BulletTag; companion object : ComponentType<BulletTag>() }
 
 private data class WeaponComponent(
     val cooldown: Float = 0.3f,
@@ -74,7 +77,7 @@ private data class WeaponComponent(
 private class PlayerVisual : Visual() { override fun DrawScope.draw() { drawCircle(Color.Blue, alpha = alpha) } }
 private class EnemyVisual : Visual() { override fun DrawScope.draw() { drawRect(Color.Red, alpha = alpha) } }
 private class BulletVisual(private val isPlayer: Boolean) : Visual() {
-    override fun DrawScope.draw() { drawRect(if (isPlayer) Color.Yellow else Color.Magenta, size = Size(4f, 10f), alpha = alpha) }
+    override fun DrawScope.draw() { drawRect(if (isPlayer) Color.Black else Color.Magenta, alpha = alpha) }
 }
 
 // --- 3. 游戏系统 (Game Systems) ---
@@ -94,7 +97,7 @@ private class AircraftControlSystem(
         if (input.isKeyDown(Key.A) || input.isKeyDown(Key.DirectionLeft)) deltaX -= 1f
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) deltaX += 1f
 
-        transform.applyKinematicMovement(deltaTime = deltaTime, rawDeltaX = deltaX, rawDeltaY = deltaY, speed = 400f)
+        transform.applyKinematicMovement(deltaTime = deltaTime, rawDeltaX = deltaX, rawDeltaY = deltaY, speed = 200f)
 
         // 射击控制 (Spacebar)
         weapon.timeUntilNextShot -= deltaTime
@@ -107,8 +110,9 @@ private class AircraftControlSystem(
                     position = transform.position + Offset(0f, -transform.size.height / 2f),
                     size = Size(4f, 10f)
                 )
-                +RigidBody(velocity = Offset(0f, -1200f)) // 子弹高速向上
-                +BulletTag(damage = 10f, isPlayerBullet = true)
+                +RigidBody(velocity = Offset(0f, -300f), drag = 0f) // 子弹高速向上
+                +Boundary(onExit = cleanupOnExit())
+                +PlayerBulletTag(damage = 10f)
                 +Renderable(BulletVisual(true))
             }
         }
@@ -118,21 +122,34 @@ private class AircraftControlSystem(
 private class EnemySpawnSystem(
     val cameraService: CameraService = inject(),
     val assets: AssetsManager = inject()
-) : IntervalSystem(interval = Fixed(1f)) { // 每 1 秒生成一波敌人
+) : IntervalSystem(interval = Fixed(0.5f)) { // 每 0.5 秒生成一波敌人
+
+
     override fun onTick() {
-        val gameWidth = cameraService.activeCamera?.mapBounds?.width ?: 600f
-        val mapTop = cameraService.activeCamera?.mapBounds?.top ?: -400f
+        val worldBounds = cameraService.activeCamera?.worldBounds ?: return
+
+        val spawnXMin = worldBounds.left
+        val spawnXMax = worldBounds.right
+
+        // Y轴的生成位置固定在世界顶边之外一点点，给敌人一个进场的空间
+        // worldBounds.top 在我们的中心坐标系里是负值 (e.g., -300f)
+        val spawnY = worldBounds.top - 50f // e.g., at y = -300 - 50 = -350
 
         // 在屏幕上方随机生成 1-3 个敌人
         repeat(Random.nextInt(1, 4)) {
             val size = Size(40f, 40f)
             world.entity {
                 +Transform(
-                    position = Offset((0f..gameWidth).random(), mapTop - size.height),
+                    position = Offset(
+                        // 在 [spawnXMin, spawnXMax] 这个范围内随机取一个X值
+                        x = Random.nextFloat() * (spawnXMax - spawnXMin) + spawnXMin,
+                        y = spawnY
+                    ),
                     size = size
                 )
-                +RigidBody(velocity = Offset(0f, 150f)) // 缓慢向下
-                +HealthComponent(hp = 20f)
+                +RigidBody(velocity = Offset((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
+                +CharacterStats(maxHp = 20f)
+                +Boundary(onExit = cleanupOnExit())
                 +EnemyTag
                 +Renderable(EnemyVisual())
             }
@@ -143,9 +160,9 @@ private class EnemySpawnSystem(
 private class CollisionSystem(
     val audio: AudioManager = inject()
 ) : IntervalSystem() {
-    private val playerBulletFamily = family { all(BulletTag, Transform); none(EnemyTag) }
-    private val enemyFamily = family { all(EnemyTag, Transform, HealthComponent) }
-    private val playerFamily = family { all(PlayerTag, Transform, HealthComponent) }
+    private val playerBulletFamily = family { all(PlayerBulletTag, Transform); none(EnemyTag) }
+    private val enemyFamily = family { all(EnemyTag, Transform, CharacterStats) }
+    private val playerFamily = family { all(PlayerTag, Transform, CharacterStats) }
 
     override fun onTick() {
         // --- 1. 玩家子弹 vs 敌人 ---
@@ -157,8 +174,8 @@ private class CollisionSystem(
 
                 // 简单的圆形碰撞检测 (使用距离平方优化)
                 if ((bPos - ePos).getDistanceSquared() < (eRadius * eRadius)) {
-                    val health = enemy[HealthComponent]
-                    health.hp -= bullet[BulletTag].damage
+                    val stats = enemy[CharacterStats]
+                    stats.hp -= bullet[PlayerBulletTag].damage
                     bullet.configure { +CleanupTag }
                 }
             }
@@ -172,52 +189,15 @@ private class CollisionSystem(
                 val eRadius = enemy[Transform].size.width / 2f
                 val pRadius = player[Transform].size.width / 2f
 
-                if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).sq()) {
-                    val pHealth = player[HealthComponent]
-                    pHealth.hp -= 100f // 敌机撞到玩家，直接扣大量血
+                if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
+                    val stats = player[CharacterStats]
+//                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
                     enemy.configure { +CleanupTag }
                 }
             }
         }
     }
 
-    private fun Float.sq() = this * this
-}
-
-private class BoundaryCleanupSystem(
-    val cameraService: CameraService = inject()
-) : IteratingSystem(family = family { any(BulletTag, EnemyTag); all(Transform) }) {
-    override fun onTickEntity(entity: Entity) {
-        val bounds = cameraService.activeCamera?.mapBounds ?: return
-        val pos = entity[Transform].position
-        val size = entity[Transform].size
-
-        // 如果超出边界 (上下左右)
-        if (pos.x < bounds.left - size.width || pos.x > bounds.right + size.width ||
-            pos.y < bounds.top - size.height || pos.y > bounds.bottom + size.height
-        ) {
-            entity.configure { +CleanupTag }
-        }
-    }
-}
-
-private class FinalCleanupSystem : IteratingSystem(family = family { any(CleanupTag); all(Transform) }) {
-    private val healthFamily = family { all(HealthComponent) }
-
-    override fun onTick() {
-        super.onTick()
-
-        // 移除所有带有 CleanupTag 的实体
-        family.forEach { it.remove() }
-
-        // 检查血量归零的实体
-        healthFamily.forEach {
-            if (it[HealthComponent].hp <= 0f) {
-                it.remove()
-                // 实际游戏中应加入爆炸效果
-            }
-        }
-    }
 }
 
 
@@ -264,31 +244,36 @@ fun AircraftWarDemo(context: PlatformContext) {
                     +AircraftControlSystem()
                     +EnemySpawnSystem()
                     +CollisionSystem()
-                    +BoundaryCleanupSystem()
-                    +FinalCleanupSystem() // 清理系统必须最后运行
+                    +BoundarySystem()
+                    +CleanupSystem()
                 }
             }) {
-                val mapBounds = Rect(0f, 0f, 800f, 600f) // 游戏世界的坐标范围 (0,0 在左上角)
+                val worldBounds = Rect(-800f, -600f, 800f, 600f)
 
                 // 1. 玩家实体
                 val player = entity {
-                    +Transform(position = mapBounds.center, size = Size(50f, 50f))
+                    +Transform(size = Size(50f, 50f))
                     +PlayerTag
-                    +HealthComponent(hp = 100f)
+                    +CharacterStats(maxHp = 100f)
                     +WeaponComponent(cooldown = 0.2f)
                     +Renderable(PlayerVisual())
                 }
 
                 entity {
-                    +Transform(mapBounds.center)
+                    +Transform()
+                    +Smooth()
                     +CameraTarget("player", player)
-                    +Camera(isMain = true, mapBounds = mapBounds)
+                    +Camera(isMain = true, worldBounds = worldBounds)
                 }
             }
 
             // ... 资源加载和退出逻辑 ...
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) sceneStack.pop()
+            }
+
+            onBackgroundUI {
+                ActiveRectangle(BlueSky())
             }
 
             onForegroundUI {

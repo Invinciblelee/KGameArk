@@ -73,19 +73,30 @@ actual class Audio actual constructor(
             when (audioState.value) {
                 is AudioState.Loading,
                 is AudioState.Playing -> return
+
                 is AudioState.None -> {
                     throw IllegalStateException("AudioState.NONE: mediaPlayer not initialized")
                 }
+
                 is AudioState.Ready,
                 is AudioState.Paused -> {
-                    clip.microsecondPosition = cursor
-                    clip.start()
+                    if (loop) {
+                        clip.loop(Clip.LOOP_CONTINUOUSLY)
+                    } else {
+                        clip.microsecondPosition = cursor
+                        clip.start()
+                    }
                     _audioState.value = AudioState.Playing
                 }
+
                 is AudioState.Error,
                 is AudioState.Completed -> {
-                    clip.microsecondPosition = 0L
-                    clip.start()
+                    if (loop) {
+                        clip.loop(Clip.LOOP_CONTINUOUSLY)
+                    } else {
+                        clip.microsecondPosition = cursor
+                        clip.start()
+                    }
                     _audioState.value = AudioState.Playing
                 }
             }

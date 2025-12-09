@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
+import cmp.composeapp.generated.resources.Res
 import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -579,6 +580,13 @@ fun GameDemo(context: PlatformContext) {
         }
 
         scene<Battle> {
+            resources {
+                +GameAssets.Image.Player
+                +GameAssets.Sound.Eat
+                +GameAssets.Music.BGM
+                +GameAssets.Atlas.Walk
+            }
+
             world(configuration = {
                 injectables {
                     "key" + "value"
@@ -596,8 +604,7 @@ fun GameDemo(context: PlatformContext) {
                     +RenderSystem()
                 }
             }) {
-                val mapBounds = Rect(-800f, -600f, 800f, 600f)
-                val safeBounds = viewportTransform.safeBounds(mapBounds)
+                val worldBounds = Rect(-800f, -600f, 800f, 600f)
 
                 val player = entity {
                     +Transform(size = Size(50f, 50f))
@@ -616,7 +623,7 @@ fun GameDemo(context: PlatformContext) {
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
                     +CameraTarget("player", player)
-                    +Camera(isMain = true, mapBounds = mapBounds)
+                    +Camera(isMain = true, worldBounds = worldBounds)
                 }
 
                 entity {
@@ -628,7 +635,7 @@ fun GameDemo(context: PlatformContext) {
                 }
 
                 val enemy = entity {
-                    +Transform(safeBounds.randomOffset(), size = Size(50f, 50f))
+                    +Transform(worldBounds.randomOffset(), size = Size(50f, 50f))
                     +RigidBody()
                     +EnemyTag()
                     +Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
@@ -639,7 +646,7 @@ fun GameDemo(context: PlatformContext) {
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
                     +CameraTarget("enemy", enemy)
-                    +Camera(isActive = false, mapBounds = mapBounds)
+                    +Camera(isActive = false, worldBounds = worldBounds)
                 }
 
                 entities(500) {
@@ -649,7 +656,7 @@ fun GameDemo(context: PlatformContext) {
 
                     val enemyInstance = EnemyTag()
                     +Transform(
-                        mapBounds.randomOffset(),
+                        position = worldBounds.randomOffset(),
                         size = Size((25f..50f).random(), (25f..50f).random())
                     )
                     +RigidBody(Offset(velX, velY), mass = mass)
@@ -672,13 +679,6 @@ fun GameDemo(context: PlatformContext) {
                     )
                     +Renderable(EnemyVisual(enemyInstance, color = Color.random()))
                 }
-            }
-
-            resources {
-                +GameAssets.Image.Player
-                +GameAssets.Sound.Eat
-                +GameAssets.Music.BGM
-                +GameAssets.Atlas.Walk
             }
 
             onEnter {

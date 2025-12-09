@@ -39,7 +39,6 @@ soundlibsMp3spi = "1.9.5.4"
 soundlibsTritonusShare = "0.3.7.4"
 soundlibVorbisspi = "1.0.3.3"
 
-
 [libraries]
 annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }

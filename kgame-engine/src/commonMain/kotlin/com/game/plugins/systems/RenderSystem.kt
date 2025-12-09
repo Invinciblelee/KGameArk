@@ -23,7 +23,7 @@ class RenderSystem(
 ) {
 
     companion object {
-        var isDebugging = false
+        var isDebugging = true
     }
 
     override fun onRender(drawScope: DrawScope) {

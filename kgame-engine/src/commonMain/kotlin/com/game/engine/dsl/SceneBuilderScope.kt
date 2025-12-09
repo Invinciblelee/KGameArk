@@ -47,6 +47,10 @@ class SceneBuilderScope<T: Any>(
 
     fun resources(builder: AssetSet.() -> Unit) {
         AssetSet(requiredAssets).apply(builder).build()
+
+        requiredAssets.forEach {
+            println(it)
+        }
     }
 
     fun onProgress(block: (Float) -> Unit) {

@@ -6,15 +6,44 @@ import androidx.compose.ui.geometry.Size
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
-import com.game.engine.geometry.ViewportTransform
 
 /**
  * Mark camera follow target.
  */
-data class CameraTarget(val name: String, val entity: Entity) : Component<CameraTarget> {
+data class CameraTarget(val entity: Entity) : Component<CameraTarget> {
     override fun type() = CameraTarget
 
     companion object : ComponentType<CameraTarget>()
+}
+
+/**
+ * The dead zone of the camera.
+ */
+data class CameraDeadZone(
+    val size: Size,
+    val offset: Offset = Offset.Zero
+): Component<CameraDeadZone> {
+    override fun type() = CameraDeadZone
+
+    companion object : ComponentType<CameraDeadZone>()
+}
+
+
+/**
+ * Camera Shake Component: Attached to the currently active camera entity
+ * that is shaking.
+ */
+data class CameraShake(
+    var trauma: Float = 0f,
+    var traumaDecay: Float = 3.2f,
+    var maxShakeOffset: Float = 12f,
+    var maxShakeAngle: Float = 1.8f,
+    var shakeOffset: Offset = Offset.Zero,
+    var shakeRotation: Float = 0f,
+): Component<CameraShake> {
+    override fun type() = CameraShake
+
+    companion object : ComponentType<CameraShake>()
 }
 
 /**
@@ -26,13 +55,13 @@ data class CameraTransition(
     val targetPosition: Offset,
     val duration: Float,
 
-    var elapsed: Float = 0f,
-    var startPosition: Offset? = null,
-
     val finishTracking: Boolean = false
 ) : Component<CameraTransition> {
     override fun type() = CameraTransition
     companion object: ComponentType<CameraTransition>()
+
+    internal var elapsedTime: Float = 0f
+    internal var startPosition: Offset? = null
 }
 
 /**
@@ -51,100 +80,26 @@ data class Viewport(
  * @param isActive Whether the camera is active.
  * @param isMain Whether the camera is the main camera.
  * @param isTracking Whether the camera is tracking the [CameraTarget].
- * @param zoom The zoom level of the camera.
- * @param rotation The rotation of the camera.
- * @param deadZone The dead zone of the camera.
- * @param worldBounds The bounds of the world.
- * @param trauma The trauma of the camera.
- * @param traumaDecay The decay of the trauma.
- * @param maxShakeOffset The maximum offset of the shake.
- * @param maxShakeAngle The maximum angle of the shake.
  * @param viewport The viewport of the camera.
+ * @param bounds The bounds of the camera.
  *
  */
-data class Camera(
+class Camera(
+    val name: String = "",
+    isMain: Boolean = false,
     var isActive: Boolean = true,
-    var isMain: Boolean = false,
-
     var isTracking: Boolean = true,
-
-    var zoom: Float = 1f,
-    var rotation: Float = 0f,
-
-    var trauma: Float = 0f,
-    var traumaDecay: Float = 3.2f,
-    var maxShakeOffset: Float = 12f,
-    var maxShakeAngle: Float = 1.8f,
-    var shakeOffset: Offset = Offset.Zero,
-    var shakeRotation: Float = 0f,
-
     var viewport: Viewport = Viewport(0f, 0f, 1f, 1f),
-
-    val worldBounds: Rect = Rect(
-        Float.NEGATIVE_INFINITY,
-        Float.NEGATIVE_INFINITY,
-        Float.POSITIVE_INFINITY,
-        Float.POSITIVE_INFINITY
-    ),
-    val deadZone: Size = Size(50f, 50f),
+    var bounds: Rect = Rect.Zero
 ) : Component<Camera> {
 
     override fun type() = Camera
 
     companion object : ComponentType<Camera>()
 
-}
+    var isMain: Boolean = isMain
+        internal set
 
-/**
- * add trauma to camera
- * @param amount trauma amount
- */
-fun Camera.addTrauma(amount: Float) {
-    trauma = (trauma + amount).coerceIn(0f, 1f)
-}
-
-/**
- * Stops the camera from automatically following its target entity, keeping it static.
- */
-fun Camera.pauseTracking() {
-    this.isTracking = false
-}
-
-/**
- * Resumes the camera following its target entity, subject to its follow/spring settings.
- * Note: This should be called *after* any pan sequence is complete.
- */
-fun Camera.resumeTracking() {
-    this.isTracking = true
-}
-
-/**
- * Shakes the camera view by adding trauma.
- *
- * @param amount The maximum trauma value (clamped between 0 and 1).
- * @param decayRate The rate at which the trauma decays per second.
- * @param maxOffset The maximum pixel offset for shake (optional, overrides default).
- * @param maxAngle The maximum angle (in degrees) for shake (optional, overrides default).
- */
-fun Camera.shake(
-    amount: Float,
-    decayRate: Float? = null,
-    maxOffset: Float? = null,
-    maxAngle: Float? = null
-) {
-    // 1. Add trauma amount (using existing logic)
-    this.addTrauma(amount)
-
-    // 2. Override decay rate and maximums if provided
-    if (decayRate != null) {
-        this.traumaDecay = decayRate.coerceAtLeast(0.01f) // Ensure decay is positive
-    }
-    if (maxOffset != null) {
-        this.maxShakeOffset = maxOffset.coerceAtLeast(0f)
-    }
-    if (maxAngle != null) {
-        this.maxShakeAngle = maxAngle.coerceAtLeast(0f)
-    }
 }
 
 /**
@@ -164,44 +119,54 @@ fun Camera.setViewport(
 }
 
 /**
- * Clamps a raw world position to ensure it resides within the map boundaries,
- * factoring in the viewport size.
- * * Note: This function is primarily used to ensure the camera center (position)
- * does not cause the viewport to leave the map, but it can clamp any arbitrary
- * position within the calculated safe area.
+ * Clamps the camera's center position to ensure its viewport remains within the world boundaries.
+ * This is the definitive, correct implementation based on calculating the intersection
+ * of the camera's potential movable area and the world bounds.
  *
- * @param viewportSize The viewport size of camera.
- * @param position The raw world position (Offset) to be clamped.
- * @return The clamped position (Offset) that respects the viewable bounds.
+ * It correctly handles all scenarios, including multi-viewport (split-screen) setups,
+ * and worlds that are larger or smaller than the viewport.
+ *
+ * @param viewportSize The total virtual size of the canvas/screen.
+ * @param position The raw world position (Offset) of the camera center to be clamped.
+ * @return The clamped world position (Offset).
  */
 fun Camera.clampInBounds(viewportSize: Size, position: Offset): Offset {
-    if (worldBounds.isInfinite) return position
+    val cameraBounds = this.bounds
+    if (cameraBounds.isEmpty) {
+        return position
+    }
 
-    val viewL = viewportSize.width  * viewport.left
-    val viewT = viewportSize.height * viewport.top
     val viewW = viewportSize.width  * viewport.width
     val viewH = viewportSize.height * viewport.height
 
-    val worldW = worldBounds.width
-    val worldH = worldBounds.height
+    val halfW = viewW / 2f
+    val halfH = viewH / 2f
 
-    val useWholeWorld = worldW <= viewW && worldH <= viewH
-    if (useWholeWorld) {
-        return Offset(
-            x = viewL + viewW * 0.5f,
-            y = viewT + viewH * 0.5f
-        )
+    val minX: Float
+    val maxX: Float
+
+    if (viewW > cameraBounds.width) {
+        minX = cameraBounds.left
+        maxX = cameraBounds.right
+    } else {
+        minX = cameraBounds.left + halfW
+        maxX = cameraBounds.right - halfW
     }
 
-    val halfW = viewW * 0.5f
-    val halfH = viewH * 0.5f
-    val minX  = worldBounds.left   + halfW + viewL
-    val maxX  = worldBounds.right  - halfW + viewL
-    val minY  = worldBounds.top    + halfH + viewT
-    val maxY  = worldBounds.bottom - halfH + viewT
+    val minY: Float
+    val maxY: Float
+
+    if (viewH > cameraBounds.height) {
+        minY = cameraBounds.top
+        maxY = cameraBounds.bottom
+    } else {
+        minY = cameraBounds.top + halfH
+        maxY = cameraBounds.bottom - halfH
+    }
 
     return Offset(
-        position.x.coerceIn(minX, maxX),
-        position.y.coerceIn(minY, maxY)
+        x = position.x.coerceIn(minX, maxX),
+        y = position.y.coerceIn(minY, maxY)
     )
 }
+

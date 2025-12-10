@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.cmp.games.aircraftwar.AircraftWarDemo
+import com.example.cmp.games.common.GameDemo
 import com.game.engine.context.PlatformContext
 
 
@@ -17,7 +18,7 @@ import com.game.engine.context.PlatformContext
 @Preview
 fun App(context: PlatformContext) {
     MaterialExpressiveTheme {
-        AircraftWarDemo(context)
+        GameDemo(context)
     }
 }
 

@@ -20,7 +20,7 @@ class BoundarySystem(
 ) : IteratingSystem(
     family = family { all(Boundary, Transform) }
 ) {
-    private val worldBounds by lazy { cameraService.worldBounds }
+    private val worldBounds by lazy { cameraService.getWorldBounds() }
 
     override fun onTickEntity(entity: Entity) {
         val transform = entity[Transform]

@@ -11,6 +11,7 @@ import com.game.engine.geometry.ViewportScaleType
 import com.game.engine.geometry.ViewportTransform
 import com.game.engine.geometry.toOffset
 import com.game.plugins.components.Camera
+import com.game.plugins.components.CameraShake
 import com.game.plugins.components.Transform
 
 /**
@@ -51,14 +52,17 @@ inline fun DrawScope.withCenteredTransform(
 /**
  * An extension for `DrawScope` that applies the camera's translation, scale, and rotation.
  * Inside the [block], the coordinate system is transformed into the camera's view space.
+ * This version correctly handles camera bounds, shake, and viewport clipping.
  *
- * @param camera The camera component.
- * @param transform The Transform component of the camera entity.
+ * @param camera The camera component, providing viewport settings, zoom, and its own rotation.
+ * @param transform The Transform component of the camera entity, providing position and entity rotation.
+ * @param shake Optional camera shake effect.
  * @param block The drawing logic to be executed within the camera's coordinate system.
  */
 inline fun DrawScope.withCameraTransform(
     camera: Camera,
     transform: Transform,
+    shake: CameraShake?,
     block: DrawScope.() -> Unit
 ) {
     val viewportL = size.width * camera.viewport.left
@@ -66,35 +70,31 @@ inline fun DrawScope.withCameraTransform(
     val viewportW = size.width * camera.viewport.width
     val viewportH = size.height * camera.viewport.height
 
-    val centerX = viewportW / 2f
-    val centerY = viewportH / 2f
+    val cameraPos = transform.position
+    val cameraZoom = transform.scale
+    val cameraRotation = transform.rotation
+
+    val shakeOffsetX = shake?.shakeOffset?.x ?: 0f
+    val shakeOffsetY = shake?.shakeOffset?.y ?: 0f
+    val shakeRotation = shake?.shakeRotation ?: 0f
+    val finalRotation = cameraRotation + shakeRotation
+
+    var finalCameraX = cameraPos.x
+    var finalCameraY = cameraPos.y
+
+    finalCameraX += shakeOffsetX
+    finalCameraY += shakeOffsetY
 
     withTransform({
-        // 1. Clip the drawing area to the camera's viewport.
-        clipRect(
-            left = viewportL,
-            top = viewportT,
-            right = viewportL + viewportW,
-            bottom = viewportT + viewportH
-        )
-
-        // 2. Translate to the center of the viewport.
-        translate(centerX, centerY)
-
-        // 3. Apply zoom (scale).
-        scale(camera.zoom, camera.zoom, Offset.Zero)
-
-        // 4. Apply rotation (camera + entity + shake).
-        rotate(-(camera.rotation + transform.rotation + camera.shakeRotation))
-
-        // 5. Apply translation (entity position + shake).
-        val finalX = transform.position.x + camera.shakeOffset.x
-        val finalY = transform.position.y + camera.shakeOffset.y
-        translate(-finalX, -finalY)
+        translate(left = viewportL + viewportW / 2f, top = viewportT + viewportH / 2f)
+        scale(scaleX = cameraZoom.scaleX, scaleY = cameraZoom.scaleY, Offset.Zero)
+        rotate(degrees = -finalRotation)
+        translate(left = -finalCameraX, top = -finalCameraY)
     }) {
         block()
     }
 }
+
 
 /**
  * Sets up a local transformation for an entity in the world coordinate system and provides
@@ -123,7 +123,11 @@ inline fun DrawScope.withLocalTransform(
             }
 
             if (transform.scale.scaleX != 1f || transform.scale.scaleY != 1f) {
-                scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.toOffset(transform.scalePivot))
+                scale(
+                    transform.scale.scaleX,
+                    transform.scale.scaleY,
+                    currentSize.toOffset(transform.scalePivot)
+                )
             }
         }) {
             block()

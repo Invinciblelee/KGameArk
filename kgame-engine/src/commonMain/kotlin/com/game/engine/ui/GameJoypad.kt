@@ -31,13 +31,13 @@ data class JoypadValue(
     val strength: Float = 0f
 )
 
-fun JoypadValue.applyToInput(input: InputManager) {
+fun InputManager.applyJoypad(value: JoypadValue) {
     when {
-        strength < 0.2f -> Unit
-        angle in -45f..45f      -> input.simulateKey(Key.DirectionRight)
-        angle in 45f..135f      -> input.simulateKey(Key.DirectionDown)
-        angle in 135f..225f     -> input.simulateKey(Key.DirectionLeft)
-        else                      -> input.simulateKey(Key.DirectionUp)
+        value.strength < 0.2f -> Unit
+        value.angle in -45f..45f -> simulateKey(Key.DirectionRight)
+        value.angle in 45f..135f -> simulateKey(Key.DirectionDown)
+        value.angle in 135f..225f -> simulateKey(Key.DirectionLeft)
+        else -> simulateKey(Key.DirectionUp)
     }
 }
 
@@ -53,18 +53,18 @@ fun GameJoypad(
     dotColor: Color = Color.LightGray,
 ) {
     val density = LocalDensity.current
-    val pxRadius     = with(density) { radius.toPx() }
-    val pxDead       = with(density) { deadRadius.toPx() }
-    val pxDot        = with(density) { dotRadius.toPx() }
+    val pxRadius = with(density) { radius.toPx() }
+    val pxDead = with(density) { deadRadius.toPx() }
+    val pxDot = with(density) { dotRadius.toPx() }
 
-    var center  by remember { mutableStateOf(Offset.Zero) }
+    var center by remember { mutableStateOf(Offset.Zero) }
     var pointer by remember { mutableStateOf(Offset.Zero) }
     var visible by remember { mutableStateOf(false) }
 
     val value = remember(center, pointer) {
-        val vec      = pointer - center
-        val len      = vec.getDistance()
-        val inDead   = len <= pxDead
+        val vec = pointer - center
+        val len = vec.getDistance()
+        val inDead = len <= pxDead
         val clampLen = len.coerceAtMost(pxRadius)
         val clampVec = if (len == 0f) Offset.Zero else vec * (clampLen / len)
         JoypadValue(
@@ -95,7 +95,7 @@ fun GameJoypad(
                 awaitPointerEventScope {
                     while (true) {
                         val down = awaitFirstDown()
-                        center  = down.position
+                        center = down.position
                         pointer = down.position
                         visible = true
 

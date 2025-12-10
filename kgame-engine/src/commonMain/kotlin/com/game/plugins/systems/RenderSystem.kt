@@ -1,6 +1,8 @@
 package com.game.plugins.systems
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.game.ecs.Entity
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
@@ -11,6 +13,7 @@ import com.game.engine.graphics.drawscope.withCameraTransform
 import com.game.engine.graphics.drawscope.withCenteredTransform
 import com.game.engine.graphics.drawscope.withLocalTransform
 import com.game.plugins.components.Camera
+import com.game.plugins.components.CameraShake
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.Scroller
 import com.game.plugins.components.Transform
@@ -29,12 +32,13 @@ class RenderSystem(
     }
 
     override fun onRender(drawScope: DrawScope) {
-        val cameraEntity = cameraService.activeCameraEntity
+        val cameraEntity = cameraService.mainCameraEntity
         if (cameraEntity != null) {
             val camera = cameraEntity[Camera]
             val camTrans = cameraEntity[Transform]
+            val camShake = cameraEntity.getOrNull(CameraShake)
 
-            drawScope.withCameraTransform(camera, camTrans) {
+            drawScope.withCameraTransform(camera, camTrans, camShake) {
                 super.onRender(this)
             }
         } else {

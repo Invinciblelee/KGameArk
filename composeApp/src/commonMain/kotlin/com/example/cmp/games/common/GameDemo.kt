@@ -53,28 +53,30 @@ import com.game.engine.ui.DraggableWindow
 import com.game.engine.ui.DraggableWindowGroup
 import com.game.engine.ui.GameJoypad
 import com.game.engine.ui.Rectangle
-import com.game.engine.ui.applyToInput
+import com.game.engine.ui.applyJoypad
 import com.game.engine.ui.rememberDraggableWindowManager
 import com.game.engine.utils.FpsCalculator
 import com.game.engine.utils.KeyTrigger
 import com.game.plugins.components.AlphaAnimation
 import com.game.plugins.components.Camera
+import com.game.plugins.components.CameraShake
 import com.game.plugins.components.CameraTarget
 import com.game.plugins.components.Elasticity
 import com.game.plugins.components.InfiniteRepeatable
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.ScaleAnimation
+import com.game.plugins.components.Smooth
 import com.game.plugins.components.Spring
 import com.game.plugins.components.Sprite
 import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Tween
 import com.game.plugins.components.Visual
+import com.game.plugins.components.WorldBounds
 import com.game.plugins.components.applyImpulseFromSegment
 import com.game.plugins.components.applyKinematicMovement
 import com.game.plugins.components.applyScale
-import com.game.plugins.components.shake
 import com.game.plugins.services.CameraService
 import com.game.plugins.systems.AnimationSystem
 import com.game.plugins.systems.CameraSystem
@@ -500,7 +502,7 @@ private class PlayerControlSystem(
             }
         }
         KeyTrigger.check(input, Key.Seven) {
-            cameraService.activeCamera?.shake(10f)
+            cameraService.director.shake(0.5f)
         }
     }
 
@@ -546,7 +548,6 @@ fun GameDemo(context: PlatformContext) {
     KGame(
         context = context,
         sceneStack = sceneStack,
-        virtualSize = Size(600f, 800f),
     ) {
         scene<Menu> {
             resources {
@@ -620,8 +621,10 @@ fun GameDemo(context: PlatformContext) {
                     +Transform()
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
-                    +CameraTarget("player", player)
-                    +Camera(isMain = true, worldBounds = worldBounds)
+                    +WorldBounds(worldBounds)
+                    +CameraTarget(player)
+                    +CameraShake()
+                    +Camera("player", isMain = true, bounds = worldBounds)
                 }
 
                 entity {
@@ -643,8 +646,10 @@ fun GameDemo(context: PlatformContext) {
                     +Transform()
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
-                    +CameraTarget("enemy", enemy)
-                    +Camera(isActive = false, worldBounds = worldBounds)
+                    +WorldBounds(worldBounds)
+                    +CameraTarget(enemy)
+                    +CameraShake()
+                    +Camera("enemy")
                 }
 
                 entities(500) {
@@ -653,9 +658,10 @@ fun GameDemo(context: PlatformContext) {
                     val mass = 1f + Random.nextFloat()
 
                     val enemyInstance = EnemyTag()
+                    val size = (25f..50f).random()
                     +Transform(
                         position = worldBounds.randomOffset(),
-                        size = Size((25f..50f).random(), (25f..50f).random())
+                        size = Size(size, size)
                     )
                     +RigidBody(Offset(velX, velY), mass = mass)
                     +enemyInstance
@@ -708,7 +714,7 @@ fun GameDemo(context: PlatformContext) {
             onForegroundUI {
                 val windowManager = rememberDraggableWindowManager()
 
-                GameJoypad(onValue = { it.applyToInput(input) })
+                GameJoypad(onValue = input::applyJoypad)
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

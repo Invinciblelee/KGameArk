@@ -20,7 +20,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toIntSize
 import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -37,6 +36,8 @@ import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
+import com.game.engine.ui.GameJoypad
+import com.game.engine.ui.applyJoypad
 import com.game.plugins.components.Axis
 import com.game.plugins.components.Boundary
 import com.game.plugins.components.Camera
@@ -52,9 +53,9 @@ import com.game.plugins.components.RigidBody
 import com.game.plugins.components.Scroller
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Visual
+import com.game.plugins.components.WorldBounds
 import com.game.plugins.components.applyKinematicMovement
 import com.game.plugins.components.cleanupOnExit
-import com.game.plugins.components.shake
 import com.game.plugins.services.CameraService
 import com.game.plugins.systems.BoundarySystem
 import com.game.plugins.systems.CameraSystem
@@ -113,6 +114,7 @@ private class BackgroundVisual(val image: ImageBitmap) : Visual() {
 // --- 3. 游戏系统 (Game Systems) ---
 
 private class AircraftControlSystem(
+    val cameraService: CameraService = inject(),
     val input: InputManager = inject()
 ) : IteratingSystem(family = family { all(PlayerTag, Transform, WeaponComponent) }) {
 
@@ -128,6 +130,7 @@ private class AircraftControlSystem(
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) deltaX += 1f
 
         transform.applyKinematicMovement(deltaTime = deltaTime, rawDeltaX = deltaX, rawDeltaY = deltaY, speed = 200f)
+        transform.position = cameraService.transformer.clampInBounds(transform.position)
 
         // 射击控制 (Spacebar)
         weapon.timeUntilNextShot -= deltaTime
@@ -180,7 +183,7 @@ private class EnemySpawnSystem(
 
 
     override fun onTick() {
-        val worldBounds = cameraService.worldBounds
+        val worldBounds = cameraService.getWorldBounds()
 
         val spawnXMin = worldBounds.left
         val spawnXMax = worldBounds.right
@@ -248,7 +251,7 @@ private class CollisionSystem(
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
 //                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
-                    cameraService.activeCamera?.shake(5f)
+                    cameraService.director.shake(1f)
                     enemy.configure { +CleanupTag }
                 }
             }
@@ -319,12 +322,12 @@ fun AircraftWarDemo(context: PlatformContext) {
                     +RenderSystem()
                 }
             }) {
-                val worldBounds = Rect(-800f, -600f, 800f, 600f)
+                val worldBounds = Rect(-400f, -400f, 400f, 300f)
 
                 entity {
                     val image = assets[GameAssets.Image.Background]
                     +Transform(size = Size(image.width.toFloat(), image.height.toFloat()))
-                    +Scroller(speed = 120f, axis = Axis.X)
+                    +Scroller(speed = -120f, axis = Axis.Y)
                     +Renderable(BackgroundVisual(image), zIndex = -100)
                 }
 
@@ -342,17 +345,20 @@ fun AircraftWarDemo(context: PlatformContext) {
 //                    +Smooth(lerpSpeed = 12f)
 //                    +Elasticity(stiffness = 50f, damping = 10f)
 //                    +RigidBody()
-                    +CameraTarget("player", player)
-                    +Camera(isMain = true, isTracking = false, worldBounds = worldBounds)
+                    +CameraTarget(player)
+                    +WorldBounds(worldBounds)
+                    +Camera("player", isMain = true, isTracking = false)
                 }
             }
 
-            // ... 资源加载和退出逻辑 ...
+
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) sceneStack.pop()
             }
 
             onForegroundUI {
+                GameJoypad(onValue = input::applyJoypad)
+
                 // 简单的 HUD 显示血量和分数 (需要从 ECS Injectables 中获取状态)
                 // val gameState = inject<GameState>() // 假设您有 GameState
                 Text("HP: ???", modifier = Modifier.padding(16.dp))

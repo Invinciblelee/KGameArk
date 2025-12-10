@@ -89,9 +89,9 @@ internal class GameScene<T : Any>(
     }
 
     private suspend fun enter() {
-        loadAssets()
-
         isActive = true
+
+        loadAssets()
 
         world?.enter()
 
@@ -111,19 +111,25 @@ internal class GameScene<T : Any>(
     }
 
     private fun update(deltaTime: Float) {
-        if (isActive) {
+        if (isActive && !isLoading) {
             world?.update(deltaTime)
         }
-        update?.invoke(deltaTime)
+
+        if (isActive) {
+            update?.invoke(deltaTime)
+        }
     }
 
     private fun render(drawScope: DrawScope) {
         drawScope.drawContext.size = engine.virtualSize
         drawScope.withViewportTransform(engine.viewportTransform) {
-            if (isActive) {
+            if (isActive && !isLoading) {
                 world?.render(this)
             }
-            render?.invoke(this)
+
+            if (isActive) {
+                render?.invoke(this)
+            }
         }
     }
 

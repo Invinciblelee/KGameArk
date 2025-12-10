@@ -240,8 +240,8 @@ fun Transform.applyCameraTransition(
     val startPos = transition.startPosition ?: return 0f
 
     // 2. Update elapsed time and raw progress
-    transition.elapsed += deltaTime
-    val rawProgress = (transition.elapsed / transition.duration).coerceIn(0f, 1f)
+    transition.elapsedTime += deltaTime
+    val rawProgress = (transition.elapsedTime / transition.duration).coerceIn(0f, 1f)
 
     // 3. Calculate smooth curve using Smoothstep (Ease-In-Out)
     val easedProgress = rawProgress * rawProgress * (3f - 2f * rawProgress)

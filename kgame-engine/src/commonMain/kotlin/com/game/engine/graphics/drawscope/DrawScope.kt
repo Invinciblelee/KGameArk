@@ -35,6 +35,20 @@ inline fun DrawScope.withViewportTransform(
 }
 
 /**
+ * Centers the coordinate system at the screen midpoint.
+ * This provides a camera-like origin for scenes that do not use a real Camera entity.
+ */
+inline fun DrawScope.withCenteredTransform(
+    block: DrawScope.() -> Unit
+) {
+    withTransform({
+        translate(size.width * 0.5f, size.height * 0.5f)
+    }) {
+        block()
+    }
+}
+
+/**
  * An extension for `DrawScope` that applies the camera's translation, scale, and rotation.
  * Inside the [block], the coordinate system is transformed into the camera's view space.
  *
@@ -68,7 +82,7 @@ inline fun DrawScope.withCameraTransform(
         translate(centerX, centerY)
 
         // 3. Apply zoom (scale).
-        scale(camera.zoom, camera.zoom, pivot = Offset.Zero)
+        scale(camera.zoom, camera.zoom, Offset.Zero)
 
         // 4. Apply rotation (camera + entity + shake).
         rotate(-(camera.rotation + transform.rotation + camera.shakeRotation))
@@ -103,8 +117,14 @@ inline fun DrawScope.withLocalTransform(
             val offsetX = -currentSize.width / 2f
             val offsetY = -currentSize.height / 2f
             translate(transform.position.x + offsetX, transform.position.y + offsetY)
-            rotate(transform.rotation, currentSize.toOffset(transform.rotationPivot))
-            scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.toOffset(transform.scalePivot))
+
+            if (transform.rotation != 0f) {
+                rotate(transform.rotation, currentSize.toOffset(transform.rotationPivot))
+            }
+
+            if (transform.scale.scaleX != 1f || transform.scale.scaleY != 1f) {
+                scale(transform.scale.scaleX, transform.scale.scaleY, currentSize.toOffset(transform.scalePivot))
+            }
         }) {
             block()
         }

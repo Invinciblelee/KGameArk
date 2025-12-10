@@ -1,6 +1,9 @@
 package com.game.plugins.systems
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.game.ecs.Entity
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
@@ -13,19 +16,17 @@ import com.game.plugins.services.CameraService
  * The BoundarySystem is responsible for detecting when an entity has left the world bounds.
  */
 class BoundarySystem(
-    private val cameraService: CameraService = inject()
+    private val cameraService: CameraService = inject(),
 ) : IteratingSystem(
-    family = family { all(Boundary) }
+    family = family { all(Boundary, Transform) }
 ) {
-    private val worldBounds by lazy { cameraService.mainCamera?.worldBounds }
+    private val worldBounds by lazy { cameraService.worldBounds }
 
     override fun onTickEntity(entity: Entity) {
-        val bounds = worldBounds ?: return
-
         val transform = entity[Transform]
         val boundary = entity[Boundary]
 
-        if (isOutsideBounds(transform, bounds, boundary.margin)) {
+        if (isOutsideBounds(transform, worldBounds, boundary.margin)) {
             boundary.onExit(this, entity)
         }
     }

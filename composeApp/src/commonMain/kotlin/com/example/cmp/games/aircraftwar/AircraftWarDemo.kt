@@ -11,19 +11,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toIntSize
+import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
-import com.game.ecs.EntityTag
 import com.game.ecs.Fixed
 import com.game.ecs.IntervalSystem
 import com.game.ecs.IteratingSystem
@@ -34,37 +35,35 @@ import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
-import com.game.engine.geometry.ViewportTransform
-import com.game.engine.geometry.clampInBounds
-import com.game.engine.geometry.safeBounds
-import com.game.engine.graphics.shader.BlueSky
 import com.game.engine.input.InputManager
 import com.game.engine.math.random
-import com.game.engine.math.randomOffset
-import com.game.engine.ui.ActiveRectangle
+import com.game.plugins.components.Axis
 import com.game.plugins.components.Boundary
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraTarget
 import com.game.plugins.components.CharacterStats
 import com.game.plugins.components.CleanupTag
+import com.game.plugins.components.EnemyBulletTag
 import com.game.plugins.components.EnemyTag
 import com.game.plugins.components.PlayerBulletTag
 import com.game.plugins.components.PlayerTag
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
-import com.game.plugins.components.Smooth
+import com.game.plugins.components.Scroller
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Visual
 import com.game.plugins.components.applyKinematicMovement
 import com.game.plugins.components.cleanupOnExit
+import com.game.plugins.components.shake
 import com.game.plugins.services.CameraService
 import com.game.plugins.systems.BoundarySystem
 import com.game.plugins.systems.CameraSystem
 import com.game.plugins.systems.CleanupSystem
 import com.game.plugins.systems.PhysicsSystem
 import com.game.plugins.systems.RenderSystem
+import com.game.plugins.systems.ScrollerDriveSystem
+import com.game.plugins.systems.ScrollerRenderSystem
 import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
 
@@ -76,9 +75,39 @@ private data class WeaponComponent(
 // --- 2. 视觉组件 (Visuals) ---
 
 private class PlayerVisual : Visual() { override fun DrawScope.draw() { drawCircle(Color.Blue, alpha = alpha) } }
-private class EnemyVisual : Visual() { override fun DrawScope.draw() { drawRect(Color.Red, alpha = alpha) } }
-private class BulletVisual(private val isPlayer: Boolean) : Visual() {
-    override fun DrawScope.draw() { drawRect(if (isPlayer) Color.Black else Color.Magenta, alpha = alpha) }
+private class EnemyVisual : Visual() { override fun DrawScope.draw() { drawCircle(Color.Red, alpha = alpha) } }
+private class BulletVisual(isPlayer: Boolean) : Visual() {
+    private val brush = if (isPlayer) PlayerBrush else EnemyBrush
+
+    override fun DrawScope.draw() {
+        drawOval(brush = brush, alpha = alpha)
+    }
+
+    private companion object {
+        val PlayerBrush = Brush.verticalGradient(
+            0.0f to Color.Blue.copy(alpha = 0.0f),
+            0.5f to Color.Blue.copy(alpha = 0.6f),
+            1.0f to Color.White.copy(alpha = 0.9f)
+        )
+
+        val EnemyBrush = Brush.verticalGradient(
+            0.0f to Color.White.copy(alpha = 0.9f),
+            0.5f to Color.Red.copy(alpha = 0.6f),
+            1.0f to Color.Red.copy(alpha = 0.0f)
+        )
+    }
+
+}
+
+private class BackgroundVisual(val image: ImageBitmap) : Visual() {
+
+    override fun DrawScope.draw() {
+        drawImage(
+            image = image,
+            alpha = alpha
+        )
+    }
+
 }
 
 // --- 3. 游戏系统 (Game Systems) ---
@@ -109,12 +138,36 @@ private class AircraftControlSystem(
             world.entity {
                 +Transform(
                     position = transform.position + Offset(0f, -transform.size.height / 2f),
-                    size = Size(4f, 10f)
+                    size = Size(8f, 20f)
                 )
-                +RigidBody(velocity = Offset(0f, -300f), drag = 0f) // 子弹高速向上
+                +RigidBody(velocity = Offset(0f, -600f), drag = 0f)
                 +Boundary(onExit = cleanupOnExit())
                 +PlayerBulletTag(damage = 10f)
-                +Renderable(BulletVisual(true))
+                +Renderable(BulletVisual(true), zIndex = -1)
+            }
+        }
+    }
+}
+
+private class EnemyWeaponSystem : IteratingSystem(
+    family = family { all(EnemyTag, Transform, WeaponComponent) }
+) {
+    override fun onTickEntity(entity: Entity) {
+        val weapon = entity[WeaponComponent]
+        weapon.timeUntilNextShot -= deltaTime
+        if (weapon.timeUntilNextShot <= 0f) {
+            weapon.timeUntilNextShot = weapon.cooldown
+
+            val transform = entity[Transform]
+            world.entity {
+                +Transform(
+                    position = transform.position + Offset(0f, transform.size.height / 2f),
+                    size = Size(10f, 20f)
+                )
+                +RigidBody(velocity = Offset(0f, 300f), drag = 0f) // 向下
+                +Boundary(onExit = cleanupOnExit())
+                +EnemyBulletTag(damage = 15f)
+                +Renderable(BulletVisual(false), zIndex = -1)
             }
         }
     }
@@ -127,7 +180,7 @@ private class EnemySpawnSystem(
 
 
     override fun onTick() {
-        val worldBounds = cameraService.activeCamera?.worldBounds ?: return
+        val worldBounds = cameraService.worldBounds
 
         val spawnXMin = worldBounds.left
         val spawnXMax = worldBounds.right
@@ -151,6 +204,7 @@ private class EnemySpawnSystem(
                 +RigidBody(velocity = Offset((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
                 +CharacterStats(maxHp = 20f)
                 +Boundary(onExit = cleanupOnExit())
+                +WeaponComponent(cooldown = 0.5f)
                 +EnemyTag
                 +Renderable(EnemyVisual())
             }
@@ -159,6 +213,7 @@ private class EnemySpawnSystem(
 }
 
 private class CollisionSystem(
+    val cameraService: CameraService = inject(),
     val audio: AudioManager = inject()
 ) : IntervalSystem() {
     private val playerBulletFamily = family { all(PlayerBulletTag, Transform); none(EnemyTag) }
@@ -193,6 +248,7 @@ private class CollisionSystem(
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
 //                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
+                    cameraService.activeCamera?.shake(5f)
                     enemy.configure { +CleanupTag }
                 }
             }
@@ -234,22 +290,43 @@ fun AircraftWarDemo(context: PlatformContext) {
         }
 
         scene<Battle> {
+            resources {
+                +GameAssets.Image.Background
+            }
+
             world(configuration = {
                 systems {
-                    // 物理和渲染基础系统
-                    +PhysicsSystem(gravity = Offset.Zero)
-                    +CameraSystem()
-                    +RenderSystem()
-
-                    // 游戏核心系统
+                    // 1. 先收集玩家输入
                     +AircraftControlSystem()
-                    +EnemySpawnSystem()
-                    +CollisionSystem()
+
+                    // 2. 物理/边界结算（真正改变 Transform）
+                    +PhysicsSystem(gravity = Offset.Zero)
                     +BoundarySystem()
+
+                    // 3. 游戏逻辑
+                    +EnemySpawnSystem()
+                    +EnemyWeaponSystem()
+                    +CollisionSystem()
                     +CleanupSystem()
+
+                    // 4. 摄像机必须在“所有位移”完成之后
+                    +CameraSystem()
+
+                    +ScrollerDriveSystem()
+                    +ScrollerRenderSystem()
+
+                    // 5. 最后才画
+                    +RenderSystem()
                 }
             }) {
                 val worldBounds = Rect(-800f, -600f, 800f, 600f)
+
+                entity {
+                    val image = assets[GameAssets.Image.Background]
+                    +Transform(size = Size(image.width.toFloat(), image.height.toFloat()))
+                    +Scroller(speed = 120f, axis = Axis.X)
+                    +Renderable(BackgroundVisual(image), zIndex = -100)
+                }
 
                 // 1. 玩家实体
                 val player = entity {
@@ -262,19 +339,17 @@ fun AircraftWarDemo(context: PlatformContext) {
 
                 entity {
                     +Transform()
-                    +Smooth()
+//                    +Smooth(lerpSpeed = 12f)
+//                    +Elasticity(stiffness = 50f, damping = 10f)
+//                    +RigidBody()
                     +CameraTarget("player", player)
-                    +Camera(isMain = true, worldBounds = worldBounds)
+                    +Camera(isMain = true, isTracking = false, worldBounds = worldBounds)
                 }
             }
 
             // ... 资源加载和退出逻辑 ...
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) sceneStack.pop()
-            }
-
-            onBackgroundUI {
-                ActiveRectangle(BlueSky())
             }
 
             onForegroundUI {

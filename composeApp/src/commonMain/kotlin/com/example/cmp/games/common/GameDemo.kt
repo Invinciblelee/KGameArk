@@ -31,7 +31,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
-import cmp.composeapp.generated.resources.Res
 import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -45,7 +44,6 @@ import com.game.engine.audio.AudioManager
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
-import com.game.engine.geometry.safeBounds
 import com.game.engine.graphics.shader.BlueSky
 import com.game.engine.input.InputManager
 import com.game.engine.math.random

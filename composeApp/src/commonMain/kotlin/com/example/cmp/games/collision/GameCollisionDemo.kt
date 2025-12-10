@@ -21,8 +21,6 @@ import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.context.PlatformContext
 import com.game.engine.core.KSimpleGame
-import com.game.engine.geometry.ViewportTransform
-import com.game.engine.geometry.clampInBounds
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
 import com.game.engine.utils.FpsCalculator

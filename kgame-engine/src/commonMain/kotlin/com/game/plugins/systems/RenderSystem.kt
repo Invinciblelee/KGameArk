@@ -8,9 +8,11 @@ import com.game.ecs.World.Companion.inject
 import com.game.ecs.collection.compareEntityBy
 import com.game.engine.graphics.drawscope.drawDebugBounds
 import com.game.engine.graphics.drawscope.withCameraTransform
+import com.game.engine.graphics.drawscope.withCenteredTransform
 import com.game.engine.graphics.drawscope.withLocalTransform
 import com.game.plugins.components.Camera
 import com.game.plugins.components.Renderable
+import com.game.plugins.components.Scroller
 import com.game.plugins.components.Transform
 import com.game.plugins.components.isHiding
 import com.game.plugins.services.CameraService
@@ -18,7 +20,7 @@ import com.game.plugins.services.CameraService
 class RenderSystem(
     val cameraService: CameraService = inject()
 ): IteratingSystem(
-    family = family { all(Transform, Renderable) },
+    family = family { all(Transform, Renderable); none(Scroller) },
     comparator = compareEntityBy(Renderable)
 ) {
 
@@ -33,10 +35,12 @@ class RenderSystem(
             val camTrans = cameraEntity[Transform]
 
             drawScope.withCameraTransform(camera, camTrans) {
-                super.onRender(drawScope)
+                super.onRender(this)
             }
         } else {
-           super.onRender(drawScope)
+           drawScope.withCenteredTransform {
+               super.onRender(this)
+           }
         }
     }
 

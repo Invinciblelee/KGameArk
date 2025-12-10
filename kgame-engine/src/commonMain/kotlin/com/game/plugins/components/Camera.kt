@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Size
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
 import com.game.ecs.Entity
+import com.game.engine.geometry.ViewportTransform
 
 /**
  * Mark camera follow target.
@@ -71,21 +72,21 @@ data class Camera(
     var rotation: Float = 0f,
 
     var trauma: Float = 0f,
-    var traumaDecay: Float = 2.0f,
-    var maxShakeOffset: Float = 50f,
-    var maxShakeAngle: Float = 10f,
-
+    var traumaDecay: Float = 3.2f,
+    var maxShakeOffset: Float = 12f,
+    var maxShakeAngle: Float = 1.8f,
     var shakeOffset: Offset = Offset.Zero,
     var shakeRotation: Float = 0f,
+
     var viewport: Viewport = Viewport(0f, 0f, 1f, 1f),
 
-    val deadZone: Size = Size(50f, 50f),
     val worldBounds: Rect = Rect(
         Float.NEGATIVE_INFINITY,
         Float.NEGATIVE_INFINITY,
         Float.POSITIVE_INFINITY,
         Float.POSITIVE_INFINITY
     ),
+    val deadZone: Size = Size(50f, 50f),
 ) : Component<Camera> {
 
     override fun type() = Camera
@@ -160,4 +161,47 @@ fun Camera.setViewport(
     height: Float
 ) {
     viewport = Viewport(left, top, width, height)
+}
+
+/**
+ * Clamps a raw world position to ensure it resides within the map boundaries,
+ * factoring in the viewport size.
+ * * Note: This function is primarily used to ensure the camera center (position)
+ * does not cause the viewport to leave the map, but it can clamp any arbitrary
+ * position within the calculated safe area.
+ *
+ * @param viewportSize The viewport size of camera.
+ * @param position The raw world position (Offset) to be clamped.
+ * @return The clamped position (Offset) that respects the viewable bounds.
+ */
+fun Camera.clampInBounds(viewportSize: Size, position: Offset): Offset {
+    if (worldBounds.isInfinite) return position
+
+    val viewL = viewportSize.width  * viewport.left
+    val viewT = viewportSize.height * viewport.top
+    val viewW = viewportSize.width  * viewport.width
+    val viewH = viewportSize.height * viewport.height
+
+    val worldW = worldBounds.width
+    val worldH = worldBounds.height
+
+    val useWholeWorld = worldW <= viewW && worldH <= viewH
+    if (useWholeWorld) {
+        return Offset(
+            x = viewL + viewW * 0.5f,
+            y = viewT + viewH * 0.5f
+        )
+    }
+
+    val halfW = viewW * 0.5f
+    val halfH = viewH * 0.5f
+    val minX  = worldBounds.left   + halfW + viewL
+    val maxX  = worldBounds.right  - halfW + viewL
+    val minY  = worldBounds.top    + halfH + viewT
+    val maxY  = worldBounds.bottom - halfH + viewT
+
+    return Offset(
+        position.x.coerceIn(minX, maxX),
+        position.y.coerceIn(minY, maxY)
+    )
 }

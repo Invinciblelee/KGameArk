@@ -36,6 +36,22 @@ val Transform.rotationPivotOffset: Offset
 val Transform.scalePivotOffset: Offset
     get() = size.toOffset(scalePivot)
 
+
+/**
+ * Copies all transform properties (position, size, rotation, scale, pivots)
+ * into the supplied [transform] instance.
+ * Useful for applying the same transform to another entity without allocating
+ * a new object.
+ */
+fun Transform.copyTo(transform: Transform) {
+    transform.position      = this.position
+    transform.size          = this.size
+    transform.rotation      = this.rotation
+    transform.rotationPivot = this.rotationPivot
+    transform.scale         = this.scale
+    transform.scalePivot    = this.scalePivot
+}
+
 /**
  * Calculates the world-axis aligned bounding box (AABB) for the entity.
  * This method correctly accounts for rotation and scaling to produce a
@@ -162,20 +178,20 @@ fun Transform.applyElasticityFollow(
  * position over time, controlled by a smoothness factor.
  *
  * @param targetPosition Target position in world coordinates.
- * @param lerpSpeed      Velocity multiplier that determines the Lerp factor.
+ * @param smooth         The component containing the smooth's configuration.
  * @param deltaTime      Time step.
  */
 fun Transform.applySmoothFollow(
     targetPosition: Offset,
-    lerpSpeed: Float,
+    smooth: Smooth,
     deltaTime: Float,
 ) {
-    val t = (lerpSpeed * deltaTime).coerceIn(0f, 1f)
+    val tRaw = (smooth.lerpSpeed * deltaTime).coerceIn(0f, 1f)
+    val t    = tRaw * tRaw * (3 - 2 * tRaw)
 
-    val newX = lerp(this.position.x, targetPosition.x, t)
-    val newY = lerp(this.position.y, targetPosition.y, t)
-
-    this.position = Offset(newX, newY)
+    val newX = lerp(position.x, targetPosition.x, t)
+    val newY = lerp(position.y, targetPosition.y, t)
+    position = Offset(newX, newY)
 }
 
 /**

@@ -2,12 +2,12 @@ package com.game.plugins.services
 
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.game.ecs.Entity
 import com.game.ecs.EntityComponentContext
 import com.game.ecs.World
 import com.game.ecs.World.Companion.family
 import com.game.engine.geometry.ViewportTransform
-import com.game.engine.geometry.clampInBounds
 import com.game.engine.math.radians
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraTarget
@@ -19,6 +19,7 @@ import com.game.plugins.components.Transform
 import com.game.plugins.components.applyCameraTransition
 import com.game.plugins.components.applyElasticityFollow
 import com.game.plugins.components.applySmoothFollow
+import com.game.plugins.components.clampInBounds
 import com.game.plugins.components.getBounds
 import kotlin.math.cos
 import kotlin.math.min
@@ -26,9 +27,9 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class CameraService(
-    viewportTransform: ViewportTransform,
+    private val viewportTransform: ViewportTransform,
     world: World = World.requireCurrentWorld()
-): EntityComponentContext(world.componentService) {
+) : EntityComponentContext(world.componentService) {
 
     internal val family = family {
         all(Camera, CameraTarget, Transform)
@@ -41,6 +42,16 @@ class CameraService(
 
     val activeCamera: Camera? get() = activeCameraEntity?.get(Camera)
 
+    val worldBounds: Rect
+        get() = mainCamera?.worldBounds ?: viewportTransform.virtualSize.run {
+            Rect(
+                left = -width * 0.5f,
+                top = -height * 0.5f,
+                right = width * 0.5f,
+                bottom = height * 0.5f
+            )
+        }
+
     val transformer = CoordinateTransformer(this, viewportTransform)
 
     val culler = CameraFrustumCuller(this, viewportTransform)
@@ -52,7 +63,7 @@ class CameraService(
 class CameraDirector(
     private val cameraService: CameraService,
     private val viewportTransform: ViewportTransform
-): EntityComponentContext(cameraService.componentService) {
+) : EntityComponentContext(cameraService.componentService) {
 
     internal fun update(deltaTime: Float) {
         cameraService.family.forEach { entity ->
@@ -82,45 +93,44 @@ class CameraDirector(
         deltaTime: Float
     ) {
         val targetTransform = target.entity.getOrNull(Transform) ?: return
+        val targetPos = targetTransform.position
+
+        val camera = entity[Camera]
+        val deadZone = camera.deadZone
+        val cameraPos = transform.position
+        val delta = targetPos - cameraPos
+
+        val halfW = deadZone.width * 0.5f
+        val halfH = deadZone.height * 0.5f
+        var offsetX = 0f
+        var offsetY = 0f
+
+        if (delta.x > halfW) offsetX = delta.x - halfW
+        else if (delta.x < -halfW) offsetX = delta.x + halfW
+
+        if (delta.y > halfH) offsetY = delta.y - halfH
+        else if (delta.y < -halfH) offsetY = delta.y + halfH
+
+        if (offsetX == 0f && offsetY == 0f) return
+
+        val newTargetPos = cameraPos + Offset(offsetX, offsetY)
 
         val smooth = entity.getOrNull(Smooth)
         if (smooth != null) {
-            val camera = entity[Camera]
-            val deadZone = camera.deadZone
-            val cameraPosition = transform.position
-            val targetPosition = targetTransform.position
-            val delta = targetPosition - cameraPosition
-
-            val deadZoneHalfWidth = deadZone.width / 2f
-            val deadZoneHalfHeight = deadZone.height / 2f
-
-            var offsetX = 0f
-            var offsetY = 0f
-
-            if (delta.x > deadZoneHalfWidth) {
-                offsetX = delta.x - deadZoneHalfWidth
-            } else if (delta.x < -deadZoneHalfWidth) {
-                offsetX = delta.x + deadZoneHalfWidth
-            }
-
-            if (delta.y > deadZoneHalfHeight) {
-                offsetY = delta.y - deadZoneHalfHeight
-            } else if (delta.y < -deadZoneHalfHeight) {
-                offsetY = delta.y + deadZoneHalfHeight
-            }
-
-            if (offsetX != 0f || offsetY != 0f) {
-                val newTargetPos = cameraPosition + Offset(offsetX, offsetY)
-                transform.applySmoothFollow(newTargetPos, smooth.lerpSpeed, deltaTime)
-            }
+            transform.applySmoothFollow(newTargetPos, smooth, deltaTime)
             return
         }
 
         val elasticity = entity.getOrNull(Elasticity)
         if (elasticity != null) {
-            val rigidBody = entity.getOrNull(RigidBody) ?: return
-            transform.applyElasticityFollow(targetTransform.position, elasticity, rigidBody, deltaTime)
+            val rigidBody = entity.getOrNull(RigidBody)
+            if (rigidBody != null) {
+                transform.applyElasticityFollow(newTargetPos, elasticity, rigidBody, deltaTime)
+                return
+            }
         }
+
+        transform.position = newTargetPos
     }
 
     private fun updateTransition(
@@ -150,7 +160,8 @@ class CameraDirector(
     private fun updateShake(camera: Camera, deltaTime: Float) {
         // Updates camera shake based on trauma value
         if (camera.trauma > 0f) {
-            camera.trauma = (camera.trauma - camera.traumaDecay * deltaTime).coerceAtLeast(0f)
+            camera.trauma =
+                (camera.trauma - camera.trauma * camera.traumaDecay * deltaTime).coerceAtLeast(0f)
             val shakeFactor = camera.trauma * camera.trauma
 
             camera.shakeOffset = Offset(
@@ -167,9 +178,8 @@ class CameraDirector(
 
     private fun clampToWorldBounds(camera: Camera, transform: Transform) {
         // Clamps the camera position within the defined map boundaries
-        val worldBounds = camera.worldBounds
         val cameraPosition = transform.position
-        transform.position = viewportTransform.clampInBounds(worldBounds, cameraPosition)
+        transform.position = camera.clampInBounds(viewportTransform.virtualSize, cameraPosition)
     }
 
 
@@ -197,7 +207,8 @@ class CameraDirector(
      */
     fun switchCameraSmoothly(name: String, duration: Float = 0.5f) {
         // Initiates a smooth transition between the current active camera and the target camera.
-        val targetCameraEntity = cameraService.family.find { it[CameraTarget].name == name } ?: return
+        val targetCameraEntity =
+            cameraService.family.find { it[CameraTarget].name == name } ?: return
 
         // Ensure the target entity has a Transform to get the position
         val targetPosition = targetCameraEntity[CameraTarget].entity.getOrNull(Transform)?.position
@@ -209,8 +220,8 @@ class CameraDirector(
             // Start the transition on the currently active camera
             val camera = activeCameraEntity[Camera]
             activeCameraEntity.configure {
-                val clampedTargetPos = viewportTransform.clampInBounds(
-                    worldBounds = camera.worldBounds,
+                val clampedTargetPos = camera.clampInBounds(
+                    viewportSize = viewportTransform.virtualSize,
                     position = targetPosition
                 )
                 +CameraTransition(
@@ -245,8 +256,8 @@ class CameraDirector(
         val cameraTarget = activeCameraEntity[CameraTarget]
         activeCameraEntity.configure {
             // 2. Clamp the raw target position to ensure the viewport remains in bounds.
-            val clampedTargetPos = viewportTransform.clampInBounds(
-                worldBounds = camera.worldBounds,
+            val clampedTargetPos = camera.clampInBounds(
+                viewportSize = viewportTransform.virtualSize,
                 position = targetPosition
             )
 
@@ -268,7 +279,7 @@ class CameraDirector(
 class CoordinateTransformer(
     private val cameraService: CameraService,
     private val viewportTransform: ViewportTransform
-): EntityComponentContext(cameraService.componentService) {
+) : EntityComponentContext(cameraService.componentService) {
     private val defaultCamera = Camera()
     private val defaultTransform = Transform()
 
@@ -359,8 +370,8 @@ class CoordinateTransformer(
      * @param position The offset to be clamped.
      */
     fun clampInBounds(position: Offset): Offset {
-        val worldBounds = cameraService.mainCamera?.worldBounds ?: return position
-        return viewportTransform.clampInBounds(worldBounds, position)
+        val camera = cameraService.mainCamera ?: return position
+        return camera.clampInBounds(viewportTransform.virtualSize, position)
     }
 
 }
@@ -368,7 +379,7 @@ class CoordinateTransformer(
 class CameraFrustumCuller(
     private val cameraService: CameraService,
     private val viewportTransform: ViewportTransform
-): EntityComponentContext(cameraService.componentService) {
+) : EntityComponentContext(cameraService.componentService) {
     private val frustumRect = MutableRect(0f, 0f, 0f, 0f)
     private val entityBounds = MutableRect(0f, 0f, 0f, 0f)
 
@@ -378,33 +389,24 @@ class CameraFrustumCuller(
      * @return True if the transform is within the camera's frustum, false otherwise.
      */
     fun overlaps(transform: Transform): Boolean {
-        val activeCameraEntity = cameraService.activeCameraEntity
+        val activeCameraEntity = cameraService.activeCameraEntity ?: return true
 
-        if (activeCameraEntity != null) {
-            val camera = activeCameraEntity[Camera]
-            val camTrans = activeCameraEntity[Transform]
-            val camX = camTrans.position.x + camera.shakeOffset.x
-            val camY = camTrans.position.y + camera.shakeOffset.y
-            val zoom = camera.zoom
+        val camera = activeCameraEntity[Camera]
+        val camTrans = activeCameraEntity[Transform]
+        val camX = camTrans.position.x + camera.shakeOffset.x
+        val camY = camTrans.position.y + camera.shakeOffset.y
+        val zoom = camera.zoom
 
-            val virtualSize = viewportTransform.virtualSize
-            val halfVW = virtualSize.width / 2f / zoom
-            val halfVH = virtualSize.height / 2f / zoom
+        val virtualSize = viewportTransform.virtualSize
+        val halfVW = virtualSize.width / 2f / zoom
+        val halfVH = virtualSize.height / 2f / zoom
 
-            frustumRect.set(
-                left = camX - halfVW,
-                top = camY - halfVH,
-                right = camX + halfVW,
-                bottom = camY + halfVH
-            )
-        } else {
-            frustumRect.set(
-                left = 0f,
-                top = 0f,
-                right = viewportTransform.virtualSize.width,
-                bottom = viewportTransform.virtualSize.height
-            )
-        }
+        frustumRect.set(
+            left = camX - halfVW,
+            top = camY - halfVH,
+            right = camX + halfVW,
+            bottom = camY + halfVH
+        )
 
         frustumRect.inflate(min(frustumRect.width, frustumRect.height) * 0.1f)
 

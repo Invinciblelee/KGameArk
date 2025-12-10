@@ -7,6 +7,7 @@ import com.game.engine.asset.SoundKey
 
 object GameAssets {
     object Image {
+        val Background = ImageKey("drawable/stormplane_background2.jpg")
         val Player = ImageKey("drawable/image.jpeg")
     }
     object Sound {

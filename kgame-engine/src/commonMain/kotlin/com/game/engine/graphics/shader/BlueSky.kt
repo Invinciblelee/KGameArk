@@ -7,10 +7,10 @@ import org.intellij.lang.annotations.Language
 
 class BlueSky(
     val scale: Float = 1.5f,
-    val cloudCover: Float = 0.3f,
-    val cloudSharpness: Float = 0.4f,
-    val skyColorTop: Color = Color(0.1f, 0.3f, 0.6f),
-    val skyColorHorizon: Color = Color(0.6f, 0.8f, 1.0f)
+    val cloudCover: Float = 0.35f,
+    val cloudSharpness: Float = 0.25f,
+    val skyColorTop: Color = Color(0.05f, 0.15f, 0.4f),
+    val skyColorHorizon: Color = Color(0.55f, 0.75f, 1.0f)
 ) : Shader {
     companion object {
         // Uniform names
@@ -77,7 +77,7 @@ class BlueSky(
             /* 3. Create Clouds (Simplified) */
             // Animate cloud movement
             vec2 cloudUV = uv * $SCALE;
-            cloudUV.x += $TIME * 0.1; // Cloud drift
+            cloudUV.y -= $TIME * 0.1; // Cloud drift
             
             // Generate cloud noise
             float cloudNoise = fbm(cloudUV);

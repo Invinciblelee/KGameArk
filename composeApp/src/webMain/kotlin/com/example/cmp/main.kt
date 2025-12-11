@@ -2,11 +2,12 @@ package com.example.cmp
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import com.game.engine.context.PlatformContext
+import com.example.cmp.games.GameEnvironment
+import com.game.engine.core.PlatformContext
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport {
-        App(PlatformContext)
+        App(GameEnvironment(PlatformContext))
     }
 }

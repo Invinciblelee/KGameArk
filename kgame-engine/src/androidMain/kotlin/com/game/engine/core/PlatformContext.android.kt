@@ -1,4 +1,4 @@
-package com.game.engine.context
+package com.game.engine.core
 
 import android.content.Context
 

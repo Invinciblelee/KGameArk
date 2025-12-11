@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.toIntSize
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.lerp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -22,13 +23,17 @@ import com.game.engine.image.ImageAtlas
  */
 abstract class Visual(size: Size = Size.Unspecified) {
 
+    constructor(size: Float): this(Size(size, size))
+
+    constructor(width: Float, height: Float): this(Size(width, height))
+
     private var _size: Size = size
-    val size: Size get() = _size
+    open val size: Size get() = _size
 
     private var _alpha: Float = 1f
-    val alpha: Float get() = _alpha
+    open val alpha: Float get() = _alpha
 
-    val isSizeSpecified: Boolean get() = size.isSpecified
+    val isSizeSpecified: Boolean get() = _size.isSpecified
 
     fun setSize(size: Size) {
         this._size = size
@@ -47,7 +52,7 @@ abstract class Visual(size: Size = Size.Unspecified) {
 
 }
 
-class Circle(val color: Color, size: Float = Float.NaN) : Visual(Size(size, size)) {
+class Circle(val color: Color, size: Float = Float.NaN) : Visual(size) {
 
     override fun DrawScope.draw() {
         drawCircle(color, alpha = alpha)
@@ -69,7 +74,7 @@ class Rectangle(
     }
 }
 
-class Image(
+class Texture(
     val bitmap: ImageBitmap,
     size: Size = Size(bitmap.width.toFloat(), bitmap.height.toFloat())
 ): Visual(size) {
@@ -96,6 +101,16 @@ class Sprite(
         private set
 
     private var region: AtlasRegion = atlas.getRegion(name)
+
+    override val size: Size
+        get() {
+            val superSize = super.size
+            return if (superSize.isSpecified) {
+                superSize
+            } else {
+                region.size.toSize()
+            }
+        }
 
     fun setFrame(name: String) {
         if (this.name == name) return

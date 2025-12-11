@@ -49,7 +49,8 @@ kotlin {
             "-opt-in=kotlin.time.ExperimentalTime",
             "-opt-in=kotlin.uuid.ExperimentalUuidApi",
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi"
+            "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+            "-opt-in=org.jetbrains.compose.resources.ExperimentalResourceApi",
         )
     }
 
@@ -64,6 +65,7 @@ kotlin {
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.lifecycle.runtime)
             implementation(libs.androidx.navigation3.ui)
+            implementation(libs.androidx.navigationevent)
             implementation(libs.androidx.collection)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.atomicfu)

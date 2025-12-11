@@ -19,7 +19,8 @@ import com.game.ecs.Entity
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.GameEnvironment
+import com.game.engine.core.PlatformContext
 import com.game.engine.core.KSimpleGame
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
@@ -74,9 +75,9 @@ private class MovementSystem(
 private val EaseOutOvershoot = CubicBezierEasing(0.4f, 1.5f, 0.8f, 1.0f)
 
 @Composable
-fun GameCollisionDemo(context: PlatformContext) {
+fun GameCollisionDemo(environment: GameEnvironment) {
     KSimpleGame(
-        context = context,
+        environment = environment,
         modifier = Modifier.fillMaxSize(),
     ) {
         val anim = ScaleAnimation(
@@ -96,19 +97,16 @@ fun GameCollisionDemo(context: PlatformContext) {
                 +RenderSystem()
             }
         }) {
-            val entityCount = 50
-            val entitySize = Size(40f, 40f)
+            val bounds = Rect(-800f, -600f, 800f, 600f)
 
-            val bounds = Rect(0f, 0f, 800f, 600f)
-
-            entities(entityCount) {
+            entities(50) {
                 val velX = (-40f..40f).random()
                 val velY = (-40f..40f).random()
                 val mass = 1f + Random.nextFloat()
                 val color = Color.random()
 
                 // 创建随机移动和碰撞的实体
-                +Transform(bounds.randomOffset(), entitySize)
+                +Transform(bounds.randomOffset())
                 +RigidBody(Offset(velX, velY), mass = mass)
                 +ScaleAnimation(
                     from = 0f,
@@ -126,12 +124,12 @@ fun GameCollisionDemo(context: PlatformContext) {
                         RepeatMode.Reverse
                     )
                 )
-                +Renderable(Circle(color), zIndex = 1)
+                +Renderable(Circle(color, 40f), zIndex = 1)
             }
 
             // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
             entity {
-                +Transform(Offset(400f, 300f), Size(100f, 100f))
+                +Transform()
                 +RigidBody(Offset.Zero, mass = 0f)
                 +anim
                 +SpriteAnimation("run")

@@ -514,11 +514,9 @@ class CameraFrustumCuller(
         // --- 1. Broad-Phase Culling (World Bounds Check) ---
         val cameraBounds = camera.bounds
         // This check is only performed if world bounds have been defined for the camera.
-        if (!cameraBounds.isEmpty) {
-            if (!entityBounds.overlaps(cameraBounds)) {
-                // The object is entirely outside the world map, so it's definitely not visible. Cull it.
-                return false
-            }
+        if (!cameraBounds.isEmpty && !entityBounds.overlaps(cameraBounds)) {
+            // The object is entirely outside the world map, so it's definitely not visible. Cull it.
+            return false
         }
         // If no world bounds are set, or if the object is within them, proceed to the narrow-phase.
 

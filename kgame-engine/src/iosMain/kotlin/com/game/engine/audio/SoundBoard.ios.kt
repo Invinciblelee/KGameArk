@@ -2,7 +2,7 @@
 
 package com.game.engine.audio
 
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.PlatformContext
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

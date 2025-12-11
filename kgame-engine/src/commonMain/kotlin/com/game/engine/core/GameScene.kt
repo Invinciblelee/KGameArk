@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.Density
 import com.game.engine.asset.AssetKey
 import com.game.engine.graphics.drawscope.withViewportTransform
 import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Represents a scene in the game.
@@ -91,7 +93,9 @@ internal class GameScene<T : Any>(
     private suspend fun enter() {
         isActive = true
 
-        loadAssets()
+        withContext(Dispatchers.Default) {
+            loadAssets()
+        }
 
         world?.enter()
 

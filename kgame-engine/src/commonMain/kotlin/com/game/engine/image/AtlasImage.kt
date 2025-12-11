@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
+import com.game.engine.asset.AssetsReader
 import com.game.engine.utils.getBoolean
 import com.game.engine.utils.getFloat
 import com.game.engine.utils.getInt
@@ -18,7 +19,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.compose.resources.ExperimentalResourceApi
-import org.jetbrains.compose.resources.ResourceReader
 
 /**
  * This comment block illustrates the JSON data structure this module is designed to parse.
@@ -164,8 +164,8 @@ data class ImageAtlas(
 
 }
 
-internal suspend fun loadImageAtlas(resourceReader: ResourceReader, path: String): ImageAtlas {
-    val json = resourceReader.read(path).decodeToString()
+internal suspend fun loadImageAtlas(assetsReader: AssetsReader, path: String): ImageAtlas {
+    val json = assetsReader.readBytes(path).decodeToString()
     val jsonObject = Json.decodeFromString<JsonObject>(json)
 
     val metadata = jsonObject.getValue("meta").let {
@@ -212,7 +212,7 @@ internal suspend fun loadImageAtlas(resourceReader: ResourceReader, path: String
         }
     }
 
-    val imageData = resourceReader.read(path.substringBeforeLast("/") + "/" + metadata.image)
+    val imageData = assetsReader.readBytes(path.substringBeforeLast("/") + "/" + metadata.image)
     val bitmap = imageData.decodeToImageBitmap()
 
     return ImageAtlas(

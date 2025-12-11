@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalResourceApi::class)
-
 package com.game.engine.core
 
 import androidx.compose.animation.ContentTransform
@@ -35,12 +33,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.ui.NavDisplay
 import com.game.engine.asset.DefaultAssetsManager
-import com.game.engine.context.PlatformContext
 import com.game.engine.dsl.GameSceneProvider
 import com.game.engine.dsl.GameSceneProviderScope
 import com.game.engine.dsl.SceneBuilderScope
-import org.jetbrains.compose.resources.ExperimentalResourceApi
-import org.jetbrains.compose.resources.LocalResourceReader
 
 /**
  * The main entry point of the game.
@@ -120,7 +115,7 @@ import org.jetbrains.compose.resources.LocalResourceReader
  */
 @Composable
 fun <T : Any> KGame(
-    context: PlatformContext,
+    environment: GameEnvironment,
     sceneStack: GameSceneStack<T>,
     virtualSize: Size = Size(800f, 600f),
     modifier: Modifier = Modifier,
@@ -129,12 +124,11 @@ fun <T : Any> KGame(
     sceneBuilder: GameSceneProviderScope<T>.() -> Unit
 ) {
     val textMeasurer = rememberTextMeasurer()
-    val resourceReader = LocalResourceReader.current
     val engine = remember {
         GameEngine(
-            context = context,
+            context = environment.context,
             textMeasurer = textMeasurer,
-            assets = DefaultAssetsManager(resourceReader)
+            assets = DefaultAssetsManager(environment.assetsReader)
         )
     }
 
@@ -174,7 +168,7 @@ fun <T : Any> KGame(
 
 @Composable
 fun KSimpleGame(
-    context: PlatformContext,
+    environment: GameEnvironment,
     virtualSize: Size = Size(800f, 600f),
     modifier: Modifier = Modifier,
     foreground: (@Composable BoxScope.() -> Unit)? = null,
@@ -182,7 +176,7 @@ fun KSimpleGame(
     sceneBuilder: SceneBuilderScope<Unit>.() -> Unit
 ) {
     KGame(
-        context = context,
+        environment = environment,
         sceneStack = rememberGameSceneStack(Unit),
         virtualSize = virtualSize,
         modifier = modifier,

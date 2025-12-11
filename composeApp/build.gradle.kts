@@ -53,8 +53,6 @@ kotlin {
             implementation(libs.compose.ui.tooling.preview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtime)
-            implementation(libs.androidx.navigation3.ui)
-            implementation(libs.androidx.navigation3.viewmodel)
             implementation(libs.kotlinx.coroutines.core)
 
             implementation(project(":kgame-engine"))
@@ -101,8 +99,23 @@ android {
             )
         }
     }
+    signingConfigs {
+        create("signingConfig") {
+            keyAlias = "kmp"
+            keyPassword = "20251211"
+            storeFile = file("composeApp.jks")
+            storePassword = "20251211"
+        }
+    }
     buildTypes {
-        getByName("release") {
+        debug {
+            signingConfig = signingConfigs.getByName("signingConfig")
+
+            isMinifyEnabled = false
+        }
+        release {
+            signingConfig = signingConfigs.getByName("signingConfig")
+
             isMinifyEnabled = false
         }
     }

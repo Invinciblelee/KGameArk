@@ -27,7 +27,8 @@ class GameSceneStack<T : Any>(initialScene: T) {
 
     fun pop(): T? = synchronized(lock) {
         if (backStack.size > 1) {
-            backStack.removeLast()
+            //MutableList.removeLast will crash below Android 15
+            backStack.removeLastOrNull()
         } else {
             null
         }

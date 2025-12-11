@@ -1,12 +1,12 @@
 package com.example.cmp
 
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.ComposeUIViewController
-import com.game.engine.context.PlatformContext
+import com.example.cmp.games.GameEnvironment
+import com.game.engine.core.PlatformContext
 
 fun MainViewController() = ComposeUIViewController(
     configure = {
 
     }
-) { App(PlatformContext) }
+) { App(GameEnvironment(PlatformContext)) }
 

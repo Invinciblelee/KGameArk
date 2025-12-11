@@ -41,7 +41,8 @@ import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.GameEnvironment
+import com.game.engine.core.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.graphics.shader.BlueSky
@@ -147,7 +148,7 @@ private class SilkBounds(
     companion object : ComponentType<SilkBounds>()
 }
 
-private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null) : Visual() {
+private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color? = null, size: Size) : Visual(size) {
     override fun DrawScope.draw() {
         drawCircle(if (enemyTag.isTrapped) Color.Black else color ?: Color.Gray, alpha = alpha)
     }
@@ -376,9 +377,10 @@ private class SilkCollisionSystem(
             val enemy = it[EnemyTag]
             val rigidBody = it[RigidBody]
             val transform = it[Transform]
+            val renderable = it[Renderable]
 
             val enemyPos = transform.position
-            val radius = transform.size.width / 2f + 5f
+            val radius = renderable.size.width / 2f + 5f
 
             // COARSE AABB CHECK: Use SilkBounds to quickly reject enemies far away
             val enemyMinX = enemyPos.x - radius
@@ -544,10 +546,10 @@ private data class Battle(val value: String)
 private data class GameState(var score: Int)
 
 @Composable
-fun GameDemo(context: PlatformContext) {
+fun GameDemo(environment: GameEnvironment) {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
     KGame(
-        context = context,
+        environment = environment,
         sceneStack = sceneStack,
     ) {
         scene<Menu> {
@@ -607,7 +609,7 @@ fun GameDemo(context: PlatformContext) {
                 val worldBounds = Rect(-800f, -600f, 800f, 600f)
 
                 val player = entity {
-                    +Transform(size = Size(50f, 50f))
+                    +Transform()
                     +PlayerTag()
                     +SpriteAnimation("run")
                     +ScaleAnimation(
@@ -615,7 +617,7 @@ fun GameDemo(context: PlatformContext) {
                         to = 1.0f,
                         spec = Spring()
                     )
-                    +Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"), zIndex = 1)
+                    +Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
                 }
 
                 entity {
@@ -625,7 +627,7 @@ fun GameDemo(context: PlatformContext) {
                     +WorldBounds(worldBounds)
                     +CameraTarget(player)
                     +CameraShake()
-                    +Camera("player", isMain = true, bounds = Rect(-200f, -150f, 200f, 150f))
+                    +Camera("player", isMain = true)
                 }
 
                 entity {
@@ -637,10 +639,10 @@ fun GameDemo(context: PlatformContext) {
                 }
 
                 val enemy = entity {
-                    +Transform(worldBounds.randomOffset(), size = Size(50f, 50f))
+                    +Transform(worldBounds.randomOffset())
                     +RigidBody()
                     +EnemyTag()
-                    +Renderable(EnemyVisual(EnemyTag(), color = Color.Green))
+                    +Renderable(EnemyVisual(EnemyTag(), color = Color.Green, size = Size(50f, 50f)))
                 }
 
                 entity {
@@ -660,10 +662,7 @@ fun GameDemo(context: PlatformContext) {
 
                     val enemyInstance = EnemyTag()
                     val size = (25f..50f).random()
-                    +Transform(
-                        position = worldBounds.randomOffset(),
-                        size = Size(size, size)
-                    )
+                    +Transform(worldBounds.randomOffset())
                     +RigidBody(Offset(velX, velY), mass = mass)
                     +enemyInstance
                     +ScaleAnimation(
@@ -682,7 +681,7 @@ fun GameDemo(context: PlatformContext) {
                             RepeatMode.Reverse
                         )
                     )
-                    +Renderable(EnemyVisual(enemyInstance, color = Color.random()))
+                    +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
                 }
             }
 

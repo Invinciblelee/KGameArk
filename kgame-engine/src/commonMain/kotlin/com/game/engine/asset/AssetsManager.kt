@@ -1,5 +1,4 @@
 @file:Suppress("UNCHECKED_CAST")
-@file:OptIn(ExperimentalResourceApi::class)
 
 package com.game.engine.asset
 
@@ -11,8 +10,6 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.jetbrains.compose.resources.ExperimentalResourceApi
-import org.jetbrains.compose.resources.ResourceReader
 import kotlin.jvm.JvmInline
 
 /**
@@ -39,10 +36,10 @@ interface SourceUri {
 }
 
 @JvmInline
-value class AssetUri(override val path: String): SourceUri
+value class AssetUri(override val path: String) : SourceUri
 
 @JvmInline
-value class HttpUri(override val path: String): SourceUri
+value class HttpUri(override val path: String) : SourceUri
 
 @JvmInline
 value class ImageKey(override val source: String) : AssetKey<String, ImageBitmap>
@@ -60,7 +57,7 @@ value class VideoKey(override val source: String) : AssetKey<String, SourceUri>
 value class SoundKey(override val source: String) : AssetKey<String, SourceUri>
 
 @JvmInline
-value class MusicKey(override val source: String): AssetKey<String, SourceUri>
+value class MusicKey(override val source: String) : AssetKey<String, SourceUri>
 
 /**
  * Manages the loading and unloading of assets.
@@ -94,56 +91,39 @@ interface AssetsManager {
 
 }
 
-private class ResourceReaderWrapper(
-    private val delegate: ResourceReader
-): ResourceReader {
-    private companion object {
-        const val PATH_PREFIX = "composeResources/cmp.composeapp.generated.resources/"
-    }
-
-    override suspend fun read(path: String): ByteArray {
-        return delegate.read(PATH_PREFIX + path)
-    }
-
-    override suspend fun readPart(path: String, offset: Long, size: Long): ByteArray {
-        return delegate.readPart(PATH_PREFIX + path, offset, size)
-    }
-
-    override fun getUri(path: String): String {
-        return delegate.getUri(PATH_PREFIX + path)
-    }
+interface AssetsReader {
+    suspend fun readBytes(path: String): ByteArray
+    fun getUri(path: String): String
 }
 
 /**
  * Default implementation of [AssetsManager].
  */
 class DefaultAssetsManager(
-    resourceReader: ResourceReader
-): AssetsManager {
-
-    private val resourceReader = ResourceReaderWrapper(resourceReader)
+    val assetsReader: AssetsReader
+) : AssetsManager {
 
     private val cache = HashMap<AssetKey<*, *>, Any>()
     private val lock = SynchronizedObject()
 
-    override suspend fun <S, T> load(key: AssetKey<S, T>) = withContext(Dispatchers.Default) {
-        if (synchronized(lock) { cache.containsKey(key) }) return@withContext
+    override suspend fun <S, T> load(key: AssetKey<S, T>) {
+        if (synchronized(lock) { cache.containsKey(key) }) return
 
         val loadedObject = when (key) {
             is ImageKey -> {
-                resourceReader.read(key.source).decodeToImageBitmap()
+                assetsReader.readBytes(key.source).decodeToImageBitmap()
             }
 
             is TextKey -> {
-                resourceReader.read(key.source).decodeToString()
+                assetsReader.readBytes(key.source).decodeToString()
             }
 
             is VideoKey, is SoundKey, is MusicKey -> {
-                AssetUri(resourceReader.getUri(key.source))
+                AssetUri(assetsReader.getUri(key.source))
             }
 
             is AtlasKey -> {
-                loadImageAtlas(resourceReader, key.source)
+                loadImageAtlas(assetsReader, key.source)
             }
         }
 

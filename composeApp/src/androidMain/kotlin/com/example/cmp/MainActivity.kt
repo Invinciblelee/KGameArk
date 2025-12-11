@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.cmp.games.GameEnvironment
 import com.example.cmp.ktor.plugins.installCallLogging
 import com.example.cmp.ktor.plugins.installContentNegotiation
 import com.example.cmp.ktor.plugins.installRouting
@@ -23,12 +24,14 @@ class MainActivity : ComponentActivity() {
 
     private val server = GameServer()
 
+    private val environment = GameEnvironment(this)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         setContent {
-            App(this)
+            App(environment)
         }
     }
 

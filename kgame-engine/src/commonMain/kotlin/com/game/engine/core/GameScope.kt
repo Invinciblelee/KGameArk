@@ -4,7 +4,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.TextMeasurer
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.PlatformContext
 import com.game.engine.geometry.ViewportTransform
 import com.game.engine.input.InputManager
 

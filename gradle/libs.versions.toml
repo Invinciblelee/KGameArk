@@ -16,6 +16,7 @@ androidx-testExt = "1.3.0"
 
 androidxNavigation3UI = "1.0.0-alpha06"
 androidxNavigation3ViewModel = "2.10.0-alpha06"
+androidxNavigationEvent = "1.0.0-rc02"
 androidxCollection = "1.5.0"
 
 composeHotReload = "1.0.0"
@@ -53,6 +54,7 @@ androidx-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:life
 androidx-lifecycle-runtime = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 androidx-navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "androidxNavigation3UI" }
 androidx-navigation3-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-navigation3", version.ref = "androidxNavigation3ViewModel" }
+androidx-navigationevent = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "androidxNavigationEvent" }
 androidx-collection = { module = "androidx.collection:collection", version.ref = "androidxCollection" }
 
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }

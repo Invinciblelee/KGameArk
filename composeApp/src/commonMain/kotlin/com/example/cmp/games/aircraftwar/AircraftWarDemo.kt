@@ -13,13 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.unit.dp
 import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
@@ -32,7 +29,8 @@ import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.GameEnvironment
+import com.game.engine.core.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.input.InputManager
@@ -53,6 +51,7 @@ import com.game.plugins.components.PlayerTag
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.Scroller
+import com.game.plugins.components.Texture
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Visual
 import com.game.plugins.components.WorldBounds
@@ -77,9 +76,13 @@ private data class WeaponComponent(
 
 // --- 2. 视觉组件 (Visuals) ---
 
-private class PlayerVisual : Visual() { override fun DrawScope.draw() { drawCircle(Color.Blue, alpha = alpha) } }
-private class EnemyVisual : Visual() { override fun DrawScope.draw() { drawCircle(Color.Red, alpha = alpha) } }
-private class BulletVisual(isPlayer: Boolean) : Visual() {
+private class PlayerVisual() : Visual(60f) {
+    override fun DrawScope.draw() { drawCircle(Color.Blue, alpha = alpha) }
+}
+private class EnemyVisual() : Visual(40f) {
+    override fun DrawScope.draw() { drawCircle(Color.Red, alpha = alpha) }
+}
+private class BulletVisual(isPlayer: Boolean) : Visual(10f, 15f) {
     private val brush = if (isPlayer) PlayerBrush else EnemyBrush
 
     override fun DrawScope.draw() {
@@ -102,16 +105,7 @@ private class BulletVisual(isPlayer: Boolean) : Visual() {
 
 }
 
-private class BackgroundVisual(val image: ImageBitmap) : Visual() {
 
-    override fun DrawScope.draw() {
-        drawImage(
-            image = image,
-            alpha = alpha
-        )
-    }
-
-}
 
 // --- 3. 游戏系统 (Game Systems) ---
 
@@ -166,8 +160,7 @@ private class EnemyWeaponSystem : IteratingSystem(
             val transform = entity[Transform]
             world.entity {
                 +Transform(
-                    position = transform.position + Offset(0f, transform.size.height / 2f),
-                    size = Size(10f, 20f)
+                    position = transform.position,
                 )
                 +RigidBody(velocity = Offset(0f, 300f), drag = 0f) // 向下
                 +Boundary(onExit = cleanupOnExit())
@@ -196,7 +189,6 @@ private class EnemySpawnSystem(
 
         // 在屏幕上方随机生成 1-3 个敌人
         repeat(Random.nextInt(1, 4)) {
-            val size = Size(40f, 40f)
             world.entity {
                 +Transform(
                     position = Offset(
@@ -204,7 +196,6 @@ private class EnemySpawnSystem(
                         x = Random.nextFloat() * (spawnXMax - spawnXMin) + spawnXMin,
                         y = spawnY
                     ),
-                    size = size
                 )
                 +RigidBody(velocity = Offset((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
                 +CharacterStats(maxHp = 20f)
@@ -231,7 +222,7 @@ private class CollisionSystem(
             enemyFamily.forEach { enemy ->
                 val bPos = bullet[Transform].position
                 val ePos = enemy[Transform].position
-                val eRadius = enemy[Transform].size.width / 2f
+                val eRadius = enemy[Renderable].size.width / 2f
 
                 // 简单的圆形碰撞检测 (使用距离平方优化)
                 if ((bPos - ePos).getDistanceSquared() < (eRadius * eRadius)) {
@@ -247,8 +238,8 @@ private class CollisionSystem(
             enemyFamily.forEach { enemy ->
                 val pPos = player[Transform].position
                 val ePos = enemy[Transform].position
-                val eRadius = enemy[Transform].size.width / 2f
-                val pRadius = player[Transform].size.width / 2f
+                val eRadius = enemy[Renderable].size.width / 2f
+                val pRadius = player[Renderable].size.width / 2f
 
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
@@ -269,10 +260,10 @@ private data object Menu
 private data object Battle
 
 @Composable
-fun AircraftWarDemo(context: PlatformContext) {
+fun AircraftWarDemo(environment: GameEnvironment) {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
     KGame(
-        context = context,
+        environment = environment,
         sceneStack = sceneStack
     ) {
         scene<Menu> {
@@ -328,14 +319,14 @@ fun AircraftWarDemo(context: PlatformContext) {
 
                 entity {
                     val image = assets[GameAssets.Image.Background]
-                    +Transform(size = Size(image.width.toFloat(), image.height.toFloat()))
+                    +Transform()
                     +Scroller(speed = -120f, axis = Axis.Y)
-                    +Renderable(BackgroundVisual(image), zIndex = -100)
+                    +Renderable(Texture(image), zIndex = -100)
                 }
 
                 // 1. 玩家实体
                 val player = entity {
-                    +Transform(size = Size(50f, 50f))
+                    +Transform()
                     +PlayerTag
                     +CharacterStats(maxHp = 100f)
                     +WeaponComponent(cooldown = 0.2f)
@@ -358,6 +349,7 @@ fun AircraftWarDemo(context: PlatformContext) {
 
             onForegroundUI {
                 GameJoypad(onValue = input::applyJoypad)
+
 
                 // 简单的 HUD 显示血量和分数 (需要从 ECS Injectables 中获取状态)
                 // val gameState = inject<GameState>() // 假设您有 GameState

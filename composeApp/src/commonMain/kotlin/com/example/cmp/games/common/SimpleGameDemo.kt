@@ -11,14 +11,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.GameEnvironment
+import com.game.engine.core.PlatformContext
 import com.game.engine.core.KSimpleGame
 import com.game.engine.ui.Rectangle
 
 @Composable
-fun SimpleGameDemo(context: PlatformContext) {
+fun SimpleGameDemo(environment: GameEnvironment) {
     KSimpleGame(
-        context = context,
+        environment = environment,
         modifier = Modifier.fillMaxSize(),
     ) {
         var color = Color.Red

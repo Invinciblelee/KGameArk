@@ -2,7 +2,8 @@ package com.example.cmp
 
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.game.engine.context.PlatformContext
+import com.example.cmp.games.GameEnvironment
+import com.game.engine.core.PlatformContext
 
 fun main() = application {
     Window(
@@ -10,7 +11,7 @@ fun main() = application {
         alwaysOnTop = true,
         title = "CMP",
     ) {
-        App(PlatformContext)
+        App(GameEnvironment(PlatformContext))
     }
 }
 

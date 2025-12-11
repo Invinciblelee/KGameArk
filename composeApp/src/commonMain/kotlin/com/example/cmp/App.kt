@@ -2,32 +2,18 @@
 
 package com.example.cmp
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.cmp.games.aircraftwar.AircraftWarDemo
 import com.example.cmp.games.common.GameDemo
-import com.game.engine.context.PlatformContext
+import com.game.engine.core.GameEnvironment
 
 
 @Composable
 @Preview
-fun App(context: PlatformContext) {
+fun App(environment: GameEnvironment) {
     MaterialExpressiveTheme {
-        GameDemo(context)
-    }
-}
-
-@Composable
-private fun AppDemo() {
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        MainScreen()
+        GameDemo(environment)
     }
 }

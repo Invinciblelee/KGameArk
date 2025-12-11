@@ -119,11 +119,12 @@ inline fun DrawScope.withCameraTransform(
  */
 inline fun DrawScope.withLocalTransform(
     transform: Transform,
+    size: Size,
     block: DrawScope.() -> Unit
 ) {
     val oldSize = drawContext.size
     try {
-        val currentSize = transform.size.let { if (it.isSpecified) it else oldSize }
+        val currentSize = size.let { if (it.isSpecified) it else oldSize }
         drawContext.size = currentSize
 
         val halfW = currentSize.width / 2f
@@ -162,9 +163,9 @@ private val DebugStroke = Stroke(width = 1f)
  */
 fun DrawScope.drawDebugBounds(
     transform: Transform,
+    size: Size,
     color: Color = Color.Green
 ) {
-    val size = transform.size
     if (size.isUnspecified) return
 
     // Calculate the top-left corner of the AABB based on the entity's center position and size.

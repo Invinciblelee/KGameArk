@@ -20,7 +20,6 @@ import kotlin.math.sqrt
 
 data class Transform(
     var position: Offset = Offset.Zero,
-    var size: Size = Size.Unspecified,
     var rotation: Float = 0f,
     var rotationPivot: TransformOrigin = TransformOrigin.Center,
     var scale: ScaleFactor = ScaleFactor(1f, 1f),
@@ -29,12 +28,6 @@ data class Transform(
     override fun type() = Transform
     companion object : ComponentType<Transform>()
 }
-
-val Transform.rotationPivotOffset: Offset
-    get() = size.toOffset(rotationPivot)
-
-val Transform.scalePivotOffset: Offset
-    get() = size.toOffset(scalePivot)
 
 
 /**
@@ -45,89 +38,10 @@ val Transform.scalePivotOffset: Offset
  */
 fun Transform.copyTo(transform: Transform) {
     transform.position      = this.position
-    transform.size          = this.size
     transform.rotation      = this.rotation
     transform.rotationPivot = this.rotationPivot
     transform.scale         = this.scale
     transform.scalePivot    = this.scalePivot
-}
-
-/**
- * Calculates the world-axis aligned bounding box (AABB) for the entity.
- * This method correctly accounts for rotation and scaling to produce a
- * bounding box that fully encloses the transformed entity.
- * This implementation is optimized to minimize object allocations for performance.
- *
- * @param bounds The `MutableRect` instance to be updated with the calculated bounds.
- */
-fun Transform.getBounds(bounds: MutableRect) {
-    if (size == Size.Unspecified) {
-        bounds.set(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-        return
-    }
-
-    val halfW = size.width / 2f
-    val halfH = size.height / 2f
-
-    // Pre-calculate rotation values
-    val angleRad = rotation * (PI / 180f).toFloat()
-    val sin = sin(angleRad)
-    val cos = cos(angleRad)
-
-    // Convert Pivot coordinates to offsets relative to the center of the object (0, 0)
-    // 0.5 (center) -> 0
-    // 0.0 (left/top) -> -halfW
-    // 1.0 (right/bottom) -> +halfW
-    val scalePivotX = (scalePivot.pivotFractionX * size.width) - halfW
-    val scalePivotY = (scalePivot.pivotFractionY * size.height) - halfH
-    val rotationPivotX = (rotationPivot.pivotFractionX * size.width) - halfW
-    val rotationPivotY = (rotationPivot.pivotFractionY * size.height) - halfH
-
-    var minX = Float.POSITIVE_INFINITY
-    var minY = Float.POSITIVE_INFINITY
-    var maxX = Float.NEGATIVE_INFINITY
-    var maxY = Float.NEGATIVE_INFINITY
-
-    for (i in 0..3) {
-        // Define corner relative to center (0, 0)
-        val cornerX = if (i and 1 == 0) -halfW else halfW
-        val cornerY = if (i < 2) -halfH else halfH
-
-        var px = cornerX
-        var py = cornerY
-
-        // 1. Rotate around the rotation pivot
-        px -= rotationPivotX
-        py -= rotationPivotY
-        val rotatedX = px * cos - py * sin
-        val rotatedY = px * sin + py * cos
-        px = rotatedX
-        py = rotatedY
-        px += rotationPivotX
-        py += rotationPivotY
-
-        // 2. Scale around the scale pivot
-        px -= scalePivotX
-        py -= scalePivotY
-        px *= scale.scaleX
-        py *= scale.scaleY
-        px += scalePivotX
-        py += scalePivotY
-
-        // 3. Translate to the final world position
-        // Note: Here we assume that position refers to the center of the object in world coordinates.
-        // If position is defined as the top-left corner, further adjustments would be needed.
-        // However, based on the definition of cornerX, we typically consider the center here.
-        px += position.x
-        py += position.y
-
-        minX = min(minX, px)
-        minY = min(minY, py)
-        maxX = max(maxX, px)
-        maxY = max(maxY, py)
-    }
-
-    bounds.set(minX, minY, maxX, maxY)
 }
 
 /**

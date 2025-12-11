@@ -2,13 +2,15 @@ package com.game.plugins.systems
 
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import com.game.ecs.IntervalSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
+import com.game.engine.geometry.set
+import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.Transform
 import com.game.plugins.components.applyCollision
-import com.game.plugins.components.getBounds
 import com.game.plugins.services.CameraService
 import kotlin.math.abs
 
@@ -19,7 +21,7 @@ class CollisionSystem(
     private val cameraService: CameraService = inject()
 ) : IntervalSystem() {
 
-    private val family = family { all(RigidBody, Transform) }
+    private val family = family { all(RigidBody, Transform, Renderable) }
 
     private var keys = FloatArray(2048)
     private var indices = IntArray(2048)
@@ -37,8 +39,9 @@ class CollisionSystem(
         while (index < n) {
             val entity = family[index]
             val transform = entity[Transform]
-            if (cameraService.culler.overlaps(transform)) {
-                keys[count] = transform.position.x - transform.size.width / 2f
+            val renderable = entity[Renderable]
+            if (cameraService.culler.overlaps(transform, renderable.size)) {
+                keys[count] = transform.position.x - renderable.size.width / 2f
                 indices[count] = index
                 count++
             }
@@ -52,17 +55,19 @@ class CollisionSystem(
             val entity1 = family[indices[i]]
             val transform1 = entity1[Transform]
             val rigidBody1 = entity1[RigidBody]
-            val max1 = transform1.position.x + transform1.size.width / 2f
+            val renderable1 = entity1[Renderable]
+            val max1 = transform1.position.x + renderable1.size.width / 2f
 
             var j = i + 1
             while (j < count) {
                 val entity2 = family[indices[j]]
                 val transform2 = entity2[Transform]
                 val rigidBody2 = entity2[RigidBody]
-                val min2 = transform2.position.x - transform2.size.width / 2f
+                val renderable2 = entity1[Renderable]
+                val min2 = transform2.position.x - renderable2.size.width / 2f
 
                 if (min2 > max1) break
-                if (overlaps(transform1, transform2)) {
+                if (overlaps(transform1, renderable1.size, transform2, renderable2.size)) {
                     separate(transform1, rigidBody1, transform2, rigidBody2)
                 }
                 j++
@@ -95,9 +100,9 @@ class CollisionSystem(
         if (l < right) quickSort(l, right)
     }
 
-    private fun overlaps(t1: Transform, t2: Transform): Boolean {
-        t1.getBounds(bounds1)
-        t2.getBounds(bounds2)
+    private fun overlaps(t1: Transform, s1: Size, t2: Transform, s2: Size): Boolean {
+        bounds1.set(t1, s1)
+        bounds2.set(t2, s2)
         return bounds1.overlaps(bounds2)
     }
 

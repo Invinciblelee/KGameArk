@@ -3,11 +3,13 @@ package com.game.plugins.services
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import com.game.ecs.Entity
 import com.game.ecs.EntityComponentContext
 import com.game.ecs.World
 import com.game.ecs.World.Companion.family
 import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.set
 import com.game.engine.math.radians
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraDeadZone
@@ -23,7 +25,6 @@ import com.game.plugins.components.applyCameraTransition
 import com.game.plugins.components.applyElasticityFollow
 import com.game.plugins.components.applySmoothFollow
 import com.game.plugins.components.clampInBounds
-import com.game.plugins.components.getBounds
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -496,18 +497,19 @@ class CameraFrustumCuller(
      *      then performs a final overlap check against this precise frustum.
      *
      * @param transform The transform of the entity to be checked.
+     * @param size The size of the entity to be checked.
      * @param cameraName The optional name of the camera to be used for the check.
      *                   If null, the main camera is used.
      * @return `false` if the transform is definitively outside the camera's view and should be culled.
      *         `true` if the transform is potentially inside the view and should be rendered.
      */
-    fun overlaps(transform: Transform, cameraName: String? = null): Boolean {
+    fun overlaps(transform: Transform, size: Size, cameraName: String? = null): Boolean {
         // --- Setup ---
         // If the camera cannot be found, there is no basis for culling, so we don't cull.
         val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return true
         val camera = cameraEntity.getOrNull(Camera) ?: return true
 
-        transform.getBounds(entityBounds)
+        entityBounds.set(transform, size)
 
         // --- 1. Broad-Phase Culling (World Bounds Check) ---
         val cameraBounds = camera.bounds
@@ -556,10 +558,31 @@ class CameraFrustumCuller(
     }
 
 
+    /**
+     * Calculates the bounding box of the camera's view frustum and writes the result to the
+     * provided [bounds] object.
+     *
+     * This function determines the region of the 3D world that is visible to the specified camera.
+     * If [cameraName] is not provided, the default camera entity is used.
+     *
+     * @param bounds The [MutableRect] object where the calculated frustum bounds will be
+     * written. (NOTE: This object is modified in place).
+     * @param cameraName Optional parameter specifying the name of the camera entity to use.
+     * If null, the default camera provided by the service is used.
+     *
+     */
     fun getBounds(bounds: MutableRect, cameraName: String? = null) {
+        // Retrieve the specified camera entity, falling back to the default if the name is null.
+        // Return immediately if no camera entity is found.
         val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return
+
+        // Get the Transform component, which contains the camera's position, rotation, and scale.
         val camTrans = cameraEntity[Transform]
+
+        // Optionally retrieve the CameraShake component, which may affect the frustum calculation.
         val camShake = cameraEntity.getOrNull(CameraShake)
+
+        // Delegate the actual bounds computation to a private, overloaded function.
         getBounds(bounds, camTrans, camShake)
     }
 

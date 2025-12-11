@@ -41,14 +41,14 @@ class ScrollerRenderSystem :
 
         // Determine the scale factor needed to fit the tile to the viewport's non-scrolling axis.
         val scale = when (scroller.axis) {
-            Axis.X -> drawScope.size.height / scrollerTransform.size.height
-            Axis.Y -> drawScope.size.width / scrollerTransform.size.width
+            Axis.X -> drawScope.size.height / renderable.size.height
+            Axis.Y -> drawScope.size.width / renderable.size.width
         }
 
         // Calculate the actual size of a single tile in the scrolling direction after scaling.
         val scaledTileSize = when (scroller.axis) {
-            Axis.X -> scrollerTransform.size.width * scale
-            Axis.Y -> scrollerTransform.size.height * scale
+            Axis.X -> renderable.size.width * scale
+            Axis.Y -> renderable.size.height * scale
         }
 
         // Avoid division by zero if the tile size is invalid.
@@ -89,7 +89,6 @@ class ScrollerRenderSystem :
 
         // Set the scale and size on the reusable transform object once.
         tileTransform.scale = ScaleFactor(scale, scale)
-        tileTransform.size = scrollerTransform.size
 
         // Loop and draw tiles until the entire viewport (plus margin) is covered.
         while (currentDrawPos < endDrawPos) {
@@ -101,7 +100,7 @@ class ScrollerRenderSystem :
             }
 
             // Use withLocalTransform to apply the tile's position, scale, and rotation.
-            drawScope.withLocalTransform(tileTransform) {
+            drawScope.withLocalTransform(tileTransform, renderable.size) {
                 with(renderable.visual) { draw() }
             }
 

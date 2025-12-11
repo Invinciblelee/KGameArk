@@ -1,11 +1,15 @@
 package com.game.plugins.components
 
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.toIntSize
 import androidx.compose.ui.util.lerp
 import com.game.ecs.Component
 import com.game.ecs.ComponentType
@@ -16,9 +20,23 @@ import com.game.engine.image.ImageAtlas
 /**
  * The visual of renderable
  */
-abstract class Visual {
+abstract class Visual(size: Size = Size.Unspecified) {
 
-    var alpha: Float = 1f
+    private var _size: Size = size
+    val size: Size get() = _size
+
+    private var _alpha: Float = 1f
+    val alpha: Float get() = _alpha
+
+    val isSizeSpecified: Boolean get() = size.isSpecified
+
+    fun setSize(size: Size) {
+        this._size = size
+    }
+
+    fun setAlpha(alpha: Float) {
+        this._alpha = alpha
+    }
 
     /**
      * Drawing logic.
@@ -29,7 +47,7 @@ abstract class Visual {
 
 }
 
-class Circle(val color: Color) : Visual() {
+class Circle(val color: Color, size: Float = Float.NaN) : Visual(Size(size, size)) {
 
     override fun DrawScope.draw() {
         drawCircle(color, alpha = alpha)
@@ -39,8 +57,9 @@ class Circle(val color: Color) : Visual() {
 
 class Rectangle(
     val color: Color,
-    val cornerRadius: CornerRadius = CornerRadius.Zero
-) : Visual() {
+    val cornerRadius: CornerRadius = CornerRadius.Zero,
+    size: Size = Size.Unspecified
+) : Visual(size) {
     override fun DrawScope.draw() {
         if (cornerRadius.isZero()) {
             drawRect(color, alpha = alpha)
@@ -51,13 +70,17 @@ class Rectangle(
 }
 
 class Image(
-    val bitmap: ImageBitmap
-): Visual() {
-
+    val bitmap: ImageBitmap,
+    size: Size = Size(bitmap.width.toFloat(), bitmap.height.toFloat())
+): Visual(size) {
     override fun DrawScope.draw() {
         drawImage(
             image = bitmap,
-            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+            dstSize = if (isSizeSpecified) {
+                size.toIntSize()
+            } else {
+                IntSize(bitmap.width, bitmap.height)
+            },
             alpha = alpha
         )
     }
@@ -66,11 +89,12 @@ class Image(
 class Sprite(
     val atlas: ImageAtlas,
     name: String,
-) : Visual() {
+    size: Size = Size.Unspecified
+) : Visual(size) {
 
     var name: String = name
         private set
-    
+
     private var region: AtlasRegion = atlas.getRegion(name)
 
     fun setFrame(name: String) {
@@ -85,7 +109,11 @@ class Sprite(
             srcOffset = region.offset,
             srcSize = region.size,
             dstOffset = IntOffset.Zero,
-            dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+            dstSize = if (isSizeSpecified) {
+                size.toIntSize()
+            } else {
+                region.size
+            },
             alpha = alpha
         )
     }
@@ -98,7 +126,7 @@ class Sprite(
  * @param isVisible Whether the sprite is visible.
  */
 data class Renderable(
-    var visual: Visual,
+    val visual: Visual,
     var zIndex: Int = 0,
     var isVisible: Boolean = true
 ): Component<Renderable>, Comparable<Renderable> {
@@ -109,26 +137,43 @@ data class Renderable(
     override fun compareTo(other: Renderable): Int {
         return zIndex.compareTo(other.zIndex)
     }
+
+
+    /**
+     * Checks if the renderable is visible and has an alpha greater than 0.
+     */
+    val isShowing: Boolean
+        get() = isVisible && visual.alpha > 0f
+
+    /**
+     * Checks if the renderable is not visible or has an alpha less than or equal to 0.
+     */
+    val isHiding: Boolean
+        get() = !isVisible || visual.alpha <= 0f
+
+
+    /**
+     * Returns the size of visual
+     */
+    val size: Size
+        get() = visual.size
+
+    /**
+     * Returns the alpha of visual
+     */
+    val alpha: Float
+        get() = visual.alpha
+
 }
 
-/**
- * Checks if the renderable is visible and has an alpha greater than 0.
- */
-val Renderable.isShowing: Boolean
-    get() = isVisible && visual.alpha > 0f
 
-/**
- * Checks if the renderable is not visible or has an alpha less than or equal to 0.
- */
-val Renderable.isHiding: Boolean
-    get() = !isVisible || visual.alpha <= 0f
 
 /**
  * Applies a new alpha to the renderable's visual.
  * @param alpha The new alpha value.
  */
 fun Renderable.applyAlpha(alpha: Float) {
-    visual.alpha = alpha
+    visual.setAlpha(alpha)
 }
 
 /**
@@ -142,5 +187,19 @@ fun Renderable.applyAlpha(
     toAlpha: Float,
     fraction: Float
 ) {
-    visual.alpha = lerp(fromAlpha, toAlpha, fraction)
+    visual.setAlpha(lerp(fromAlpha, toAlpha, fraction))
+}
+
+/**
+ * Applies a new size to the renderable's visual.
+ */
+fun Renderable.applySize(size: Size) {
+    visual.setSize(size)
+}
+
+/**
+ * Applies a new size to the renderable's visual.
+ */
+fun Renderable.applySize(width: Float, height: Float) {
+    visual.setSize(Size(width, height))
 }

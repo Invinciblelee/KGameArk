@@ -1,8 +1,6 @@
 package com.game.plugins.systems
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import com.game.ecs.Entity
 import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
@@ -17,7 +15,6 @@ import com.game.plugins.components.CameraShake
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.Scroller
 import com.game.plugins.components.Transform
-import com.game.plugins.components.isHiding
 import com.game.plugins.services.CameraService
 
 class RenderSystem(
@@ -53,15 +50,15 @@ class RenderSystem(
         val transform = entity[Transform]
         if (renderable.isHiding) return
 
-        val shouldDraw = cameraService.culler.overlaps(transform)
+        val shouldDraw = cameraService.culler.overlaps(transform, renderable.size)
 
         if (shouldDraw) {
-            drawScope.withLocalTransform(transform) {
+            drawScope.withLocalTransform(transform, renderable.size) {
                 with(renderable.visual) { draw() }
             }
 
             if (isDebugging) {
-                drawScope.drawDebugBounds(transform)
+                drawScope.drawDebugBounds(transform, renderable.size)
             }
         }
     }

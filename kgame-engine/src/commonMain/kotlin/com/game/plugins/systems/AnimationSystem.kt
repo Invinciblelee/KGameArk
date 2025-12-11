@@ -45,10 +45,6 @@ class AnimationSystem(
     override fun onTickEntity(entity: Entity) {
         val transform = entity[Transform]
 
-        if (!cameraService.culler.overlaps(transform)) {
-            return
-        }
-
         val translationAnimation = entity.getOrNull(TranslationAnimation)
         if (translationAnimation != null && translationAnimation.update(deltaTime)) {
             transform.applyTranslation(

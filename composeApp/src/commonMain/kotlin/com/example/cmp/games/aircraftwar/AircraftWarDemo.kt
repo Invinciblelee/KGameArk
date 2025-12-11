@@ -118,10 +118,11 @@ private class BackgroundVisual(val image: ImageBitmap) : Visual() {
 private class AircraftControlSystem(
     val cameraService: CameraService = inject(),
     val input: InputManager = inject()
-) : IteratingSystem(family = family { all(PlayerTag, Transform, WeaponComponent) }) {
+) : IteratingSystem(family = family { all(PlayerTag, Transform, Renderable, WeaponComponent) }) {
 
     override fun onTickEntity(entity: Entity) {
         val transform = entity[Transform]
+        val renderable = entity[Renderable]
         val weapon = entity[WeaponComponent]
 
         // 移动控制 (WASD/Arrows)
@@ -142,8 +143,7 @@ private class AircraftControlSystem(
             // 创建子弹实体
             world.entity {
                 +Transform(
-                    position = transform.position + Offset(0f, -transform.size.height / 2f),
-                    size = Size(8f, 20f)
+                    position = transform.position + Offset(0f, -renderable.size.height / 2f),
                 )
                 +RigidBody(velocity = Offset(0f, -600f), drag = 0f)
                 +Boundary(onExit = cleanupOnExit())

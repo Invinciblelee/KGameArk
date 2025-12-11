@@ -59,10 +59,15 @@ class CameraService(
     }
 
     fun getWorldBounds(cameraName: String? = null): Rect {
-        val cameraEntity = cameraName?.let { getCameraEntity(it) } ?: mainCameraEntity
+        val cameraEntity = getCameraEntityOrDefault(cameraName)
         return cameraEntity?.getOrNull(WorldBounds)?.rect ?: viewportTransform.virtualSize.run {
-            Rect(-width * 0.5f, -height * 0.5f, width * 0.5f, height * 0.5f)
+            Rect(-width / 2f, -height / 2f, width / 2f, height / 2f)
         }
+    }
+
+    fun getCameraBounds(cameraName: String? = null): Rect {
+        val cameraEntity = getCameraEntityOrDefault(cameraName)
+        return cameraEntity?.getOrNull(Camera)?.bounds ?: Rect.Zero
     }
 
 }
@@ -114,8 +119,8 @@ class CameraDirector(
 
             val delta = targetPos - deadZoneCenter
 
-            val halfW = deadZone.size.width * 0.5f
-            val halfH = deadZone.size.height * 0.5f
+            val halfW = deadZone.size.width / 2f
+            val halfH = deadZone.size.height / 2f
 
             var offsetX = 0f
             var offsetY = 0f
@@ -475,7 +480,7 @@ class CameraFrustumCuller(
     private val cameraService: CameraService,
     private val viewportTransform: ViewportTransform
 ) : EntityComponentContext(cameraService.componentService) {
-    private val frustumRect = MutableRect(0f, 0f, 0f, 0f)
+    private val frustumBounds = MutableRect(0f, 0f, 0f, 0f)
     private val entityBounds = MutableRect(0f, 0f, 0f, 0f)
 
     /**
@@ -519,6 +524,18 @@ class CameraFrustumCuller(
         val camTrans = cameraEntity[Transform]
         val camShake = cameraEntity.getOrNull(CameraShake)
 
+        // Get frustum bounds.
+        getBounds(frustumBounds, camTrans, camShake)
+
+        // (Optional but recommended) Inflate the frustum slightly to prevent flickering
+        // for objects that are moving quickly at the edge of the screen.
+        frustumBounds.inflate(min(frustumBounds.width, frustumBounds.height) * 0.1f)
+
+        // The final check: does the entity's bounds overlap with the camera's precise frustum?
+        return frustumBounds.overlaps(entityBounds)
+    }
+
+    private fun getBounds(bounds: MutableRect, camTrans: Transform, camShake: CameraShake?) {
         // Calculate the camera's final position in the world, including any shake offset.
         val camX = camTrans.position.x + (camShake?.shakeOffset?.x ?: 0f)
         val camY = camTrans.position.y + (camShake?.shakeOffset?.y ?: 0f)
@@ -530,20 +547,20 @@ class CameraFrustumCuller(
         val halfViewWidthInWorld = (virtualSize.width / 2f) / scale.scaleX
         val halfViewHeightInWorld = (virtualSize.height / 2f) / scale.scaleY
 
-        // Construct the precise frustum rectangle.
-        frustumRect.set(
+        bounds.set(
             left = camX - halfViewWidthInWorld,
             top = camY - halfViewHeightInWorld,
             right = camX + halfViewWidthInWorld,
             bottom = camY + halfViewHeightInWorld
         )
+    }
 
-        // (Optional but recommended) Inflate the frustum slightly to prevent flickering
-        // for objects that are moving quickly at the edge of the screen.
-        frustumRect.inflate(min(frustumRect.width, frustumRect.height) * 0.1f)
 
-        // The final check: does the entity's bounds overlap with the camera's precise frustum?
-        return frustumRect.overlaps(entityBounds)
+    fun getBounds(bounds: MutableRect, cameraName: String? = null) {
+        val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return
+        val camTrans = cameraEntity[Transform]
+        val camShake = cameraEntity.getOrNull(CameraShake)
+        getBounds(bounds, camTrans, camShake)
     }
 
 }

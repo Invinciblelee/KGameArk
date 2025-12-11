@@ -72,6 +72,7 @@ import com.game.plugins.components.Sprite
 import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Tween
+import com.game.plugins.components.Viewport
 import com.game.plugins.components.Visual
 import com.game.plugins.components.WorldBounds
 import com.game.plugins.components.applyImpulseFromSegment
@@ -624,7 +625,7 @@ fun GameDemo(context: PlatformContext) {
                     +WorldBounds(worldBounds)
                     +CameraTarget(player)
                     +CameraShake()
-                    +Camera("player", isMain = true, bounds = worldBounds)
+                    +Camera("player", isMain = true, bounds = Rect(-200f, -150f, 200f, 150f))
                 }
 
                 entity {

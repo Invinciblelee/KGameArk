@@ -21,9 +21,9 @@ class CollisionSystem(
 
     private val family = family { all(RigidBody, Transform) }
 
-    private var keys    = FloatArray(2048)
+    private var keys = FloatArray(2048)
     private var indices = IntArray(2048)
-    private var count   = 0
+    private var count = 0
 
     private val bounds1 = MutableRect(0f, 0f, 0f, 0f)
     private val bounds2 = MutableRect(0f, 0f, 0f, 0f)
@@ -33,44 +33,48 @@ class CollisionSystem(
         ensureCapacity(n)
         count = 0
 
-        var i = 0
-        while (i < n) {
-            val entity = family[i]
-            val t = entity[Transform]
-            if (cameraService.culler.overlaps(t)) {
-                keys[count] = t.position.x - t.size.width / 2f
-                indices[count] = i
+        var index = 0
+        while (index < n) {
+            val entity = family[index]
+            val transform = entity[Transform]
+            if (cameraService.culler.overlaps(transform)) {
+                keys[count] = transform.position.x - transform.size.width / 2f
+                indices[count] = index
                 count++
             }
-            i++
+            index++
         }
 
         quickSort(0, count - 1)
 
-        var idx = 0
-        while (idx < count) {
-            val e1   = family[indices[idx]]
-            val t1   = e1[Transform]; val r1 = e1[RigidBody]
-            val max1 = t1.position.x + t1.size.width / 2f
+        var i = 0
+        while (i < count) {
+            val entity1 = family[indices[i]]
+            val transform1 = entity1[Transform]
+            val rigidBody1 = entity1[RigidBody]
+            val max1 = transform1.position.x + transform1.size.width / 2f
 
-            var j = idx + 1
+            var j = i + 1
             while (j < count) {
-                val e2   = family[indices[j]]
-                val t2   = e2[Transform]; val r2 = e2[RigidBody]
-                val min2 = t2.position.x - t2.size.width / 2f
+                val entity2 = family[indices[j]]
+                val transform2 = entity2[Transform]
+                val rigidBody2 = entity2[RigidBody]
+                val min2 = transform2.position.x - transform2.size.width / 2f
 
                 if (min2 > max1) break
-                if (overlaps(t1, t2)) separate(t1, r1, t2, r2)
+                if (overlaps(transform1, transform2)) {
+                    separate(transform1, rigidBody1, transform2, rigidBody2)
+                }
                 j++
             }
-            idx++
+            i++
         }
     }
 
     private fun ensureCapacity(required: Int) {
         if (keys.size >= required) return
         val newSize = (required * 1.5f).toInt().coerceAtLeast(2048)
-        keys    = FloatArray(newSize)
+        keys = FloatArray(newSize)
         indices = IntArray(newSize)
     }
 
@@ -82,12 +86,12 @@ class CollisionSystem(
             while (keys[l] < pivot) l++
             while (keys[r] > pivot) r--
             if (l <= r) {
-                val tmpK   = keys[l];   keys[l]   = keys[r];   keys[r]   = tmpK
+                val tmpK = keys[l]; keys[l] = keys[r]; keys[r] = tmpK
                 val tmpIdx = indices[l]; indices[l] = indices[r]; indices[r] = tmpIdx
                 l++; r--
             }
         }
-        if (left < r)  quickSort(left, r)
+        if (left < r) quickSort(left, r)
         if (l < right) quickSort(l, right)
     }
 
@@ -98,8 +102,10 @@ class CollisionSystem(
     }
 
     private fun separate(t1: Transform, r1: RigidBody, t2: Transform, r2: RigidBody) {
-        val overlapX = (bounds1.width / 2f + bounds2.width / 2f) - abs(t1.position.x - t2.position.x)
-        val overlapY = (bounds1.height / 2f + bounds2.height / 2f) - abs(t1.position.y - t2.position.y)
+        val overlapX =
+            (bounds1.width / 2f + bounds2.width / 2f) - abs(t1.position.x - t2.position.x)
+        val overlapY =
+            (bounds1.height / 2f + bounds2.height / 2f) - abs(t1.position.y - t2.position.y)
 
         if (overlapX <= 0 || overlapY <= 0) return
 

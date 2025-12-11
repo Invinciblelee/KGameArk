@@ -1,6 +1,7 @@
 package com.game.engine.graphics.drawscope
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
@@ -43,7 +44,7 @@ inline fun DrawScope.withCenteredTransform(
     block: DrawScope.() -> Unit
 ) {
     withTransform({
-        translate(size.width * 0.5f, size.height * 0.5f)
+        translate(size.width / 2f, size.height / 2f)
     }) {
         block()
     }
@@ -65,13 +66,18 @@ inline fun DrawScope.withCameraTransform(
     shake: CameraShake?,
     block: DrawScope.() -> Unit
 ) {
-    val viewportL = size.width * camera.viewport.left
-    val viewportT = size.height * camera.viewport.top
-    val viewportW = size.width * camera.viewport.width
-    val viewportH = size.height * camera.viewport.height
+    val viewport = camera.viewport
+
+    val viewportL = size.width * viewport.left
+    val viewportT = size.height * viewport.top
+    val viewportW = size.width * viewport.width
+    val viewportH = size.height * viewport.height
+
+    val halfViewportW = viewportW / 2f
+    val halfViewportH = viewportH / 2f
 
     val cameraPos = transform.position
-    val cameraZoom = transform.scale
+    val cameraScale = transform.scale
     val cameraRotation = transform.rotation
 
     val shakeOffsetX = shake?.shakeOffset?.x ?: 0f
@@ -86,9 +92,15 @@ inline fun DrawScope.withCameraTransform(
     finalCameraY += shakeOffsetY
 
     withTransform({
-        translate(left = viewportL + viewportW / 2f, top = viewportT + viewportH / 2f)
-        scale(scaleX = cameraZoom.scaleX, scaleY = cameraZoom.scaleY, Offset.Zero)
-        rotate(degrees = -finalRotation)
+        clipRect(
+            left = viewportL,
+            top = viewportT,
+            right = viewportL + viewportW,
+            bottom = viewportT + viewportH
+        )
+        translate(left = viewportL + halfViewportW, top = viewportT + halfViewportH)
+        scale(scaleX = cameraScale.scaleX, scaleY = cameraScale.scaleY, Offset.Zero)
+        rotate(degrees = -finalRotation, Offset.Zero)
         translate(left = -finalCameraX, top = -finalCameraY)
     }) {
         block()
@@ -113,21 +125,21 @@ inline fun DrawScope.withLocalTransform(
     try {
         val currentSize = transform.size.let { if (it.isSpecified) it else oldSize }
         drawContext.size = currentSize
+
+        val halfW = currentSize.width / 2f
+        val halfH = currentSize.height / 2f
+
+        val position = transform.position
+        val rotation = transform.rotation
+        val scale = transform.scale
+
         withTransform({
-            val offsetX = -currentSize.width / 2f
-            val offsetY = -currentSize.height / 2f
-            translate(transform.position.x + offsetX, transform.position.y + offsetY)
-
-            if (transform.rotation != 0f) {
-                rotate(transform.rotation, currentSize.toOffset(transform.rotationPivot))
+            translate(position.x - halfW, position.y - halfH)
+            if (rotation != 0f) {
+                rotate(rotation, currentSize.toOffset(transform.rotationPivot))
             }
-
-            if (transform.scale.scaleX != 1f || transform.scale.scaleY != 1f) {
-                scale(
-                    transform.scale.scaleX,
-                    transform.scale.scaleY,
-                    currentSize.toOffset(transform.scalePivot)
-                )
+            if (scale.scaleX != 1f || scale.scaleY != 1f) {
+                scale(scale.scaleX, scale.scaleY, currentSize.toOffset(transform.scalePivot))
             }
         }) {
             block()

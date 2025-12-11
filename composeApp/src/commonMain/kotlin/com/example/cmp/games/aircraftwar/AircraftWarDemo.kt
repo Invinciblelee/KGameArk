@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.unit.dp
 import com.example.cmp.games.GameAssets
 import com.game.ecs.Component
@@ -41,6 +42,7 @@ import com.game.engine.ui.applyJoypad
 import com.game.plugins.components.Axis
 import com.game.plugins.components.Boundary
 import com.game.plugins.components.Camera
+import com.game.plugins.components.CameraShake
 import com.game.plugins.components.CameraTarget
 import com.game.plugins.components.CharacterStats
 import com.game.plugins.components.CleanupTag
@@ -342,11 +344,9 @@ fun AircraftWarDemo(context: PlatformContext) {
 
                 entity {
                     +Transform()
-//                    +Smooth(lerpSpeed = 12f)
-//                    +Elasticity(stiffness = 50f, damping = 10f)
-//                    +RigidBody()
-                    +CameraTarget(player)
                     +WorldBounds(worldBounds)
+                    +CameraTarget(player)
+                    +CameraShake()
                     +Camera("player", isMain = true, isTracking = false)
                 }
             }

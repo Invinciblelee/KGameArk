@@ -77,20 +77,21 @@ data class Viewport(
 /**
  * A component of Camera.
  *
+ * @param name The name of the camera. If it is multi-camera, the name must be unique.
  * @param isActive Whether the camera is active.
  * @param isMain Whether the camera is the main camera.
  * @param isTracking Whether the camera is tracking the [CameraTarget].
  * @param viewport The viewport of the camera.
  * @param bounds The bounds of the camera.
- *
  */
 class Camera(
     val name: String = "",
     isMain: Boolean = false,
     var isActive: Boolean = true,
     var isTracking: Boolean = true,
+
+    var bounds: Rect = Rect.Zero,
     var viewport: Viewport = Viewport(0f, 0f, 1f, 1f),
-    var bounds: Rect = Rect.Zero
 ) : Component<Camera> {
 
     override fun type() = Camera

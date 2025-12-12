@@ -8,7 +8,7 @@ import com.game.ecs.Entity
 import com.game.ecs.EntityComponentContext
 import com.game.ecs.World
 import com.game.ecs.World.Companion.family
-import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.ResolutionManager
 import com.game.engine.geometry.set
 import com.game.engine.math.radians
 import com.game.plugins.components.Camera
@@ -31,7 +31,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class CameraService(
-    private val viewportTransform: ViewportTransform,
+    private val resolution: ResolutionManager,
     world: World = World.requireCurrentWorld()
 ) : EntityComponentContext(world.componentService) {
 
@@ -41,11 +41,11 @@ class CameraService(
 
     val mainCameraEntity: Entity? get() = family.find { it[Camera].isMain }
 
-    val transformer = CoordinateTransformer(this, viewportTransform)
+    val transformer = CoordinateTransformer(this, resolution)
 
-    val culler = CameraFrustumCuller(this, viewportTransform)
+    val culler = CameraFrustumCuller(this, resolution)
 
-    val director = CameraDirector(this, viewportTransform)
+    val director = CameraDirector(this, resolution)
 
     fun getCameraEntity(cameraName: String): Entity {
         return family.single { it[Camera].name == cameraName }
@@ -61,7 +61,7 @@ class CameraService(
 
     fun getWorldBounds(cameraName: String? = null): Rect {
         val cameraEntity = getCameraEntityOrDefault(cameraName)
-        return cameraEntity?.getOrNull(WorldBounds)?.rect ?: viewportTransform.virtualSize.run {
+        return cameraEntity?.getOrNull(WorldBounds)?.rect ?: resolution.virtualSize.run {
             Rect(-width / 2f, -height / 2f, width / 2f, height / 2f)
         }
     }
@@ -75,7 +75,7 @@ class CameraService(
 
 class CameraDirector(
     private val cameraService: CameraService,
-    private val viewportTransform: ViewportTransform
+    private val resolution: ResolutionManager
 ) : EntityComponentContext(cameraService.componentService) {
 
     internal fun update(deltaTime: Float) {
@@ -206,7 +206,7 @@ class CameraDirector(
     private fun clampToWorldBounds(camera: Camera, transform: Transform) {
         // Clamps the camera position within the defined map boundaries
         val cameraPosition = transform.position
-        transform.position = camera.clampInBounds(viewportTransform.virtualSize, cameraPosition)
+        transform.position = camera.clampInBounds(resolution.virtualSize, cameraPosition)
     }
 
 
@@ -244,7 +244,7 @@ class CameraDirector(
             val camera = targetCameraEntity[Camera]
             mainCameraEntity.configure {
                 val clampedTargetPos = camera.clampInBounds(
-                    viewportSize = viewportTransform.virtualSize,
+                    viewportSize = resolution.virtualSize,
                     position = targetPosition
                 )
                 +CameraTransition(
@@ -282,7 +282,7 @@ class CameraDirector(
         cameraEntity.configure {
             // 2. Clamp the raw target position to ensure the viewport remains in bounds.
             val clampedTargetPos = camera.clampInBounds(
-                viewportSize = viewportTransform.virtualSize,
+                viewportSize = resolution.virtualSize,
                 position = position
             )
 
@@ -336,7 +336,7 @@ class CameraDirector(
 
 class CoordinateTransformer(
     private val cameraService: CameraService,
-    private val viewportTransform: ViewportTransform
+    private val resolution: ResolutionManager
 ) : EntityComponentContext(cameraService.componentService) {
 
     /**
@@ -360,7 +360,7 @@ class CoordinateTransformer(
         val shake = cameraEntity.getOrNull(CameraShake)
 
         // --- Calculate the center of THIS camera's viewport, not the whole screen ---
-        val virtualSize = viewportTransform.virtualSize
+        val virtualSize = resolution.virtualSize
         val viewLeft = virtualSize.width * camera.viewport.left
         val viewTop = virtualSize.height * camera.viewport.top
         val viewWidth = virtualSize.width * camera.viewport.width
@@ -442,7 +442,7 @@ class CoordinateTransformer(
 
         // 5. 【CRITICAL FIX】Convert from viewport-center-relative coordinates back to top-left screen coordinates.
         //    Calculate the center of THIS camera's viewport, not the whole screen.
-        val virtualSize = viewportTransform.virtualSize
+        val virtualSize = resolution.virtualSize
         val viewLeft = virtualSize.width * camera.viewport.left
         val viewTop = virtualSize.height * camera.viewport.top
         val viewWidth = virtualSize.width * camera.viewport.width
@@ -471,7 +471,7 @@ class CoordinateTransformer(
         val camera = cameraEntity.getOrNull(Camera) ?: return position
 
         // 2. Use the clampInBounds helper function to perform the calculation.
-        return camera.clampInBounds(viewportTransform.virtualSize, position)
+        return camera.clampInBounds(resolution.virtualSize, position)
     }
 
 }
@@ -479,7 +479,7 @@ class CoordinateTransformer(
 
 class CameraFrustumCuller(
     private val cameraService: CameraService,
-    private val viewportTransform: ViewportTransform
+    private val resolution: ResolutionManager
 ) : EntityComponentContext(cameraService.componentService) {
     private val frustumBounds = MutableRect(0f, 0f, 0f, 0f)
     private val entityBounds = MutableRect(0f, 0f, 0f, 0f)
@@ -543,7 +543,7 @@ class CameraFrustumCuller(
 
         // CRITICAL FIX: Calculate the frustum's size in world units based on the
         // virtual screen size, the camera's specific viewport, and the camera's scale.
-        val virtualSize = viewportTransform.virtualSize
+        val virtualSize = resolution.virtualSize
         val halfViewWidthInWorld = (virtualSize.width / 2f) / scale.scaleX
         val halfViewHeightInWorld = (virtualSize.height / 2f) / scale.scaleY
 

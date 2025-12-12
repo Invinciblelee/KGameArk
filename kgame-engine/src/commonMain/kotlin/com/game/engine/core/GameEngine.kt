@@ -12,9 +12,8 @@ import androidx.compose.ui.text.TextMeasurer
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
 import com.game.engine.audio.DefaultAudioManager
-import com.game.engine.core.PlatformContext
-import com.game.engine.geometry.DefaultViewportTransform
-import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.DefaultResolutionManager
+import com.game.engine.geometry.ResolutionManager
 import com.game.engine.input.DefaultInputManager
 import com.game.engine.input.InputManager
 import com.game.engine.utils.Disposable
@@ -26,7 +25,7 @@ import kotlinx.coroutines.isActive
  * Manages the Transform, Input, Audio, Assets and Scene of the game.
  *
  * @param context The platform context.
- * @param viewportTransform The viewport transform.
+ * @param resolution The viewport transform.
  * @param coordinateTransform The coordinate transform.
  * @param input The input manager.
  * @param audio The audio manager.
@@ -41,20 +40,20 @@ import kotlinx.coroutines.isActive
 @Stable
 class GameEngine(
     override val context: PlatformContext,
-    override val viewportTransform: ViewportTransform = DefaultViewportTransform(),
-    override val input: InputManager = DefaultInputManager(viewportTransform),
+    override val resolution: ResolutionManager = DefaultResolutionManager(),
+    override val input: InputManager = DefaultInputManager(resolution),
     override val audio: AudioManager = DefaultAudioManager(context),
     override val assets: AssetsManager,
     override val textMeasurer: TextMeasurer,
 ) : GameScope {
 
     override val actualSize: Size
-        get() = viewportTransform.actualSize
+        get() = resolution.actualSize
     override val virtualSize: Size
-        get() = viewportTransform.virtualSize
+        get() = resolution.virtualSize
 
     override val scaledSize: Size
-        get() = viewportTransform.scaledSize
+        get() = resolution.scaledSize
 
     override var isEnabled: Boolean by atomic(true)
         private set
@@ -91,11 +90,11 @@ class GameEngine(
     }
 
     internal fun actualSizeChanged(size: Size) {
-        viewportTransform.applySize(actualSize = size)
+        resolution.applySize(actualSize = size)
     }
 
     internal fun virtualSizeChanged(size: Size) {
-        viewportTransform.applySize(virtualSize = size)
+        resolution.applySize(virtualSize = size)
     }
 
     internal fun focusChanged(state: FocusState) {

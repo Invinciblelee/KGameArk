@@ -16,14 +16,14 @@ internal class GameWorld(
 
     private fun ensureWorld(): World {
         return instance ?: configureWorld(entityCapacity) {
-            val cameraService = CameraService(scope.viewportTransform)
+            val cameraService = CameraService(scope.resolution)
 
             internalInjectables {
                 +scope
                 +scope.input
                 +scope.audio
                 +scope.assets
-                +scope.viewportTransform
+                +scope.resolution
                 +scope.textMeasurer
                 +cameraService
             }

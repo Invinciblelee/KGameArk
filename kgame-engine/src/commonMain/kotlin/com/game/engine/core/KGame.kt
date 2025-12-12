@@ -237,7 +237,7 @@ private fun <T : Any> ScaledGameViewport(
 ) {
     val originalDensity = LocalDensity.current
 
-    val viewportTransform = engine.viewportTransform
+    val viewportTransform = engine.resolution
     val scaleFactor = viewportTransform.scaleFactor
     val scaledSize = viewportTransform.scaledSize
 

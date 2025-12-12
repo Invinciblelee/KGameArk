@@ -7,7 +7,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
-import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.ResolutionManager
 
 fun interface KeyInterceptor {
     fun shouldIntercept(key: Key): Boolean
@@ -43,7 +43,7 @@ interface InputManager {
 }
 
 class DefaultInputManager(
-    val viewportTransform: ViewportTransform
+    val resolution: ResolutionManager
 ) : InputManager {
 
     private companion object {
@@ -95,7 +95,7 @@ class DefaultInputManager(
 
     override fun onPointerUpdate(position: Offset, canvasOffset: Offset) {
         val globalPosition = position + canvasOffset
-        val virtualPosition = viewportTransform.actualToVirtual(globalPosition)
+        val virtualPosition = resolution.actualToVirtual(globalPosition)
         pointerPosition = virtualPosition
     }
 

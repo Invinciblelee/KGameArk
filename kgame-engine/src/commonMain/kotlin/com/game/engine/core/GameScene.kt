@@ -126,7 +126,7 @@ internal class GameScene<T : Any>(
 
     private fun render(drawScope: DrawScope) {
         drawScope.drawContext.size = engine.virtualSize
-        drawScope.withViewportTransform(engine.viewportTransform) {
+        drawScope.withViewportTransform(engine.resolution) {
             if (isActive && !isLoading) {
                 world?.render(this)
             }
@@ -139,7 +139,7 @@ internal class GameScene<T : Any>(
 
     @Composable
     fun Content() {
-        val viewportTransform = engine.viewportTransform
+        val viewportTransform = engine.resolution
         val scaleFactor = viewportTransform.scaleFactor
 
         val scaledDensity = remember(scaleFactor) {

@@ -4,19 +4,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.toRect
 import kotlin.math.max
 import kotlin.math.min
 
-enum class ViewportScaleType {
+enum class ResolutionScaleType {
     Fit, Fill
 }
 
-interface ViewportTransform {
+interface ResolutionManager {
     var actualSize: Size
     var virtualSize: Size
     var scaledSize: Size
@@ -26,12 +23,12 @@ interface ViewportTransform {
     var offsetX: Float
     var offsetY: Float
 
-    var scaleType: ViewportScaleType
+    var scaleType: ResolutionScaleType
 
     fun applySize(
         actualSize: Size = this.actualSize,
         virtualSize: Size = this.virtualSize,
-        scaleType: ViewportScaleType = ViewportScaleType.Fill
+        scaleType: ResolutionScaleType = ResolutionScaleType.Fill
     ) {
         this.actualSize = actualSize
         this.virtualSize = virtualSize
@@ -44,8 +41,8 @@ interface ViewportTransform {
         val scaleY = actualSize.height / virtualSize.height
 
         this.scaleFactor = when (scaleType) {
-            ViewportScaleType.Fit -> min(scaleX, scaleY)
-            ViewportScaleType.Fill -> max(scaleX, scaleY)
+            ResolutionScaleType.Fit -> min(scaleX, scaleY)
+            ResolutionScaleType.Fill -> max(scaleX, scaleY)
         }
 
         val scaledWidth = virtualSize.width * scaleFactor
@@ -79,7 +76,7 @@ interface ViewportTransform {
 
 }
 
-class DefaultViewportTransform: ViewportTransform {
+class DefaultResolutionManager: ResolutionManager {
     override var actualSize: Size by mutableStateOf(Size.Zero)
     override var virtualSize: Size by mutableStateOf(Size.Zero)
 
@@ -89,5 +86,5 @@ class DefaultViewportTransform: ViewportTransform {
     override var offsetX: Float by mutableFloatStateOf(0f)
     override var offsetY: Float by mutableFloatStateOf(0f)
 
-    override var scaleType: ViewportScaleType by mutableStateOf(ViewportScaleType.Fill)
+    override var scaleType: ResolutionScaleType by mutableStateOf(ResolutionScaleType.Fill)
 }

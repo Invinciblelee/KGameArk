@@ -8,8 +8,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
-import com.game.engine.geometry.ViewportScaleType
-import com.game.engine.geometry.ViewportTransform
+import com.game.engine.geometry.ResolutionScaleType
+import com.game.engine.geometry.ResolutionManager
 import com.game.engine.geometry.toOffset
 import com.game.plugins.components.Camera
 import com.game.plugins.components.CameraShake
@@ -23,11 +23,11 @@ import com.game.plugins.components.Transform
  * @param block The drawing logic to be executed within the virtual coordinate system.
  */
 inline fun DrawScope.withViewportTransform(
-    transform: ViewportTransform,
+    transform: ResolutionManager,
     block: DrawScope.() -> Unit
 ) {
     withTransform({
-        if (transform.scaleType == ViewportScaleType.Fill) {
+        if (transform.scaleType == ResolutionScaleType.Fill) {
             translate(transform.offsetX, transform.offsetY)
         }
         scale(transform.scaleFactor, transform.scaleFactor, pivot = Offset.Zero)

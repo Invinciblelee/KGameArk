@@ -30,7 +30,6 @@ import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
 import com.game.engine.core.GameEnvironment
-import com.game.engine.core.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.input.InputManager
@@ -51,7 +50,7 @@ import com.game.plugins.components.PlayerTag
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.Scroller
-import com.game.plugins.components.Texture
+import com.game.plugins.components.ImageVisual
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Visual
 import com.game.plugins.components.WorldBounds
@@ -321,7 +320,7 @@ fun AircraftWarDemo(environment: GameEnvironment) {
                     val image = assets[GameAssets.Image.Background]
                     +Transform()
                     +Scroller(speed = -120f, axis = Axis.Y)
-                    +Renderable(Texture(image), zIndex = -100)
+                    +Renderable(ImageVisual(image), zIndex = -100)
                 }
 
                 // 1. 玩家实体

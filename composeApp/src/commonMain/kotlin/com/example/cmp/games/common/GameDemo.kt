@@ -42,7 +42,6 @@ import com.game.ecs.World.Companion.inject
 import com.game.engine.asset.AssetsManager
 import com.game.engine.audio.AudioManager
 import com.game.engine.core.GameEnvironment
-import com.game.engine.core.PlatformContext
 import com.game.engine.core.KGame
 import com.game.engine.core.rememberGameSceneStack
 import com.game.engine.graphics.shader.BlueSky
@@ -67,13 +66,11 @@ import com.game.plugins.components.InfiniteRepeatable
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.ScaleAnimation
-import com.game.plugins.components.Smooth
 import com.game.plugins.components.Spring
-import com.game.plugins.components.Sprite
+import com.game.plugins.components.SpriteVisual
 import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Tween
-import com.game.plugins.components.Viewport
 import com.game.plugins.components.Visual
 import com.game.plugins.components.WorldBounds
 import com.game.plugins.components.applyImpulseFromSegment
@@ -617,7 +614,7 @@ fun GameDemo(environment: GameEnvironment) {
                         to = 1.0f,
                         spec = Spring()
                     )
-                    +Renderable(Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
+                    +Renderable(SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
                 }
 
                 entity {

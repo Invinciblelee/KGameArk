@@ -8,7 +8,7 @@ import com.game.plugins.components.AlphaAnimation
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RotationAnimation
 import com.game.plugins.components.ScaleAnimation
-import com.game.plugins.components.Sprite
+import com.game.plugins.components.SpriteVisual
 import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
 import com.game.plugins.components.TranslationAnimation
@@ -30,14 +30,13 @@ class AnimationSystem(
     val cameraService: CameraService = inject()
 ) : IteratingSystem(
     family = family {
-        all(Transform)
+        all(Transform, Renderable)
         any(
             TranslationAnimation,
             RotationAnimation,
             ScaleAnimation,
             AlphaAnimation,
-            SpriteAnimation,
-            Renderable
+            SpriteAnimation
         )
     }
 ) {
@@ -76,11 +75,15 @@ class AnimationSystem(
 
         val renderable = entity.getOrNull(Renderable)
         if (renderable != null) {
-            val sprite = renderable.visual as? Sprite
-            if (sprite != null) {
+            if (!cameraService.culler.overlaps(transform, renderable.size)) {
+                return
+            }
+
+            val spriteVisual = renderable.visual as? SpriteVisual
+            if (spriteVisual != null) {
                 val spriteAnimation = entity.getOrNull(SpriteAnimation)
-                if (spriteAnimation != null && spriteAnimation.update(sprite.atlas, deltaTime)) {
-                    sprite.setFrame(spriteAnimation.getCurrentFrameName(sprite.atlas))
+                if (spriteAnimation != null && spriteAnimation.update(spriteVisual.atlas, deltaTime)) {
+                    spriteVisual.setFrame(spriteAnimation.getCurrentFrameName(spriteVisual.atlas))
                 }
             }
 

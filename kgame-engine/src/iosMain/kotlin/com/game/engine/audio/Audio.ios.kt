@@ -15,6 +15,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioEngine
 import platform.AVFAudio.AVAudioFile
 import platform.AVFAudio.AVAudioPCMBuffer
@@ -39,13 +40,13 @@ actual class Audio actual constructor(
 
     private var cursor: Long = 0
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     init {
         load()
     }
 
-    private fun load() {
+    private fun load() = coroutineScope.launch {
         _audioState.value = AudioState.Loading
         try {
             val url = when (uri) {
@@ -55,7 +56,7 @@ actual class Audio actual constructor(
             }
 
             val audioFile = AVAudioFile(forReading = url, error = null).also {
-                this.audioFile = it
+                this@Audio.audioFile = it
             }
 
             val procFormat = audioFile.processingFormat
@@ -137,7 +138,7 @@ actual class Audio actual constructor(
             playerNode.stop()
             engine.stop()
             engine.detachNode(playerNode)
-            scope.cancel()
+            coroutineScope.cancel()
         } catch (e: Exception) {
             Logger.error(tag, "release:failure", e)
             _audioState.value = AudioState.Error("release:failure: $e")

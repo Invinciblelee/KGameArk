@@ -3,7 +3,6 @@ package com.game.plugins.components
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
-import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -52,7 +51,7 @@ abstract class Visual(size: Size = Size.Unspecified) {
 
 }
 
-class Circle(val color: Color, size: Float = Float.NaN) : Visual(size) {
+class CircleVisual(val color: Color, size: Float) : Visual(size) {
 
     override fun DrawScope.draw() {
         drawCircle(color, alpha = alpha)
@@ -60,10 +59,10 @@ class Circle(val color: Color, size: Float = Float.NaN) : Visual(size) {
 
 }
 
-class Rectangle(
+class RectangleVisual(
     val color: Color,
+    size: Size,
     val cornerRadius: CornerRadius = CornerRadius.Zero,
-    size: Size = Size.Unspecified
 ) : Visual(size) {
     override fun DrawScope.draw() {
         if (cornerRadius.isZero()) {
@@ -74,7 +73,7 @@ class Rectangle(
     }
 }
 
-class Texture(
+class ImageVisual(
     val bitmap: ImageBitmap,
     size: Size = Size(bitmap.width.toFloat(), bitmap.height.toFloat())
 ): Visual(size) {
@@ -91,7 +90,7 @@ class Texture(
     }
 }
 
-class Sprite(
+class SpriteVisual(
     val atlas: ImageAtlas,
     name: String,
     size: Size = Size.Unspecified

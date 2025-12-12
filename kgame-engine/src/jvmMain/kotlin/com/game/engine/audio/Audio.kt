@@ -3,9 +3,13 @@ package com.game.engine.audio
 import com.game.engine.asset.SourceUri
 import com.game.engine.core.PlatformContext
 import com.game.engine.log.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
 import javax.sound.sampled.LineEvent
@@ -26,11 +30,13 @@ actual class Audio actual constructor(
     private var clip: Clip = AudioSystem.getClip()
     private var cursor: Long = 0L
 
+    private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
     init {
         load()
     }
 
-    private fun load() {
+    private fun load() = coroutineScope.launch {
         try {
             _audioState.value = AudioState.Loading
             val stream = getAudioInputStream(uri)

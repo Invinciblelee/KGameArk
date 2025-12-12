@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.cmp.games.GameAssets
@@ -20,19 +19,18 @@ import com.game.ecs.IteratingSystem
 import com.game.ecs.World.Companion.family
 import com.game.ecs.World.Companion.inject
 import com.game.engine.core.GameEnvironment
-import com.game.engine.core.PlatformContext
 import com.game.engine.core.KSimpleGame
 import com.game.engine.math.random
 import com.game.engine.math.randomOffset
 import com.game.engine.utils.FpsCalculator
 import com.game.plugins.components.AlphaAnimation
-import com.game.plugins.components.Circle
+import com.game.plugins.components.CircleVisual
 import com.game.plugins.components.InfiniteRepeatable
 import com.game.plugins.components.Renderable
 import com.game.plugins.components.RigidBody
 import com.game.plugins.components.ScaleAnimation
 import com.game.plugins.components.Spring
-import com.game.plugins.components.Sprite
+import com.game.plugins.components.SpriteVisual
 import com.game.plugins.components.SpriteAnimation
 import com.game.plugins.components.Transform
 import com.game.plugins.components.Tween
@@ -124,7 +122,7 @@ fun GameCollisionDemo(environment: GameEnvironment) {
                         RepeatMode.Reverse
                     )
                 )
-                +Renderable(Circle(color, 40f), zIndex = 1)
+                +Renderable(CircleVisual(color, 40f), zIndex = 1)
             }
 
             // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
@@ -134,7 +132,7 @@ fun GameCollisionDemo(environment: GameEnvironment) {
                 +anim
                 +SpriteAnimation("run")
                 +Renderable(
-                    visual = Sprite(assets[GameAssets.Atlas.Walk], "frame_0_0"),
+                    visual = SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0"),
                     zIndex = 1
                 )
             }

@@ -26,17 +26,17 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "ComposeApp"
             isStatic = true
-            freeCompilerArgs += "-Xbinary=bundleId=com.example.game"
+            freeCompilerArgs += "-Xbinary=bundleId=com.example.kgame"
         }
     }
-    
+
     jvm()
 
     js {
         browser()
         binaries.executable()
     }
-    
+
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -80,11 +80,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.cmp"
+    namespace = "com.example.kgame"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.cmp"
+        applicationId = "com.example.kgame"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
@@ -95,7 +95,9 @@ android {
             excludes += listOf(
                 "META-INF/{AL2.0,LGPL2.1}",
                 "META-INF/INDEX.LIST",
-                "META-INF/io.netty.versions.properties"
+                "META-INF/io.netty.versions.properties",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE.md"
             )
         }
     }
@@ -124,7 +126,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    val cleanWasmAssets = tasks.register<Delete>("cleanWasmAssets") {
+        delete("src/androidMain/resources/productionExecutable")
+    }
+
     tasks.register<Copy>("copyWasmAssets") {
+        dependsOn(cleanWasmAssets)
+
         from("build/dist/wasmJs")
         into("src/androidMain/resources")
         include("**/*")
@@ -141,15 +149,18 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.example.cmp.MainKt"
+        mainClass = "com.example.kgame.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.example.cmp"
+            packageName = "com.example.kgame"
             packageVersion = "1.0.0"
             jvmArgs(
                 "-Dapple.awt.application.appearance=system"
             )
+            buildTypes.release.proguard {
+                isEnabled.set(false)
+            }
         }
     }
 }

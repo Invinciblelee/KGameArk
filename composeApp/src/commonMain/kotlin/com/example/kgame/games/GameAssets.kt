@@ -4,6 +4,8 @@ import com.kgame.engine.asset.AtlasKey
 import com.kgame.engine.asset.ImageKey
 import com.kgame.engine.asset.MusicKey
 import com.kgame.engine.asset.SoundKey
+import com.kgame.engine.asset.TiledMapKey
+import com.kgame.plugins.components.TiledMap
 
 object GameAssets {
     object Image {
@@ -19,5 +21,9 @@ object GameAssets {
 
     object Atlas {
         val Walk = AtlasKey("files/Walk.json")
+    }
+
+    object TiledMap {
+        val Example = TiledMapKey("files/maps/example.tmx")
     }
 }

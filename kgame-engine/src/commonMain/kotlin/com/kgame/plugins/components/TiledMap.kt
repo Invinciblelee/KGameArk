@@ -2,7 +2,7 @@ package com.kgame.plugins.components // or your components package
 
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
-import com.kgame.engine.map.TiledMapData
+import com.kgame.engine.maps.TiledMapData
 
 /**
  * A Component that attaches a [TiledMapData] data object to an entity.

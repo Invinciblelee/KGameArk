@@ -94,6 +94,7 @@ class SceneBuilderScope<T: Any>(
         key,
         engine,
         onProgress,
+        onCreate,
         onStart,
         onDispose,
         onEnable,

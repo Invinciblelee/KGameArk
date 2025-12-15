@@ -24,6 +24,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -227,7 +228,7 @@ private fun <T : Any> GameShell(
                 canFocus = false
                 onExit = { engine.focusRequester.requestFocus() }
             }
-            .onPreviewKeyEvent { engine.handleKeyEvent(it) }
+            .onKeyEvent { engine.handleKeyEvent(it) }
             .onFocusChanged { engine.focusChanged(it) }
             .onSizeChanged { engine.actualSizeChanged(it.toSize()) },
         contentAlignment = Alignment.Center

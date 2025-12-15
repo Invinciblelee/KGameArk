@@ -1,6 +1,9 @@
 package com.kgame.plugins.systems
 
+import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
@@ -18,7 +21,7 @@ import com.kgame.plugins.components.Transform
 import com.kgame.plugins.services.CameraService
 
 class RenderSystem(
-    val cameraService: CameraService = inject()
+    private val cameraService: CameraService = inject()
 ): IteratingSystem(
     family = family { all(Transform, Renderable); none(Scroller) },
     comparator = compareEntityBy(Renderable)
@@ -26,6 +29,13 @@ class RenderSystem(
 
     companion object {
         var isDebugging = false
+    }
+
+    private val visibleWorldBounds = MutableRect(0f, 0f, 0f, 0f)
+    private val visibleWorldStroke = Stroke(width = 10f)
+
+    override fun onTick() {
+        cameraService.culler.getBounds(visibleWorldBounds)
     }
 
     override fun onRender(drawScope: DrawScope) {
@@ -37,6 +47,15 @@ class RenderSystem(
 
             drawScope.withCameraTransform(camera, camTrans, camShake) {
                 super.onRender(this)
+
+                if (isDebugging) {
+                    drawRect(
+                        color = Color.Green,
+                        topLeft = visibleWorldBounds.topLeft,
+                        size = visibleWorldBounds.size,
+                        style = visibleWorldStroke
+                    )
+                }
             }
         } else {
            drawScope.withCenteredTransform {

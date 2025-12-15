@@ -20,7 +20,7 @@ androidxNavigationEvent = "1.0.0-rc02"
 androidxCollection = "1.5.0"
 
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.10.0-rc01"
+composeMultiplatform = "1.10.0-rc02"
 composeMaterial3 = "1.10.0-alpha05"
 composeMaterialIcons = "1.7.3"
 
@@ -32,9 +32,12 @@ kotlinCss = "2025.12.3"
 
 ktor = "3.3.3"
 
-logback = "1.5.21"
+logbackJvm = "1.5.21"
 logbackAndroid = "3.0.0"
 slf4jApi = "2.0.17"
+
+ksoup = "0.2.5"
+okio = "3.16.4"
 
 soundlibsMp3spi = "1.9.5.4"
 soundlibsTritonusShare = "0.3.7.4"
@@ -93,9 +96,13 @@ ktor-server-sessions = { module = "io.ktor:ktor-server-sessions", version.ref = 
 ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
 ktor-network-tsl = { module = "io.ktor:ktor-network-tls", version.ref = "ktor" }
 
-logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackJvm" }
 logback-android = { module = "com.github.tony19:logback-android", version.ref = "logbackAndroid" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4jApi" }
+
+ksoup = { module = "com.fleeksoft.ksoup:ksoup", version.ref = "ksoup" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+okio-nodefilesystem = { module = "com.squareup.okio:okio-nodefilesystem", version.ref = "okio" }
 
 soundlibs-mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "soundlibsMp3spi" }
 soundlibs-tritonus-share = { module = "com.googlecode.soundlibs:tritonus-share", version.ref = "soundlibsTritonusShare" }

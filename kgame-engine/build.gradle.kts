@@ -70,6 +70,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ksoup)
             implementation(libs.annotations)
         }
         androidMain.dependencies {
@@ -83,6 +84,7 @@ kotlin {
         }
         webMain.dependencies {
             implementation(libs.kotlin.browser)
+            implementation(npm("pako", "2.1.0"))
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

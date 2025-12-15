@@ -75,6 +75,7 @@ import com.kgame.plugins.components.ScaleAnimation
 import com.kgame.plugins.components.Spring
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.SpriteVisual
+import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Tween
 import com.kgame.plugins.components.Visual
@@ -88,6 +89,7 @@ import com.kgame.plugins.systems.CameraSystem
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.systems.SteeringSystem
+import com.kgame.plugins.systems.TiledMapRenderSystem
 import kotlin.math.hypot
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
@@ -597,6 +599,7 @@ fun GameDemo(environment: GameEnvironment) {
                 +GameAssets.Sound.Eat
                 +GameAssets.Music.BGM
                 +GameAssets.Atlas.Walk
+                +GameAssets.TiledMap.Example
             }
 
             world(configuration = {
@@ -613,10 +616,15 @@ fun GameDemo(environment: GameEnvironment) {
                     +SilkCollisionSystem()
                     +CameraSystem()
                     +AnimationSystem()
+                    +TiledMapRenderSystem()
                     +RenderSystem()
                 }
             }) {
                 val worldBounds = Rect(-800f, -600f, 800f, 600f)
+
+                entity {
+                    +TiledMap(assets[GameAssets.TiledMap.Example])
+                }
 
                 val player = entity {
                     +Transform()
@@ -665,7 +673,7 @@ fun GameDemo(environment: GameEnvironment) {
                     +Camera("enemy")
                 }
 
-                entities(500) {
+                entities(100) {
                     val velX = (-40f..40f).random()
                     val velY = (-40f..40f).random()
                     val mass = 1f + Random.nextFloat()
@@ -675,7 +683,6 @@ fun GameDemo(environment: GameEnvironment) {
                     +Transform(worldBounds.randomOffset())
                     +RigidBody(Offset(velX, velY), mass = mass)
                     +enemyInstance
-                    +AlphaAnimation(from = 0f, to = 1f, spec = InfiniteRepeatable(Tween(), RepeatMode.Reverse))
                     +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
                 }
             }

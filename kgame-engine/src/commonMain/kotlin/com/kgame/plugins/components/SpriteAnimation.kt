@@ -2,7 +2,7 @@ package com.kgame.plugins.components
 
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
-import com.kgame.engine.image.ImageAtlas
+import com.kgame.engine.graphics.atlas.ImageAtlas
 
 /**
  * A component of SpriteAnimation, used to control the animation of a sprite.

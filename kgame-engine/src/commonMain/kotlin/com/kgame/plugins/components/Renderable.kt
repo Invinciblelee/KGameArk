@@ -1,7 +1,6 @@
 package com.kgame.plugins.components
 
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
@@ -17,8 +16,8 @@ import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.lerp
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
-import com.kgame.engine.image.AtlasRegion
-import com.kgame.engine.image.ImageAtlas
+import com.kgame.engine.graphics.atlas.AtlasRegion
+import com.kgame.engine.graphics.atlas.ImageAtlas
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin

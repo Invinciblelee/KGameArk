@@ -5,8 +5,10 @@ package com.kgame.engine.asset
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.decodeToImageBitmap
-import com.kgame.engine.image.ImageAtlas
-import com.kgame.engine.image.loadImageAtlas
+import com.kgame.engine.graphics.atlas.DefaultImageAtlasLoader
+import com.kgame.engine.graphics.atlas.ImageAtlas
+import com.kgame.engine.maps.DefaultTiledMapLoader
+import com.kgame.engine.maps.TiledMapData
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlin.jvm.JvmInline
@@ -58,6 +60,9 @@ value class SoundKey(override val source: String) : AssetKey<String, SourceUri>
 @JvmInline
 value class MusicKey(override val source: String) : AssetKey<String, SourceUri>
 
+@JvmInline
+value class TiledMapKey(override val source: String): AssetKey<String, TiledMapData>
+
 /**
  * Manages the loading and unloading of assets.
  */
@@ -104,6 +109,10 @@ class DefaultAssetsManager(private val assetsReader: AssetsReader) : AssetsManag
     private val cache = HashMap<AssetKey<*, *>, Any>()
     private val lock = SynchronizedObject()
 
+    private val imageAtlasLoader by lazy { DefaultImageAtlasLoader(assetsReader) }
+
+    private val tiledMapLoader by lazy { DefaultTiledMapLoader(assetsReader) }
+
     override suspend fun <S, T> load(key: AssetKey<S, T>) {
         if (synchronized(lock) { cache.containsKey(key) }) return
 
@@ -121,7 +130,11 @@ class DefaultAssetsManager(private val assetsReader: AssetsReader) : AssetsManag
             }
 
             is AtlasKey -> {
-                loadImageAtlas(assetsReader, key.source)
+                imageAtlasLoader.load(key.source)
+            }
+
+            is TiledMapKey -> {
+                tiledMapLoader.load(key.source)
             }
         }
 

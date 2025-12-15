@@ -564,26 +564,6 @@ class CameraFrustumCuller(
         return frustumBounds.overlaps(entityBounds)
     }
 
-    private fun getBounds(bounds: MutableRect, camTrans: Transform, camShake: CameraShake?) {
-        // Calculate the camera's final position in the world, including any shake offset.
-        val camX = camTrans.position.x + (camShake?.shakeOffset?.x ?: 0f)
-        val camY = camTrans.position.y + (camShake?.shakeOffset?.y ?: 0f)
-        val scale = camTrans.scale
-
-        // CRITICAL FIX: Calculate the frustum's size in world units based on the
-        // virtual screen size, the camera's specific viewport, and the camera's scale.
-        val virtualSize = resolution.virtualSize
-        val halfViewWidthInWorld = (virtualSize.width / 2f) / scale.scaleX
-        val halfViewHeightInWorld = (virtualSize.height / 2f) / scale.scaleY
-
-        bounds.set(
-            left = camX - halfViewWidthInWorld,
-            top = camY - halfViewHeightInWorld,
-            right = camX + halfViewWidthInWorld,
-            bottom = camY + halfViewHeightInWorld
-        )
-    }
-
 
     /**
      * Calculates the bounding box of the camera's view frustum and writes the result to the
@@ -611,6 +591,27 @@ class CameraFrustumCuller(
 
         // Delegate the actual bounds computation to a private, overloaded function.
         getBounds(bounds, camTrans, camShake)
+    }
+
+
+    private fun getBounds(bounds: MutableRect, camTrans: Transform, camShake: CameraShake?) {
+        // Calculate the camera's final position in the world, including any shake offset.
+        val camX = camTrans.position.x + (camShake?.shakeOffset?.x ?: 0f)
+        val camY = camTrans.position.y + (camShake?.shakeOffset?.y ?: 0f)
+        val scale = camTrans.scale
+
+        // CRITICAL FIX: Calculate the frustum's size in world units based on the
+        // virtual screen size, the camera's specific viewport, and the camera's scale.
+        val virtualSize = resolution.virtualSize
+        val halfViewWidthInWorld = (virtualSize.width / 2f) / scale.scaleX
+        val halfViewHeightInWorld = (virtualSize.height / 2f) / scale.scaleY
+
+        bounds.set(
+            left = camX - halfViewWidthInWorld,
+            top = camY - halfViewHeightInWorld,
+            right = camX + halfViewWidthInWorld,
+            bottom = camY + halfViewHeightInWorld
+        )
     }
 
 }

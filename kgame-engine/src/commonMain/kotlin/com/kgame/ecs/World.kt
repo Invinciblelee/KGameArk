@@ -441,7 +441,7 @@ class World internal constructor(
         while (i < systems.size) {
             val system = systems[i++]
             if (system.enabled) {
-                system.onUpdate()
+                system.onUpdate(deltaTime)
             }
         }
     }

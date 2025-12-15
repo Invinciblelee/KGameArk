@@ -18,7 +18,7 @@ class PhysicsSystem(
     family = family { all(Transform, RigidBody) }
 ) {
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
         val rigidBody = entity[RigidBody]
 

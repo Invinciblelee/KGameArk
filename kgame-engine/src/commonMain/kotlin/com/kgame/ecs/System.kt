@@ -55,16 +55,6 @@ abstract class IntervalSystem(
     private var accumulator: Float = 0.0f
 
     /**
-     * Returns the time in seconds since the last time [onUpdate] was called.
-     *
-     * If the [interval] is [EachFrame] then the [world's][World] delta time is returned which is passed to [World.update].
-     *
-     * Otherwise, the [step][Fixed.step] value is returned.
-     */
-    val deltaTime: Float
-        get() = if (interval is Fixed) interval.step else world.deltaTime
-
-    /**
      * This function gets called when the [world configuration][WorldConfiguration.configure] is completed.
      */
     open fun onInit() = Unit
@@ -88,14 +78,14 @@ abstract class IntervalSystem(
      * Otherwise, the world's [delta time][World.deltaTime] is analyzed and [onTick] is called at a fixed rate.
      * This could be multiple or zero times with a single call to [onUpdate]. At the end [onAlpha] is called.
      */
-    open fun onUpdate() {
+    open fun onUpdate(deltaTime: Float) {
         when (interval) {
-            is EachFrame -> onTick()
+            is EachFrame -> onTick(deltaTime)
             is Fixed -> {
                 accumulator += world.deltaTime
                 val stepRate = interval.step
                 while (accumulator >= stepRate) {
-                    onTick()
+                    onTick(stepRate)
                     accumulator -= stepRate
                 }
 
@@ -108,7 +98,7 @@ abstract class IntervalSystem(
      * Function that contains the update logic of the system. Gets called whenever this system should get processed
      * according to its [interval].
      */
-    open fun onTick() = Unit
+    open fun onTick(deltaTime: Float) = Unit
 
     /**
      * Optional function for rendering logic when using a [Fixed] interval. This function is not called for
@@ -209,16 +199,16 @@ abstract class IteratingSystem(
      * Updates the [family] if needed and calls [onTickEntity] for each [entity][Entity] of the [family].
      * Does entity sorting using [onSort] before calling [onTickEntity].
      */
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         onSort()
 
-        family.forEach { onTickEntity(it) }
+        family.forEach { onTickEntity(it, deltaTime) }
     }
 
     /**
      * Function that contains the update logic for each [entity][Entity] of the system.
      */
-    open fun onTickEntity(entity: Entity) = Unit
+    open fun onTickEntity(entity: Entity, deltaTime: Float) = Unit
 
     /**
      * Renders the [family] if needed and calls [onRenderEntity] for each [entity][Entity] of the [family].

@@ -18,7 +18,7 @@ import com.kgame.plugins.components.Transform
 class ScrollerDriveSystem : IteratingSystem(
     family = family { all(Scroller, Transform) }
 ) {
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val lock = entity[Scroller]
         val transform = entity[Transform]
 

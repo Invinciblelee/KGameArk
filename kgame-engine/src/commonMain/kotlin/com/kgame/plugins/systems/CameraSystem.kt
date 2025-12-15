@@ -12,7 +12,7 @@ class CameraSystem(
     val cameraService: CameraService = inject()
 ) : IntervalSystem() {
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         cameraService.director.update(deltaTime)
     }
 

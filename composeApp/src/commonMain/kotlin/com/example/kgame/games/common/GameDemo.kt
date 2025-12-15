@@ -226,7 +226,7 @@ private class SilkPhysicsSystem(
     private val playerFamily = family { all(PlayerTag, Transform) }
     private val silkFamily = family { all(SilkComponent, Transform, SilkBounds) }
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         val player = playerFamily.firstOrNull() ?: return
         val rootWorldPos = player[Transform].position
         val targetWorldPos = cameraService.transformer.virtualToWorld(input.pointerPosition)
@@ -374,7 +374,7 @@ private class SilkCollisionSystem(
 
     private fun Float.sq() = this * this
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         val silkEntity = silkFamily.firstOrNull() ?: return
         val silk = silkEntity[SilkComponent]
         val silkBounds = silkEntity[SilkBounds]
@@ -484,7 +484,7 @@ private class SilkControlSystem(
 ) : IteratingSystem(
     family = family { all(SilkComponent) }
 ) {
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val silk = entity[SilkComponent]
         silk.type = when {
             input.isKeyDown(Key.One) -> WuXing.Metal
@@ -505,8 +505,8 @@ private class PlayerControlSystem(
 ) {
     private var currentCamera = "player"
 
-    override fun onTick() {
-        super.onTick()
+    override fun onTick(deltaTime: Float) {
+        super.onTick(deltaTime)
         KeyTrigger.check(input, Key.Six) {
             currentCamera = if (currentCamera == "player") {
                 cameraService.director.switchCameraSmoothly("enemy")
@@ -521,7 +521,7 @@ private class PlayerControlSystem(
         }
     }
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val playerTransform = entity[Transform]
         var deltaX = 0f
         var deltaY = 0f
@@ -630,11 +630,6 @@ fun GameDemo(environment: GameEnvironment) {
                     +Transform()
                     +PlayerTag()
                     +SpriteAnimation("run")
-                    +ScaleAnimation(
-                        from = 0f,
-                        to = 1.0f,
-                        spec = Spring()
-                    )
                     +Renderable(SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
                 }
 

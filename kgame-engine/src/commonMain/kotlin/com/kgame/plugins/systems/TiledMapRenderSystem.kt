@@ -2,6 +2,7 @@ package com.kgame.plugins.systems
 
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.kgame.ecs.Entity
@@ -33,22 +34,16 @@ class TiledMapRenderSystem(
 
     private val clipRect = MutableRect(0f, 0f, 0f, 0f)
 
-    init {
-        family.forEach { entity ->
-            entity.configure {
-               val data = entity[TiledMap].data
-               val transform = addIfAbsent(Transform) { Transform() }
-               transform.position
-            }
-        }
-    }
+    private val frustumRect = MutableRect(0f, 0f, 0f, 0f)
 
     /**
      * The onTick method is now used to update the timers for all active animations.
      */
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         // Update every active animation state
         animationState.update(deltaTime)
+
+        cameraService.culler.getBounds(frustumRect)
     }
 
     /**
@@ -109,22 +104,26 @@ class TiledMapRenderSystem(
                     val index = tileIndex - 1
                     val tileX = index % layer.width
                     val tileY = index / layer.width
+                    val worldX = tileX * tiledMap.tileWidth
+                    val worldY = tileY * tiledMap.tileHeight
 
-                    drawScope.drawImage(
-                        image = tileset.image,
-                        srcOffset = IntOffset(
-                            clipRect.left.roundToInt(),
-                            clipRect.top.roundToInt()
-                        ),
-                        srcSize = IntSize(
-                            clipRect.width.roundToInt(),
-                            clipRect.height.roundToInt()
-                        ),
-                        dstOffset = IntOffset(
-                            tileX * tiledMap.tileWidth,
-                            tileY * tiledMap.tileHeight
+                    drawScope.translate(
+                        -tiledMap.width / 2f,
+                        -tiledMap.height / 2f
+                    ) {
+                        drawImage(
+                            image = tileset.image,
+                            srcOffset = IntOffset(
+                                clipRect.left.roundToInt(),
+                                clipRect.top.roundToInt()
+                            ),
+                            srcSize = IntSize(
+                                clipRect.width.roundToInt(),
+                                clipRect.height.roundToInt()
+                            ),
+                            dstOffset = IntOffset(worldX, worldY)
                         )
-                    )
+                    }
                 }
             }
         }

@@ -46,7 +46,7 @@ private class MovementSystem(
 ) {
 
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val tf = entity[Transform]
         val rb = entity[RigidBody]
         val rr = entity[Renderable]

@@ -19,7 +19,7 @@ class BoundarySystem(
 ) {
     private val worldBounds by lazy { cameraService.getWorldBounds() }
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
         val boundary = entity[Boundary]
 

@@ -21,8 +21,9 @@ data class SpriteAnimation(
     companion object Companion : ComponentType<SpriteAnimation>()
 
     internal var elapsedTime: Float = 0f
-    internal var state: AnimationState = if (autoPlay) AnimationState.Playing else AnimationState.Stopped
     internal var currentFrameIndex = 0
+
+    internal var state: AnimationState = if (autoPlay) AnimationState.Playing else AnimationState.Stopped
 
 }
 

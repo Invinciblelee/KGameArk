@@ -16,7 +16,7 @@ class SteeringSystem : IteratingSystem(
         any(Wander, Arriver, Elasticity, ArriveTarget, FollowTarget)
     }
 ) {
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
         val rigidBody = entity[RigidBody]
 

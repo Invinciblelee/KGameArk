@@ -11,7 +11,7 @@ class CleanupSystem: IteratingSystem(
     family = family { any(CleanupTag, CharacterStats) }
 ) {
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         if (entity.has(CleanupTag)) {
             entity.remove()
             return

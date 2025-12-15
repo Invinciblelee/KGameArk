@@ -113,7 +113,7 @@ private class AircraftControlSystem(
     val input: InputManager = inject()
 ) : IteratingSystem(family = family { all(PlayerTag, Transform, Renderable, WeaponComponent) }) {
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
         val renderable = entity[Renderable]
         val weapon = entity[WeaponComponent]
@@ -150,7 +150,7 @@ private class AircraftControlSystem(
 private class EnemyWeaponSystem : IteratingSystem(
     family = family { all(EnemyTag, Transform, WeaponComponent) }
 ) {
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val weapon = entity[WeaponComponent]
         weapon.timeUntilNextShot -= deltaTime
         if (weapon.timeUntilNextShot <= 0f) {
@@ -176,7 +176,7 @@ private class EnemySpawnSystem(
 ) : IntervalSystem(interval = Fixed(0.5f)) { // 每 0.5 秒生成一波敌人
 
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         val worldBounds = cameraService.getWorldBounds()
 
         val spawnXMin = worldBounds.left
@@ -215,7 +215,7 @@ private class CollisionSystem(
     private val enemyFamily = family { all(EnemyTag, Transform, CharacterStats) }
     private val playerFamily = family { all(PlayerTag, Transform, CharacterStats) }
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         // --- 1. 玩家子弹 vs 敌人 ---
         playerBulletFamily.forEach { bullet ->
             enemyFamily.forEach { enemy ->

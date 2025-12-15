@@ -64,11 +64,13 @@ internal class GameScene<T : Any>(
     private val world: GameWorld?,
     private val assets: Set<AssetKey<*, *>> = emptySet()
 ) {
+
     private var isActive by atomic(false)
     private var isCreated by atomic(false)
     private var redrawSignal by mutableStateOf(false)
 
     private val windowManager = WindowManager()
+    private var drawScope: DrawScope? = null
 
     private fun invalidate() {
         redrawSignal = !redrawSignal

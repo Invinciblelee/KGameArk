@@ -1,6 +1,7 @@
 package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.toRect
@@ -103,4 +104,8 @@ fun MutableRect.set(transform: Transform, size: Size) {
     }
 
     set(minX, minY, maxX, maxY)
+}
+
+fun MutableRect.set(position: Offset, size: Size) {
+    set(position.x, position.y, position.x + size.width, position.y + size.height)
 }

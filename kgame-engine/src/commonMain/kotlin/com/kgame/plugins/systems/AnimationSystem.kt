@@ -41,7 +41,7 @@ class AnimationSystem(
     }
 ) {
 
-    override fun onTickEntity(entity: Entity) {
+    override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
 
         val translationAnimation = entity.getOrNull(TranslationAnimation)
@@ -97,4 +97,5 @@ class AnimationSystem(
             }
         }
     }
+
 }

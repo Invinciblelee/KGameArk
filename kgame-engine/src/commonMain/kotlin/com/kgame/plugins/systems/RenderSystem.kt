@@ -34,8 +34,10 @@ class RenderSystem(
     private val visibleWorldBounds = MutableRect(0f, 0f, 0f, 0f)
     private val visibleWorldStroke = Stroke(width = 10f)
 
-    override fun onTick() {
-        cameraService.culler.getBounds(visibleWorldBounds)
+    override fun onTick(deltaTime: Float) {
+        if (isDebugging) {
+            cameraService.culler.getBounds(visibleWorldBounds)
+        }
     }
 
     override fun onRender(drawScope: DrawScope) {

@@ -31,7 +31,7 @@ class CollisionSystem(
     private val bounds1 = MutableRect(0f, 0f, 0f, 0f)
     private val bounds2 = MutableRect(0f, 0f, 0f, 0f)
 
-    override fun onTick() {
+    override fun onTick(deltaTime: Float) {
         val n = family.entitySize
         ensureCapacity(n)
         count = 0

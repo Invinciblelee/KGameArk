@@ -8,14 +8,13 @@ import com.kgame.ecs.configureWorld
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 
-class GameWorld(
+internal class GameWorld(
     private val scope: GameScope,
     private val entityCapacity: Int,
     private val configuration: WorldConfiguration.() -> Unit,
     private val initWorld: World.() -> Unit
 ) {
-    @PublishedApi
-    internal var instance: World? = null
+    private var instance: World? = null
 
     private fun ensureWorld(): World {
         return instance ?: configureWorld(entityCapacity) {
@@ -34,34 +33,21 @@ class GameWorld(
         }.also { instance = it }
     }
 
-    internal fun init() {
+    fun init() {
         initWorld(ensureWorld())
     }
 
-    internal fun update(deltaTime: Float) {
+    fun update(deltaTime: Float) {
         instance?.update(deltaTime)
     }
 
-    internal fun render(drawScope: DrawScope) {
+    fun render(drawScope: DrawScope) {
         instance?.render(drawScope)
     }
 
-    internal fun dispose() {
+    fun dispose() {
         instance?.dispose()
         instance = null
     }
 
-    inline fun <reified T> get(name: String = T::class.simpleName ?: T::class.toString()): T {
-        val world = requireNotNull(instance) { "World has not been initialized yet." }
-        return world.get(name)
-    }
-
-    inline fun <reified T : IntervalSystem> system(): T {
-        val world = requireNotNull(instance) { "World has not been initialized yet." }
-        return world.system()
-    }
-
-    inline fun <reified T : IntervalSystem> systemOrNull(): T? {
-        return instance?.systemOrNull()
-    }
 }

@@ -26,7 +26,7 @@ import com.kgame.plugins.services.CameraService
  */
 class AnimationSystem(
     private val cameraService: CameraService = inject(),
-    private val animationService: AnimationService = inject()
+    val animationService: AnimationService = inject()
 ) : IteratingSystem(
     family = family {
         all(Transform, Renderable)

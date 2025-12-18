@@ -126,6 +126,8 @@ class TmxMapLoader(
             IntOffset(it.attr("x").toInt(), it.attr("y").toInt())
         } ?: IntOffset.Zero
 
+        val tileWidth = tilesetElement.attr("tilewidth").toIntOrNull() ?: 0
+        val tileHeight = tilesetElement.attr("tileheight").toIntOrNull() ?: 0
         val spacing = tilesetElement.attr("spacing").toIntOrNull() ?: 0
         val margin = tilesetElement.attr("margin").toIntOrNull() ?: 0
 
@@ -141,6 +143,8 @@ class TmxMapLoader(
             id = id,
             name = name,
             image = imageBitmap,
+            tileWidth = tileWidth,
+            tileHeight = tileHeight,
             spacing = spacing,
             margin = margin,
             offset = offset,

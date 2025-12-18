@@ -617,7 +617,7 @@ fun GameDemo(environment: GameEnvironment) {
                     +RenderSystem()
                 }
             }) {
-                val worldBounds = Rect(-800f, -600f, 800f, 600f)
+                val worldBounds = Rect(-640f, -600f, 640f, 600f)
 
                 entity {
                     +WorldBounds(worldBounds)

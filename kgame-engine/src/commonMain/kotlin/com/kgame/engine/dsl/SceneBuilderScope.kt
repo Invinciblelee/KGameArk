@@ -36,7 +36,7 @@ class SceneBuilderScope<T: Any>(
         capacity: Int = 1024,
         configuration: WorldConfiguration.() -> Unit,
         initWorld: World.() -> Unit
-    ): GameWorld {
+    ) {
         val world = GameWorld(
             engine,
             capacity,
@@ -44,7 +44,6 @@ class SceneBuilderScope<T: Any>(
             initWorld
         )
         this.world = world
-        return world
     }
 
     fun resources(builder: AssetSet.() -> Unit) {

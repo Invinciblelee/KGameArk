@@ -81,7 +81,7 @@ data class TiledMapData(
     fun findTile(gid: Int): TiledMapTile? {
         val mapSet = findMapSet(gid) ?: return null
         val localId = gid - mapSet.id
-        return mapSet.tiles[localId]
+        return mapSet.tiles.getOrElse(localId) { EmptyTiledMapTile }
     }
 
     /**
@@ -89,11 +89,11 @@ data class TiledMapData(
      * in the provided [outRect]. This avoids creating new Rect objects on each call, which is
      * crucial for performance during rendering.
      *
-     * @param gid The Global ID of the tile.
      * @param outRect A mutable [MutableRect] object where the calculated clipping rectangle will be stored.
+     * @param gid The Global ID of the tile.
      * @return The [TiledMapSet] that the GID belongs to, or null if the GID is invalid.
      */
-    fun getClip(gid: Int, outRect: MutableRect): TiledMapSet? {
+    fun getClip(outRect: MutableRect, gid: Int): TiledMapSet? {
         // 1. Find the correct tileset for the GID.
         // We use a manual loop for performance, avoiding the overhead of `find` or `firstOrNull`.
         val mapSet = findMapSet(gid) ?: return null
@@ -102,16 +102,16 @@ data class TiledMapData(
         val localId = gid - mapSet.id
 
         // 4. Calculate the row and column index of the tile in the tileset grid.
-        val columnsInTileset = mapSet.image.width / this.tileWidth
+        val columnsInTileset = mapSet.image.width / mapSet.tileWidth
         val col = localId % columnsInTileset
         val row = localId / columnsInTileset
 
         // 5. Calculate the top-left pixel coordinates and set them on the outRect.
         outRect.set(
-            left = (col * this.tileWidth).toFloat(),
-            top = (row * this.tileHeight).toFloat(),
-            right = ((col + 1) * this.tileWidth).toFloat(),
-            bottom = ((row + 1) * this.tileHeight).toFloat()
+            left = (col * mapSet.tileWidth).toFloat(),
+            top = (row * mapSet.tileHeight).toFloat(),
+            right = ((col + 1) * mapSet.tileWidth).toFloat(),
+            bottom = ((row + 1) * mapSet.tileHeight).toFloat()
         )
 
         // 6. Return the tileset, which contains the ImageBitmap needed for drawing.
@@ -119,16 +119,40 @@ data class TiledMapData(
     }
 
     /**
-     * Converts a flat tile index into the pixel offset (top-left corner) of that tile
-     * within the entire map.
+     * Returns the **world-space** top-left corner of the tile at the given
+     * flattened layer index, relative to the **map center**.
      *
-     * @param index zero-based index in the layer's `data` array
-     * @return pixel coordinates (x, y) relative to the map's top-left corner
+     * @param index Zero-based position in the layer's `data` array.
+     * @return Pixel offset relative to the map center.
      */
     fun getOffset(index: Int): IntOffset {
-        val col = index % this.columns
-        val row = index / this.columns
-        return IntOffset(col * this.tileWidth, row * this.tileHeight)
+        val col = index % columns
+        val row = index / columns
+        return IntOffset(
+            col * tileWidth - width / 2,
+            row * tileHeight - height / 2
+        )
+    }
+
+    /**
+     * Computes the **world-space** bounding rectangle of the tile at
+     * [index] and stores it in [bounds]. The rectangle is expressed
+     * relative to the **map center**.
+     *
+     * @param bounds Reusable rectangle to be populated; caller-owned.
+     * @param index  Zero-based position in the layer's `data` array.
+     */
+    fun getBounds(bounds: MutableRect, index: Int) {
+        val col = index % columns
+        val row = index / columns
+        val left = col * tileWidth - width / 2
+        val top  = row * tileHeight - height / 2
+        bounds.set(
+            left   = left.toFloat(),
+            top    = top.toFloat(),
+            right  = (left + tileWidth).toFloat(),
+            bottom = (top + tileHeight).toFloat()
+        )
     }
 
 }
@@ -139,6 +163,8 @@ data class TiledMapData(
  * @param id The starting global ID (GID) of a tile in this tileset.
  * @param name The name of the tileset.
  * @param image The tileset's source image.
+ * @param tileWidth The render width of a single tile in pixels.
+ * @param tileHeight The render height of a single tile in pixels.
  * @param spacing The spacing between tiles in the tileset image.
  * @param margin The margin around the tiles in the tileset image.
  * @param offset The offset to apply to tiles when rendering.
@@ -149,6 +175,8 @@ data class TiledMapSet(
     val id: Int,
     val name: String,
     val image: ImageBitmap,
+    val tileWidth: Int,
+    val tileHeight: Int,
     val spacing: Int,
     val margin: Int,
     val offset: IntOffset,
@@ -188,6 +216,11 @@ data class AnimatedTiledMapTile(
 
     val duration: Int by lazy { frames.sumOf { it.duration } }
 
+}
+
+data object EmptyTiledMapTile : TiledMapTile {
+    override val id: Int = -1
+    override val properties: Map<String, String> = emptyMap()
 }
 
 /**

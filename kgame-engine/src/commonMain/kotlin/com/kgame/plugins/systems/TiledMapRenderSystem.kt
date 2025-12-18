@@ -16,6 +16,7 @@ import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.geometry.roundToIntOffset
 import com.kgame.engine.graphics.drawscope.withCameraTransform
 import com.kgame.engine.maps.AnimatedTiledMapTile
+import com.kgame.engine.maps.EmptyTiledMapTile
 import com.kgame.engine.maps.StaticTiledMapTile
 import com.kgame.engine.maps.TiledMapAnimationState
 import com.kgame.engine.maps.TiledMapTileLayer
@@ -39,6 +40,8 @@ class TiledMapRenderSystem(
     private val animationState = TiledMapAnimationState()
 
     private val clipRect = MutableRect(0f, 0f, 0f, 0f)
+
+    private val boundsRect = MutableRect(0f, 0f, 0f, 0f)
 
     private val frustumRect = MutableRect(0f, 0f, 0f, 0f)
 
@@ -78,6 +81,7 @@ class TiledMapRenderSystem(
     override fun onRenderEntity(entity: Entity, drawScope: DrawScope) {
         val tiledMap = entity[TiledMap].data
         val worldBounds = entity.getOrNull(WorldBounds)
+        val worldCenter = worldBounds?.rect?.center ?: Offset.Zero
 
         var layerIndex = 0
         while (layerIndex < tiledMap.layers.size) {
@@ -91,44 +95,39 @@ class TiledMapRenderSystem(
                 var tileIndex = 0
                 while (tileIndex < layer.data.size) {
                     val gid = layer.data[tileIndex++]
-
                     if (gid == 0) {
+                        continue
+                    }
+
+                    tiledMap.getBounds(boundsRect, tileIndex - 1)
+                    if (!frustumRect.overlaps(boundsRect)) {
                         continue
                     }
 
                     val tile = tiledMap.findTile(gid) ?: continue
 
-                    val finalGid: Int = when (tile) {
-                        is StaticTiledMapTile -> gid
+                    val finalGid = when (tile) {
+                        is StaticTiledMapTile, is EmptyTiledMapTile -> gid
                         is AnimatedTiledMapTile -> {
                             val currentFrame = animationState.getCurrentFrame(tile)
                             currentFrame.id
                         }
                     }
 
-                    val tileset = tiledMap.getClip(finalGid, clipRect) ?: continue
+                    val tileset = tiledMap.getClip(clipRect, finalGid) ?: continue
 
-                    val mapCenterX = tiledMap.width / 2f
-                    val mapCenterY = tiledMap.height / 2f
-
-                    val worldCenter = worldBounds?.rect?.center ?: Offset.Zero
-
-                    drawScope.translate(
-                        worldCenter.x - mapCenterX,
-                        worldCenter.y - mapCenterY
-                    ) {
+                    drawScope.translate(worldCenter.x, worldCenter.y) {
                         drawImage(
                             image = tileset.image,
                             srcOffset = clipRect.topLeft.roundToIntOffset(),
                             srcSize = clipRect.size.roundToIntSize(),
-                            dstOffset = tiledMap.getOffset(tileIndex - 1)
+                            dstOffset = boundsRect.topLeft.roundToIntOffset()
                         )
                     }
                 }
             }
         }
     }
-
 
 }
 

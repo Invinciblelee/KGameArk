@@ -24,6 +24,6 @@ object GameAssets {
     }
 
     object TiledMap {
-        val Example = TiledMapKey("files/maps/shader_example.tmx")
+        val Example = TiledMapKey("files/maps/desert.tmx")
     }
 }

@@ -139,7 +139,7 @@ fun GameCollisionDemo(environment: GameEnvironment) {
 
             Button(
                 onClick = {
-                    world.get<AnimationService>().play(anim)
+
                 },
                 modifier = Modifier.padding(top = 100.dp)
             ) {

@@ -5,6 +5,7 @@ package com.example.kgame
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.kgame.games.collision.GameCollisionDemo
 import com.example.kgame.games.common.GameDemo
 import com.kgame.engine.core.GameEnvironment
 

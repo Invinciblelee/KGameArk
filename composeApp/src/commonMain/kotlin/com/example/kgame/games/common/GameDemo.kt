@@ -2,7 +2,6 @@
 
 package com.example.kgame.games.common
 
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +39,7 @@ import com.example.kgame.games.GameAssets
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
 import com.kgame.ecs.Entity
+import com.kgame.ecs.Injectable
 import com.kgame.ecs.IntervalSystem
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
@@ -71,8 +71,6 @@ import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PolygonVisual
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
-import com.kgame.plugins.components.ScaleAnimation
-import com.kgame.plugins.components.Spring
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.TiledMap
@@ -602,9 +600,8 @@ fun GameDemo(environment: GameEnvironment) {
                 +GameAssets.TiledMap.Example
             }
 
-            world(configuration = {
+           world(configuration = {
                 injectables {
-                    "key" + "value"
                     +GameState(0)
                 }
                 systems {
@@ -623,6 +620,7 @@ fun GameDemo(environment: GameEnvironment) {
                 val worldBounds = Rect(-800f, -600f, 800f, 600f)
 
                 entity {
+                    +WorldBounds(worldBounds)
                     +TiledMap(assets[GameAssets.TiledMap.Example])
                 }
 
@@ -677,6 +675,11 @@ fun GameDemo(environment: GameEnvironment) {
                     val size = (25f..50f).random()
                     +Transform(worldBounds.randomOffset())
                     +RigidBody(Offset(velX, velY), mass = mass)
+                    +AlphaAnimation(
+                        from = 0f,
+                        to = 1f,
+                        spec = InfiniteRepeatable(Tween())
+                    )
                     +enemyInstance
                     +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
                 }
@@ -688,7 +691,7 @@ fun GameDemo(environment: GameEnvironment) {
                 println("Game enter")
             }
 
-            onDispose {
+            onDestroy {
                 audio.stopMusic()
                 println("Game exit")
             }

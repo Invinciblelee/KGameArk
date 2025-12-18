@@ -32,7 +32,7 @@ import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
-import com.kgame.plugins.components.play
+import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.CollisionSystem
@@ -44,8 +44,6 @@ private class MovementSystem(
 ) : IteratingSystem(
     family { all(Transform, RigidBody, Renderable) }
 ) {
-
-
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val tf = entity[Transform]
         val rb = entity[RigidBody]
@@ -59,8 +57,6 @@ private class MovementSystem(
 
         /* 边界反弹：一行调用你的封装（零临时对象） */
         val clamped = cameraService.transformer.clampToViewport(tf.position, rr.size)
-
-        println(clamped)
 
         /* 若被 clamp → 反弹速度 */
         if (clamped.x != tf.position.x) rb.velocity = rb.velocity.copy(x = -rb.velocity.x)
@@ -88,7 +84,7 @@ fun GameCollisionDemo(environment: GameEnvironment) {
             )
         )
 
-        world(configuration = {
+        val world = world(configuration = {
             systems {
                 +CollisionSystem()
                 +MovementSystem()
@@ -142,7 +138,9 @@ fun GameCollisionDemo(environment: GameEnvironment) {
             Text("FPS: ${fpsCalculator.fps}")
 
             Button(
-                onClick = { anim.play() },
+                onClick = {
+                    world.get<AnimationService>().play(anim)
+                },
                 modifier = Modifier.padding(top = 100.dp)
             ) {
                 Text("Test")

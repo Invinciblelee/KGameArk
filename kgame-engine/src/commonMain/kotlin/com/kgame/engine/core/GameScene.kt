@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
  * @param engine The kgame engine.
  * @param onProgress A function to be called to update the progress of loading assets.
  * @param onStart A function to be called when the scene is entered.
- * @param onDispose A function to be called when the scene is exited
+ * @param onDestroy A function to be called when the scene is exited
  * @param onEnable A function to be called when the scene is enabled.
  * @param onDisable A function to be called when the scene is disabled.
  * @param update A function to be called every frame to update the scene.
@@ -54,7 +54,7 @@ internal class GameScene<T : Any>(
     private val onProgress: ((Float) -> Unit)?,
     private val onCreate: (suspend () -> Unit)?,
     private val onStart: (() -> Unit)?,
-    private val onDispose: (() -> Unit)?,
+    private val onDestroy: (() -> Unit)?,
     private val onEnable: (() -> Unit)?,
     private val onDisable: (() -> Unit)?,
     private val update: ((Float) -> Unit)?,
@@ -70,7 +70,6 @@ internal class GameScene<T : Any>(
     private var redrawSignal by mutableStateOf(false)
 
     private val windowManager = WindowManager()
-    private var drawScope: DrawScope? = null
 
     private fun invalidate() {
         redrawSignal = !redrawSignal
@@ -104,21 +103,21 @@ internal class GameScene<T : Any>(
     }
 
     private fun start() {
-        world?.start()
+        world?.init()
 
         onStart?.invoke()
     }
 
-    private fun dispose() {
+    private fun destroy() {
         isActive = false
-
-        onDispose?.invoke()
 
         world?.dispose()
 
         for (key in assets) {
             engine.assets.unload(key)
         }
+
+        onDestroy?.invoke()
     }
 
     private fun update(deltaTime: Float) {
@@ -180,7 +179,7 @@ internal class GameScene<T : Any>(
             onDispose {
                 disposeTick()
                 disposeEnableChanged()
-                dispose()
+                destroy()
             }
         }
 

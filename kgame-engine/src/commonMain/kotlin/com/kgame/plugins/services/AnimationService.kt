@@ -5,6 +5,7 @@ import androidx.compose.animation.core.RepeatMode
 import com.kgame.engine.graphics.atlas.AtlasAnimatedFrame
 import com.kgame.engine.graphics.atlas.ImageAtlas
 import com.kgame.plugins.components.Animation
+import com.kgame.plugins.components.Identifiable
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.Spring
 import com.kgame.plugins.components.SpriteAnimation
@@ -27,17 +28,23 @@ class AnimationService {
     private data class RuntimeState(
         var elapsedTime: Float = 0f,
         var frameIndex: Int = 0,
-        var isPlaying: Boolean = true
-    )
+        var status: Status = Status.Playing
+    ) {
+
+        enum class Status {
+            Playing, Paused, Stopped
+        }
+
+    }
 
     private val states = SimpleArrayMap<Int, RuntimeState>()
 
 
-    fun update(deltaTime: Float) {
+    internal fun update(deltaTime: Float) {
         var index = 0
         while (index < states.size()) {
             val state = states.valueAt(index++)
-            if (state.isPlaying) {
+            if (state.status == RuntimeState.Status.Playing) {
                 state.elapsedTime += deltaTime
             }
         }
@@ -55,13 +62,13 @@ class AnimationService {
      * @param animation The definition of the animation, containing its duration, spec, and repeat mode.
      * @return A [Float] representing the current completion progress of the animation.
      */
-    fun getProgress(animation: Animation<*, *>): Float {
+    internal fun getProgress(animation: Animation<*, *>): Float {
         // Step 1: Get or create the runtime state for this animation.
         val state = getOrCreateState(animation.id)
         val duration = animation.duration
 
         // Step 2: Handle cases where the animation is not currently playing.
-        if (!state.isPlaying) {
+        if (state.status != RuntimeState.Status.Playing) {
             // If it stopped because it completed, its progress should be locked at 100%.
             if (state.elapsedTime >= duration) return 1f
             // If it was stopped manually (e.g., via `stop(id)`), its progress should be 0%.
@@ -74,7 +81,7 @@ class AnimationService {
         if (!animation.isInfinite && elapsedTime >= duration) {
             // For finite animations, if the time has exceeded the duration,
             // mark its state as stopped and return the final progress of 1.0.
-            state.isPlaying = false
+            state.status = RuntimeState.Status.Stopped
             return 1f
         }
 
@@ -124,7 +131,7 @@ class AnimationService {
      * @param atlas The [ImageAtlas] from which to retrieve the animation frame sequence.
      * @return The name of the frame to be rendered (e.g., "run_1", "idle_0").
      */
-    fun getCurrentFrame(animation: SpriteAnimation, atlas: ImageAtlas): AtlasAnimatedFrame {
+    internal fun getCurrentFrame(animation: SpriteAnimation, atlas: ImageAtlas): AtlasAnimatedFrame {
         // Step 1: Retrieve the runtime state for this animation. The state is managed by this service.
         val state = getOrCreateState(animation.id)
 
@@ -132,7 +139,7 @@ class AnimationService {
         val frames = atlas.getAnimatedFrames(animation.name)
 
         // Step 3: If the animation is not playing, simply return the last known frame.
-        if (!state.isPlaying) {
+        if (state.status != RuntimeState.Status.Playing) {
             val safeIndex = state.frameIndex.coerceIn(0, frames.lastIndex)
             return frames[safeIndex]
         }
@@ -147,25 +154,29 @@ class AnimationService {
 
         // Step 6: Handle the end of a non-looping animation.
         if (!animation.loop && state.elapsedTime * animation.speed >= frames.duration) {
-            state.isPlaying = false
+            state.status = RuntimeState.Status.Stopped
         }
 
         // Step 7: Return the name of the new current frame.
         return frames[state.frameIndex]
     }
 
-    fun play(id: Int) {
-        getOrCreateState(id).isPlaying = true
+    fun play(target: Identifiable) {
+        val state = getOrCreateState(target.id)
+        if (state.status == RuntimeState.Status.Stopped) {
+            state.elapsedTime = 0f
+        }
+        state.status = RuntimeState.Status.Playing
     }
 
-    fun pause(id: Int) {
-        getOrCreateState(id).isPlaying = false
+    fun pause(target: Identifiable) {
+        states[target.id]?.status = RuntimeState.Status.Paused
     }
 
-    fun stop(id: Int) {
-        val state = states[id]
+    fun stop(target: Identifiable) {
+        val state = states[target.id]
         if (state != null) {
-            state.isPlaying = false
+            state.status = RuntimeState.Status.Stopped
             state.elapsedTime = 0f
         }
     }

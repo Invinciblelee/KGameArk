@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.kgame.engine.geometry.roundToIntOffset
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -304,10 +305,7 @@ private fun BoxWithConstraintsScope.WindowContent(
         exit = fadeOut() + scaleOut(targetScale = 0.9f),
         modifier = Modifier
             .offset {
-                IntOffset(
-                    window.position.x.roundToInt(),
-                    window.position.y.roundToInt()
-                )
+                window.position.roundToIntOffset()
             }
             .pointerInput(Unit) {
                 awaitEachGesture {

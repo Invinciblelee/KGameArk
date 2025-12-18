@@ -19,7 +19,7 @@ class SceneBuilderScope<T: Any>(
     private var onProgress: ((Float) -> Unit)? = null
     private var onCreate: (suspend () -> Unit)? = null
     private var onStart: (() -> Unit)? = null
-    private var onDispose: (() -> Unit)? = null
+    private var onDestroy: (() -> Unit)? = null
     private var onEnable: (() -> Unit)? = null
     private var onDisable: (() -> Unit)? = null
     private var onUpdate: ((Float) -> Unit)? = null
@@ -36,7 +36,7 @@ class SceneBuilderScope<T: Any>(
         capacity: Int = 1024,
         configuration: WorldConfiguration.() -> Unit,
         initWorld: World.() -> Unit
-    ) {
+    ): GameWorld {
         val world = GameWorld(
             engine,
             capacity,
@@ -44,6 +44,7 @@ class SceneBuilderScope<T: Any>(
             initWorld
         )
         this.world = world
+        return world
     }
 
     fun resources(builder: AssetSet.() -> Unit) {
@@ -62,8 +63,8 @@ class SceneBuilderScope<T: Any>(
         onStart = block
     }
 
-    fun onDispose(block: () -> Unit) {
-        onDispose = block
+    fun onDestroy(block: () -> Unit) {
+        onDestroy = block
     }
 
     fun onEnable(block: () -> Unit) {
@@ -96,7 +97,7 @@ class SceneBuilderScope<T: Any>(
         onProgress,
         onCreate,
         onStart,
-        onDispose,
+        onDestroy,
         onEnable,
         onDisable,
         onUpdate,

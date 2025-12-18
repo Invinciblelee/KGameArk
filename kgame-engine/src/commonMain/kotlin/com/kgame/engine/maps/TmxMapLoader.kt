@@ -1,9 +1,13 @@
 package com.kgame.engine.maps
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.decodeToImageBitmap
+import androidx.compose.ui.unit.IntOffset
 import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Element
 import com.kgame.engine.asset.AssetsReader
+import com.kgame.engine.utils.Color
 import com.kgame.engine.utils.zip.Compression
 import com.kgame.engine.utils.zip.decompress
 import kotlin.io.encoding.Base64
@@ -56,14 +60,16 @@ class TmxMapLoader(
 
         // 6. Build TiledMapData
         return TiledMapData(
-            width = mapWidthInTiles * tileWidth,     // Total map width in pixels
-            height = mapHeightInTiles * tileHeight,  // Total map height in pixels
+            columns = mapWidthInTiles,
+            rows = mapHeightInTiles,
             tileWidth = tileWidth,
             tileHeight = tileHeight,
             layers = mapLayers,
-            sets = mapSets,
+            tilesets = mapSets,
             properties = properties
-        )
+        ).also {
+            println(it)
+        }
     }
 
     // --- Core Parsing Helpers ---
@@ -74,16 +80,16 @@ class TmxMapLoader(
     private suspend fun parseLayers(
         tmxPath: String,
         children: List<Element>,
-        mapWidth: Int,
-        mapHeight: Int
+        columns: Int,
+        rows: Int
     ): List<TiledMapLayer> {
         val layers = mutableListOf<TiledMapLayer>()
         children.forEach { child ->
             when (child.tagName()) {
-                "layer" -> layers.add(parseTiledMapTileLayer(child, mapWidth, mapHeight))
+                "layer" -> layers.add(parseTiledMapTileLayer(child, columns, rows))
                 "objectgroup" -> layers.add(parseTiledMapObjectLayer(child))
                 "imagelayer" -> layers.add(parseTiledMapImageLayer(tmxPath, child))
-                "group" -> layers.add(parseTiledMapGroupLayer(tmxPath, child, mapWidth, mapHeight))
+                "group" -> layers.add(parseTiledMapGroupLayer(tmxPath, child, columns, rows))
                 // Ignore other tags at map/group level like properties, tileset, etc.
             }
         }
@@ -95,18 +101,39 @@ class TmxMapLoader(
     private suspend fun parseTiledMapSet(tmxPath: String, element: Element): TiledMapSet {
         val id = element.attr("firstgid").toInt()
         val name = element.attr("name")
-        val imageElement = element.selectFirst("image")
+
+        val source = element.attr("source")
+        val tilesetElement = if (source.isNotEmpty()) {
+            val tsxPath = getRelativePath(tmxPath, source)
+            val tsxContent = assetsReader.readBytes(tsxPath).decodeToString()
+            Ksoup.parseXml(tsxContent).selectFirst("tileset")
+                ?: throw IllegalStateException("Failed to find <tileset> element in the provided TSX file: $tsxPath")
+        } else {
+            element
+        }
+
+        val imageElement = tilesetElement.selectFirst("image")
             ?: throw IllegalStateException("Tileset $name is missing the <image> tag.")
 
         val imageSource = imageElement.attr("source")
         val tilesetImagePath = getRelativePath(tmxPath, imageSource)
 
-        // Load the image bitmap using AssetsReader
         val imageBytes = assetsReader.readBytes(tilesetImagePath)
-        val imageBitmap = imageBytes.decodeToImageBitmap() // Placeholder function
+        val imageBitmap = imageBytes.decodeToImageBitmap()
 
-        // Parse special tile metadata
-        val tilesMetadata = element.select("tile").mapNotNull { tileElement ->
+        val tileOffsetElement = tilesetElement.selectFirst("tileoffset")
+        val offset = tileOffsetElement?.let {
+            IntOffset(it.attr("x").toInt(), it.attr("y").toInt())
+        } ?: IntOffset.Zero
+
+        val spacing = tilesetElement.attr("spacing").toIntOrNull() ?: 0
+        val margin = tilesetElement.attr("margin").toIntOrNull() ?: 0
+
+        val terrains = tilesetElement.select("terraintypes terrain").associate {
+            it.attr("name") to it.attr("tile").toInt()
+        }
+
+        val tilesMetadata = tilesetElement.select("tile").mapNotNull { tileElement ->
             parseTiledMapTile(tileElement)
         }.associateBy { it.id }
 
@@ -114,6 +141,10 @@ class TmxMapLoader(
             id = id,
             name = name,
             image = imageBitmap,
+            spacing = spacing,
+            margin = margin,
+            offset = offset,
+            terrains = terrains,
             tiles = tilesMetadata
         )
     }
@@ -141,10 +172,11 @@ class TmxMapLoader(
 
     private fun parseTiledMapTileLayer(
         element: Element,
-        mapWidth: Int,
-        mapHeight: Int
+        columns: Int,
+        rows: Int
     ): TiledMapTileLayer {
         val name = element.attr("name")
+        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
 
@@ -176,7 +208,7 @@ class TmxMapLoader(
                 }
 
                 // 3. Read GID array (Little-Endian)
-                val expectedSize = mapWidth * mapHeight
+                val expectedSize = columns * rows
                 check(tileBytes.size == expectedSize * 4) {
                     "Tile data size mismatch after decoding/decompression. Expected ${expectedSize * 4} bytes, got ${tileBytes.size}"
                 }
@@ -190,16 +222,17 @@ class TmxMapLoader(
             }
         }
 
-        check(intArrayData.size == mapWidth * mapHeight) {
-            "Tile layer data size mismatch. Expected ${mapWidth * mapHeight}, got ${intArrayData.size}"
+        check(intArrayData.size == columns * rows) {
+            "Tile layer data size mismatch. Expected ${columns * rows}, got ${intArrayData.size}"
         }
 
         return TiledMapTileLayer(
             name = name,
+            color = color,
             visible = visible,
             properties = properties,
-            width = mapWidth,
-            height = mapHeight,
+            columns = columns,
+            rows = rows,
             data = intArrayData
         )
     }
@@ -208,24 +241,51 @@ class TmxMapLoader(
 
     private fun parseTiledMapObjectLayer(element: Element): TiledMapObjectLayer {
         val name = element.attr("name")
+        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
 
         val objects = element.select("object").map { objElement ->
+            val x = objElement.attr("x").toFloatOrNull() ?: 0f
+            val y = objElement.attr("y").toFloatOrNull() ?: 0f
+            val width = objElement.attr("width").toFloatOrNull() ?: 0f
+            val height = objElement.attr("height").toFloatOrNull() ?: 0f
+
+            val shape = when {
+                objElement.selectFirst("polygon") != null -> {
+                    val pointsStr = objElement.selectFirst("polygon")?.attr("points") ?: ""
+                    val points = pointsStr.split(" ").filter { it.isNotBlank() }.map { pair ->
+                        val coords = pair.split(",")
+                        Offset(coords[0].toFloat(), coords[1].toFloat())
+                    }
+                    TiledMapShape.Polygon(points)
+                }
+                objElement.selectFirst("ellipse") != null -> {
+                    TiledMapShape.Ellipse(width, height)
+                }
+                objElement.selectFirst("point") != null -> {
+                    TiledMapShape.Point
+                }
+                else -> {
+                    TiledMapShape.Rectangle(width, height)
+                }
+            }
+
             TiledMapObject(
-                id = objElement.attr("id").toInt(),
+                id = objElement.attr("id").toIntOrNull() ?: 0,
+                gid = objElement.attr("gid").toIntOrNull() ?: 0,
                 name = objElement.attr("name"),
                 type = objElement.attr("type"),
-                x = objElement.attr("x").toFloat(),
-                y = objElement.attr("y").toFloat(),
-                width = objElement.attr("width").toFloatOrNull() ?: 0f,
-                height = objElement.attr("height").toFloatOrNull() ?: 0f,
+                x = x,
+                y = y,
+                shape = shape,
                 properties = parseProperties(objElement.selectFirst("properties"))
             )
         }
 
         return TiledMapObjectLayer(
             name = name,
+            color = color,
             visible = visible,
             properties = properties,
             objects = objects
@@ -236,6 +296,7 @@ class TmxMapLoader(
 
     private suspend fun parseTiledMapImageLayer(tmxPath: String, element: Element): TiledMapImageLayer {
         val name = element.attr("name")
+        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
 
@@ -251,6 +312,7 @@ class TmxMapLoader(
 
         return TiledMapImageLayer(
             name = name,
+            color = color,
             visible = visible,
             properties = properties,
             image = imageBitmap,
@@ -268,6 +330,7 @@ class TmxMapLoader(
         mapHeight: Int
     ): TiledMapGroupLayer {
         val name = element.attr("name")
+        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
 
@@ -276,6 +339,7 @@ class TmxMapLoader(
 
         return TiledMapGroupLayer(
             name = name,
+            color = color,
             visible = visible,
             properties = properties,
             layers = childLayers

@@ -4,30 +4,38 @@ package com.kgame.engine.maps
 
 import androidx.collection.SimpleArrayMap
 import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.IntOffset
 import com.kgame.plugins.systems.TiledMapRenderSystem
 
 /**
  * Represents a complete Tiled map. This is the generic, core data structure
  * used within the engine to represent a map.
  *
- * @param width The total width of the map in number of tiles.
- * @param height The total height of the map in number of tiles.
+ * @param columns The total columns of the map in number of tiles.
+ * @param rows The total rows of the map in number of tiles.
+ * @param width The total width of the map in pixels.
+ * @param height The total height of the map in pixels.
  * @param tileWidth The render width of a single tile in pixels.
  * @param tileHeight The render height of a single tile in pixels.
  * @param layers A list of all layers in the map, ordered by their rendering sequence.
- * @param sets A list of all tilesets used by this map.
+ * @param tilesets A list of all tilesets used by this map.
  * @param properties Custom properties defined for the map.
  */
 data class TiledMapData(
-    val width: Int,
-    val height: Int,
+    val columns: Int,
+    val rows: Int,
     val tileWidth: Int,
     val tileHeight: Int,
     val layers: List<TiledMapLayer>,
-    val sets: List<TiledMapSet>,
+    val tilesets: List<TiledMapSet>,
     val properties: Map<String, String> = emptyMap()
 ) {
+
+    val width: Int = columns * tileWidth
+    val height: Int = rows * tileHeight
 
     companion object {
         /**
@@ -53,9 +61,9 @@ data class TiledMapData(
      * @return Returns null if no tileset contains the given GID.
      */
     fun findMapSet(gid: Int): TiledMapSet? {
-        var index = sets.size - 1
+        var index = tilesets.size - 1
         while (index >= 0) {
-            val mapSet = sets[index--]
+            val mapSet = tilesets[index--]
             if (gid >= mapSet.id) {
                 return mapSet
             }
@@ -110,6 +118,19 @@ data class TiledMapData(
         return mapSet
     }
 
+    /**
+     * Converts a flat tile index into the pixel offset (top-left corner) of that tile
+     * within the entire map.
+     *
+     * @param index zero-based index in the layer's `data` array
+     * @return pixel coordinates (x, y) relative to the map's top-left corner
+     */
+    fun getOffset(index: Int): IntOffset {
+        val col = index % this.columns
+        val row = index / this.columns
+        return IntOffset(col * this.tileWidth, row * this.tileHeight)
+    }
+
 }
 
 /**
@@ -118,12 +139,20 @@ data class TiledMapData(
  * @param id The starting global ID (GID) of a tile in this tileset.
  * @param name The name of the tileset.
  * @param image The tileset's source image.
- * @param tiles A Map containing special metadata for specific tiles, keyed by their local ID.
+ * @param spacing The spacing between tiles in the tileset image.
+ * @param margin The margin around the tiles in the tileset image.
+ * @param offset The offset to apply to tiles when rendering.
+ * @param terrains A map of terrain names to their corresponding tile IDs.
+ * @param tiles A map of tile IDs to their metadata.
  */
 data class TiledMapSet(
     val id: Int,
     val name: String,
     val image: ImageBitmap,
+    val spacing: Int,
+    val margin: Int,
+    val offset: IntOffset,
+    val terrains: Map<String, Int>,
     val tiles: Map<Int, TiledMapTile>,
 )
 
@@ -237,6 +266,7 @@ class TiledMapAnimationState {
  */
 sealed interface TiledMapLayer {
     val name: String
+    val color: Color
     val visible: Boolean
     val properties: Map<String, String>
 }
@@ -249,18 +279,19 @@ sealed interface TiledMapLayer {
  */
 data class TiledMapTileLayer(
     override val name: String,
+    override val color: Color,
     override val visible: Boolean,
     override val properties: Map<String, String>,
-    val width: Int,
-    val height: Int,
+    val columns: Int,
+    val rows: Int,
     val data: IntArray
 ) : TiledMapLayer {
     /**
      * Safely retrieves the Global ID at the given grid coordinates. Returns 0 if out of bounds.
      */
     fun getGid(x: Int, y: Int): Int {
-        if (x < 0 || x >= width || y < 0 || y >= height) return 0
-        return data[y * width + x]
+        if (x < 0 || x >= columns || y < 0 || y >= rows) return 0
+        return data[y * columns + x]
     }
 
     override fun equals(other: Any?): Boolean {
@@ -270,8 +301,8 @@ data class TiledMapTileLayer(
         other as TiledMapTileLayer
 
         if (visible != other.visible) return false
-        if (width != other.width) return false
-        if (height != other.height) return false
+        if (columns != other.columns) return false
+        if (rows != other.rows) return false
         if (name != other.name) return false
         if (properties != other.properties) return false
         if (!data.contentEquals(other.data)) return false
@@ -281,8 +312,8 @@ data class TiledMapTileLayer(
 
     override fun hashCode(): Int {
         var result = visible.hashCode()
-        result = 31 * result + width
-        result = 31 * result + height
+        result = 31 * result + columns
+        result = 31 * result + rows
         result = 31 * result + name.hashCode()
         result = 31 * result + properties.hashCode()
         result = 31 * result + data.contentHashCode()
@@ -296,6 +327,7 @@ data class TiledMapTileLayer(
  */
 data class TiledMapObjectLayer(
     override val name: String,
+    override val color: Color,
     override val visible: Boolean,
     override val properties: Map<String, String>,
     val objects: List<TiledMapObject>
@@ -308,6 +340,7 @@ data class TiledMapObjectLayer(
  */
 data class TiledMapImageLayer(
     override val name: String,
+    override val color: Color,
     override val visible: Boolean,
     override val properties: Map<String, String>,
     val image: ImageBitmap,
@@ -322,6 +355,7 @@ data class TiledMapImageLayer(
  */
 data class TiledMapGroupLayer(
     override val name: String,
+    override val color: Color,
     override val visible: Boolean,
     override val properties: Map<String, String>,
     val layers: List<TiledMapLayer> // A list of all child layers contained within this group. (包含子图层)
@@ -333,11 +367,21 @@ data class TiledMapGroupLayer(
  */
 data class TiledMapObject(
     val id: Int,
+    val gid: Int,
     val name: String,
     val type: String,
     val x: Float,
     val y: Float,
-    val width: Float,
-    val height: Float,
+    val shape: TiledMapShape,
     val properties: Map<String, String>
 )
+
+sealed class TiledMapShape {
+    data class Rectangle(val width: Float, val height: Float) : TiledMapShape()
+
+    data class Ellipse(val width: Float, val height: Float) : TiledMapShape()
+
+    data class Polygon(val points: List<Offset>) : TiledMapShape()
+
+    object Point : TiledMapShape()
+}

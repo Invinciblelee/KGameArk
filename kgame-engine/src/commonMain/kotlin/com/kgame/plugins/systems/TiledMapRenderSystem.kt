@@ -1,14 +1,19 @@
 package com.kgame.plugins.systems
 
 import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.roundToIntSize
+import androidx.compose.ui.unit.toIntSize
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
+import com.kgame.engine.geometry.roundToIntOffset
 import com.kgame.engine.graphics.drawscope.withCameraTransform
 import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.StaticTiledMapTile
@@ -18,6 +23,7 @@ import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
+import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.services.CameraService
 import kotlin.math.roundToInt
 
@@ -71,6 +77,7 @@ class TiledMapRenderSystem(
      */
     override fun onRenderEntity(entity: Entity, drawScope: DrawScope) {
         val tiledMap = entity[TiledMap].data
+        val worldBounds = entity.getOrNull(WorldBounds)
 
         var layerIndex = 0
         while (layerIndex < tiledMap.layers.size) {
@@ -101,27 +108,20 @@ class TiledMapRenderSystem(
 
                     val tileset = tiledMap.getClip(finalGid, clipRect) ?: continue
 
-                    val index = tileIndex - 1
-                    val tileX = index % layer.width
-                    val tileY = index / layer.width
-                    val worldX = tileX * tiledMap.tileWidth
-                    val worldY = tileY * tiledMap.tileHeight
+                    val mapCenterX = tiledMap.width / 2f
+                    val mapCenterY = tiledMap.height / 2f
+
+                    val worldCenter = worldBounds?.rect?.center ?: Offset.Zero
 
                     drawScope.translate(
-                        -tiledMap.width / 2f,
-                        -tiledMap.height / 2f
+                        worldCenter.x - mapCenterX,
+                        worldCenter.y - mapCenterY
                     ) {
                         drawImage(
                             image = tileset.image,
-                            srcOffset = IntOffset(
-                                clipRect.left.roundToInt(),
-                                clipRect.top.roundToInt()
-                            ),
-                            srcSize = IntSize(
-                                clipRect.width.roundToInt(),
-                                clipRect.height.roundToInt()
-                            ),
-                            dstOffset = IntOffset(worldX, worldY)
+                            srcOffset = clipRect.topLeft.roundToIntOffset(),
+                            srcSize = clipRect.size.roundToIntSize(),
+                            dstOffset = tiledMap.getOffset(tileIndex - 1)
                         )
                     }
                 }

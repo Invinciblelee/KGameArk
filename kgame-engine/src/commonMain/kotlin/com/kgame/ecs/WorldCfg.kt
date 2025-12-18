@@ -24,21 +24,12 @@ class InjectableConfiguration(private val world: World) {
      *
      * @throws [FleksInjectableAlreadyAddedException] if the dependency was already added before.
      */
-    @PublishedApi
-    internal fun <T : Any> add(name: String, dependency: T) {
+    fun <T : Any> add(name: String, dependency: T) {
         if (name in world.injectables) {
             throw FleksInjectableAlreadyAddedException(name)
         }
-
         world.injectables[name] = Injectable(dependency)
     }
-
-    /**
-     * Adds the specified [dependency]
-     *
-     * @see add
-     */
-    operator fun <T: Any> String.plus(dependency: T) = add(this, dependency)
 
     /**
      * Adds the specified [dependency][T]

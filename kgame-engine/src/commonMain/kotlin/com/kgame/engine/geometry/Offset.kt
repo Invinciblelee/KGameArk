@@ -2,9 +2,11 @@ package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ScaleFactor
+import androidx.compose.ui.unit.IntOffset
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -109,4 +111,19 @@ fun Offset.cross(vec: Offset): Float {
  */
 fun Offset.scale(factor: ScaleFactor): Offset {
     return Offset(x * factor.scaleX, y * factor.scaleY)
+}
+
+
+/**
+ * Coverts to [IntOffset]
+ */
+fun Offset.toIntOffset(): IntOffset {
+    return IntOffset(x.toInt(), y.toInt())
+}
+
+/**
+ * Coverts to [IntOffset], rounds [Offset.x] and [Offset.y] to the nearest integer.
+ */
+fun Offset.roundToIntOffset(): IntOffset {
+    return IntOffset(x.roundToInt(), y.roundToInt())
 }

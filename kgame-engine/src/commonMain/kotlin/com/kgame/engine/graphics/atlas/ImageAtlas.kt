@@ -85,6 +85,111 @@ data class AtlasAnimatedFrame(
 )
 
 /**
+ * Represents a complete, read-only sequence of frames for a single animation.
+ *
+ * This class acts as a specialized, high-performance list of [AtlasAnimatedFrame] objects.
+ * By using class delegation (`by frames`), it inherits all the standard functionalities of a [List]
+ * (like `size`, `get(index)`, `isEmpty()`), while also providing useful animation-specific helper methods.
+ * @property name The name of the [AtlasAnimatedFrames]
+ * @property frames The internal, private list of animation frames.
+ */
+data class AtlasAnimatedFrames(
+    val name: String,
+    private val frames: List<AtlasAnimatedFrame>
+) : List<AtlasAnimatedFrame> by frames {
+
+    /**
+     * The total duration of one full animation cycle, calculated as the sum of all frame durations.
+     * This property is calculated lazily on its first access and then cached.
+     */
+    val duration: Float by lazy {
+        var accumulated = 0f
+        var index = 0
+        while (index < frames.size) {
+            accumulated += frames[index++].duration
+        }
+        accumulated
+    }
+
+    /**
+     * [New Method 1: Get Frame at Time]
+     * Calculates and returns the specific animation frame that should be displayed at a given time within the cycle.
+     * This is the core logic for determining which frame to show.
+     *
+     * @param timeInCycle The elapsed time within a single animation cycle (must be >= 0).
+     * @return The [AtlasAnimatedFrame] corresponding to the given time.
+     */
+    fun getFrameAtTime(timeInCycle: Float): AtlasAnimatedFrame {
+        if (isEmpty()) {
+            // This should not happen with valid data, but it's a safe fallback.
+            throw NoSuchElementException("Cannot get frame from an empty animation sequence.")
+        }
+
+        // Use a local variable to handle time, ensuring it loops correctly for times > duration.
+        val effectiveTime = if (duration > 0f) timeInCycle % duration else 0f
+
+        var accumulatedTime = 0f
+        var index = 0
+        while (index < size) {
+            val frame = this[index] // 'this' refers to the list itself
+            accumulatedTime += frame.duration
+            if (effectiveTime < accumulatedTime) {
+                return frame // Found the correct frame for the given time.
+            }
+            index++
+        }
+
+        // If the loop completes, it means the time is exactly at the end or beyond, so return the last frame.
+        return last()
+    }
+
+    /**
+     * [New Method 2: Get Frame Index at Time]
+     * A performance-oriented alternative to `getFrameAtTime` that returns only the index of the frame.
+     * This is useful when the caller only needs the index, not the full frame object.
+     *
+     * @param timeInCycle The elapsed time within a single animation cycle.
+     * @return The integer index of the frame that corresponds to the given time.
+     */
+    fun getFrameIndexAtTime(timeInCycle: Float): Int {
+        if (isEmpty()) return -1 // Return -1 for an invalid index
+
+        val effectiveTime = if (duration > 0f) timeInCycle % duration else 0f
+
+        var accumulatedTime = 0f
+        var index = 0
+        while (index < size) {
+            accumulatedTime += this[index].duration
+            if (effectiveTime < accumulatedTime) {
+                return index
+            }
+            index++
+        }
+        return lastIndex
+    }
+
+    /**
+     * [New Method 3: Get Frame by Name]
+     * Provides a quick way to find a specific frame within this sequence by its name.
+     *
+     * @param frameName The name of the frame to find (e.g., "run__1.png").
+     * @return The [AtlasAnimatedFrame] if found, otherwise `null`.
+     */
+    fun getFrameByName(frameName: String): AtlasAnimatedFrame {
+        // Since this is not a performance-critical path, a standard find is acceptable.
+        var index = 0
+        while (index < size) {
+            val frame = this[index++]
+            if (frame.name == frameName) {
+                return frame
+            }
+        }
+        throw IllegalArgumentException("Frame '$frameName' not found in animation '$name'")
+    }
+}
+
+
+/**
  * Represents a complete, high-performance Image Atlas (also known as a Texture Atlas or Spritesheet).
  * Its data structure is designed to be compatible with outputs from professional animation tools (like Aseprite)
  * or custom asset processing scripts.
@@ -98,7 +203,7 @@ data class ImageAtlas(
     val bitmap: ImageBitmap,
     val metadata: AtlasMetadata,
     val regions: Map<String, AtlasRegion>,
-    val animations: Map<String, List<AtlasAnimatedFrame>>
+    val animations: Map<String, AtlasAnimatedFrames>
 ) {
 
     /**
@@ -117,7 +222,7 @@ data class ImageAtlas(
      * @param animationName The name of the animation (e.g., "run").
      * @return A list of [AtlasAnimatedFrame] objects.
      */
-    fun getAnimatedFrames(animationName: String): List<AtlasAnimatedFrame> {
+    fun getAnimatedFrames(animationName: String): AtlasAnimatedFrames {
         return animations[animationName]
             ?: throw IllegalArgumentException("Animation '$animationName' not found")
     }

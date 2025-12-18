@@ -8,17 +8,15 @@ import com.kgame.plugins.components.AlphaAnimation
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RotationAnimation
 import com.kgame.plugins.components.ScaleAnimation
-import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.SpriteAnimation
+import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.TranslationAnimation
 import com.kgame.plugins.components.applyAlpha
 import com.kgame.plugins.components.applyRotation
 import com.kgame.plugins.components.applyScale
 import com.kgame.plugins.components.applyTranslation
-import com.kgame.plugins.components.getCurrentFrameName
-import com.kgame.plugins.components.progress
-import com.kgame.plugins.components.update
+import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 
 /**
@@ -27,7 +25,8 @@ import com.kgame.plugins.services.CameraService
  * logic of timing, state calculation, and property application.
  */
 class AnimationSystem(
-    val cameraService: CameraService = inject()
+    private val cameraService: CameraService = inject(),
+    private val animationService: AnimationService = inject()
 ) : IteratingSystem(
     family = family {
         all(Transform, Renderable)
@@ -41,35 +40,43 @@ class AnimationSystem(
     }
 ) {
 
+    override fun onTick(deltaTime: Float) {
+        animationService.update(deltaTime)
+        super.onTick(deltaTime)
+    }
+
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
 
         val translationAnimation = entity.getOrNull(TranslationAnimation)
-        if (translationAnimation != null && translationAnimation.update(deltaTime)) {
+        if (translationAnimation != null) {
+            val progress = animationService.getProgress(translationAnimation)
             transform.applyTranslation(
                 fromPosition = translationAnimation.from,
                 toPosition = translationAnimation.to,
-                fraction = translationAnimation.progress
+                fraction = progress
             )
         }
 
         val rotationAnimation = entity.getOrNull(RotationAnimation)
-        if (rotationAnimation != null && rotationAnimation.update(deltaTime)) {
+        if (rotationAnimation != null) {
+            val progress = animationService.getProgress(rotationAnimation)
             transform.applyRotation(
                 fromDegrees = rotationAnimation.from,
                 toDegrees = rotationAnimation.to,
                 pivot = rotationAnimation.pivot,
-                fraction = rotationAnimation.progress,
+                fraction = progress,
             )
         }
 
         val scaleAnimation = entity.getOrNull(ScaleAnimation)
-        if (scaleAnimation != null && scaleAnimation.update(deltaTime)) {
+        if (scaleAnimation != null) {
+            val progress = animationService.getProgress(scaleAnimation)
             transform.applyScale(
                 fromScale = scaleAnimation.from,
                 toScale = scaleAnimation.to,
                 pivot = scaleAnimation.pivot,
-                fraction = scaleAnimation.progress,
+                fraction = progress,
             )
         }
 
@@ -82,17 +89,19 @@ class AnimationSystem(
             val spriteVisual = renderable.visual as? SpriteVisual
             if (spriteVisual != null) {
                 val spriteAnimation = entity.getOrNull(SpriteAnimation)
-                if (spriteAnimation != null && spriteAnimation.update(spriteVisual.atlas, deltaTime)) {
-                    spriteVisual.setFrame(spriteAnimation.getCurrentFrameName(spriteVisual.atlas))
+                if (spriteAnimation != null) {
+                    val frame = animationService.getCurrentFrame(spriteAnimation, spriteVisual.atlas)
+                    spriteVisual.setFrame(frame.name)
                 }
             }
 
             val alphaAnimation = entity.getOrNull(AlphaAnimation)
-            if (alphaAnimation != null && alphaAnimation.update(deltaTime)) {
+            if (alphaAnimation != null) {
+                val progress = animationService.getProgress(alphaAnimation)
                 renderable.applyAlpha(
                     fromAlpha = alphaAnimation.from,
                     toAlpha = alphaAnimation.to,
-                    fraction = alphaAnimation.progress
+                    fraction = progress
                 )
             }
         }

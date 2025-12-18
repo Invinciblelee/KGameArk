@@ -8,9 +8,6 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ScaleFactor
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
-import com.kgame.ecs.UniqueId
-import com.kgame.plugins.components.Animation.`<no name provided>`.animationId
-import kotlin.native.concurrent.ThreadLocal
 
 sealed interface AnimationSpec
 
@@ -51,13 +48,13 @@ data class InfiniteRepeatable(
  * @param to The ending value of the animation.
  * @param spec The `AnimationTiming` (e.g., `Tween`, `Spring`, `InfiniteRepeatable`) that defines the animation's behavior.
  */
-sealed class Animation<T>(
+sealed class Animation<T, C>(
     val from: T,
     val to: T,
     val spec: AnimationSpec
-) {
+): Component<C>, Identifiable {
 
-    val id: Int = animationId++
+    override val id: Int = Identifiable.nextId()
 
     val isInfinite: Boolean
         get() = spec is InfiniteRepeatable
@@ -69,18 +66,13 @@ sealed class Animation<T>(
             is InfiniteRepeatable -> spec.animation.duration
         }
 
-    @ThreadLocal
-    companion object {
-        internal var animationId: Int = 0
-    }
-
 }
 
 class TranslationAnimation(
     from: Offset,
     to: Offset,
     spec: AnimationSpec = Tween(1f)
-) : Animation<Offset>(from, to, spec), Component<TranslationAnimation> {
+) : Animation<Offset, TranslationAnimation>(from, to, spec) {
     override fun type() = TranslationAnimation
 
     companion object : ComponentType<TranslationAnimation>()
@@ -91,7 +83,7 @@ class RotationAnimation(
     to: Float,
     val pivot: TransformOrigin = TransformOrigin.Center,
     spec: AnimationSpec = Tween(1f)
-) : Animation<Float>(from, to, spec), Component<RotationAnimation> {
+) : Animation<Float, RotationAnimation>(from, to, spec) {
     override fun type() = RotationAnimation
 
     companion object : ComponentType<RotationAnimation>()
@@ -102,7 +94,7 @@ class ScaleAnimation(
     to: ScaleFactor,
     val pivot: TransformOrigin = TransformOrigin.Center,
     spec: AnimationSpec = Tween(1f)
-) : Animation<ScaleFactor>(from, to, spec), Component<ScaleAnimation> {
+) : Animation<ScaleFactor, ScaleAnimation>(from, to, spec) {
     constructor(
         from: Float,
         to: Float,
@@ -124,7 +116,7 @@ class AlphaAnimation(
     from: Float,
     to: Float,
     spec: AnimationSpec = Tween(1f)
-) : Animation<Float>(from, to, spec), Component<AlphaAnimation> {
+) : Animation<Float, AlphaAnimation>(from, to, spec) {
     override fun type() = AlphaAnimation
 
     companion object : ComponentType<AlphaAnimation>()

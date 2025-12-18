@@ -1,11 +1,13 @@
 package com.kgame.plugins.services // Or a new `animation` package
 
 import androidx.collection.SimpleArrayMap
-import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.RepeatMode
+import com.kgame.engine.graphics.atlas.AtlasAnimatedFrame
+import com.kgame.engine.graphics.atlas.ImageAtlas
 import com.kgame.plugins.components.Animation
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.Spring
+import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Tween
 import kotlin.math.cos
 import kotlin.math.exp
@@ -41,23 +43,117 @@ class AnimationService {
         }
     }
 
+    /**
+     * [Get Animation Progress]
+     * Calculates the current playback progress of a given [Animation].
+     *
+     * This function is central to the animation system. It translates the linear `elapsedTime`
+     * of an animation into a non-linear progress value, typically between `0.0f` and `1.0f`.
+     * This final value is transformed by the animation's specification (e.g., an Easing curve for a [Tween],
+     * or a physics simulation for a [Spring]).
+     *
+     * @param animation The definition of the animation, containing its duration, spec, and repeat mode.
+     * @return A [Float] representing the current completion progress of the animation.
+     */
+    fun getProgress(animation: Animation<*, *>): Float {
+        // Step 1: Get or create the runtime state for this animation.
+        val state = getOrCreateState(animation.id)
+        val duration = animation.duration
 
-    fun getProgress(id: Int, duration: Float, loop: Boolean): Float {
-        val state = getOrCreateState(id)
+        // Step 2: Handle cases where the animation is not currently playing.
+        if (!state.isPlaying) {
+            // If it stopped because it completed, its progress should be locked at 100%.
+            if (state.elapsedTime >= duration) return 1f
+            // If it was stopped manually (e.g., via `stop(id)`), its progress should be 0%.
+            if (state.elapsedTime == 0f) return 0f
+        }
 
-        if (!state.isPlaying) return if (state.elapsedTime >= duration) 1f else 0f // Return end or start state if paused/stopped
+        val elapsedTime = state.elapsedTime
 
-        if (loop) {
-            state.elapsedTime %= duration
-        } else if (state.elapsedTime >= duration) {
-            state.isPlaying = false // Stop the animation
+        // Step 3: Handle finite animations that have just completed.
+        if (!animation.isInfinite && elapsedTime >= duration) {
+            // For finite animations, if the time has exceeded the duration,
+            // mark its state as stopped and return the final progress of 1.0.
+            state.isPlaying = false
             return 1f
         }
-        
-        return state.elapsedTime / duration
+
+        // Step 4: Calculate the final progress value based on the animation's specification.
+        return when (val spec = animation.spec) {
+            // Case A: A 'Tween' (in-between) animation.
+            is Tween -> {
+                // a. First, calculate the linear time fraction (0.0 to 1.0).
+                val fraction = (elapsedTime / duration).coerceIn(0f, 1f)
+                // b. Then, transform this linear fraction into a non-linear progress
+                //    value using the specified Easing curve.
+                spec.easing.transform(fraction)
+            }
+            // Case B: An infinitely repeating animation.
+            is InfiniteRepeatable -> {
+                // a. Calculate the linear time fraction within the current repetition cycle.
+                val fraction = (elapsedTime / duration) % 1.0f
+                when (spec.repeatMode) {
+                    // b. Restart mode: The animation simply plays from the beginning.
+                    RepeatMode.Restart -> spec.animation.easing.transform(fraction)
+                    // c. Reverse mode: The animation plays forwards, then backwards.
+                    RepeatMode.Reverse -> {
+                        // This maps the linear time [0, 1] to a "ping-pong" effect of [0, 1, 0].
+                        val mirrored = if (fraction <= 0.5f) fraction * 2f else (1f - fraction) * 2f
+                        spec.animation.easing.transform(mirrored)
+                    }
+                }
+            }
+            // Case C: A 'Spring' physics-based animation.
+            is Spring -> {
+                // Delegate to a separate physics simulator to calculate the current value
+                // based on spring parameters and elapsed time. The "progress" of a spring
+                // is the result of its physical simulation.
+                SpringRatioSimulation.getFraction(elapsedTime, spec)
+            }
+        }
     }
 
-    // You can add more complex methods for sprite animations, e.g., getCurrentFrameIndex
+    /**
+     * Calculates and returns the name of the current frame for a given [SpriteAnimation].
+     *
+     * This function uses the animation's runtime state (managed by this service) to determine
+     * which frame of the animation sequence should be displayed at the current moment.
+     * It also handles advancing the frame index and looping the animation.
+     *
+     * @param animation The [SpriteAnimation] component containing the definition of the animation (name, speed, loop).
+     * @param atlas The [ImageAtlas] from which to retrieve the animation frame sequence.
+     * @return The name of the frame to be rendered (e.g., "run_1", "idle_0").
+     */
+    fun getCurrentFrame(animation: SpriteAnimation, atlas: ImageAtlas): AtlasAnimatedFrame {
+        // Step 1: Retrieve the runtime state for this animation. The state is managed by this service.
+        val state = getOrCreateState(animation.id)
+
+        // Step 2: Retrieve the current animation frames.
+        val frames = atlas.getAnimatedFrames(animation.name)
+
+        // Step 3: If the animation is not playing, simply return the last known frame.
+        if (!state.isPlaying) {
+            val safeIndex = state.frameIndex.coerceIn(0, frames.lastIndex)
+            return frames[safeIndex]
+        }
+
+        // Step 4: Determine the current time within the animation cycle.
+        val cycleTime = (state.elapsedTime * animation.speed) % frames.duration
+
+        // Step 5: Use a single loop to find the correct frame for the calculated `cycleTime`.
+        val currentFrameIndex = frames.getFrameIndexAtTime(cycleTime)
+
+        state.frameIndex = currentFrameIndex
+
+        // Step 6: Handle the end of a non-looping animation.
+        if (!animation.loop && state.elapsedTime * animation.speed >= frames.duration) {
+            state.isPlaying = false
+        }
+
+        // Step 7: Return the name of the new current frame.
+        return frames[state.frameIndex]
+    }
+
     fun play(id: Int) {
         getOrCreateState(id).isPlaying = true
     }
@@ -83,66 +179,6 @@ class AnimationService {
         return state
     }
 }
-
-
-/**
- * Updates the animation's progress based on the given delta time.
- * @param deltaTime The time elapsed since the last frame in seconds.
- * @return Whether the animation has updated its loop.
- */
-fun Animation<*>.update(deltaTime: Float): Boolean {
-    if (this.state != AnimationState.Playing) return false
-    this.elapsedTime += deltaTime
-    if (!this.isInfinite && this.elapsedTime >= this.duration()) {
-        this.elapsedTime = this.duration()
-        this.state = AnimationState.Stopped
-    }
-    return true
-}
-
-
-
-/**
- * Whether the animation is currently in an infinite loop.
- */
-val Animation<*>.isInfinite: Boolean
-    get() = spec is InfiniteRepeatable
-
-/**
- * Whether the animation has completed its loop.
- */
-val Animation<*>.isFinished: Boolean
-    get() = !isInfinite && elapsedTime >= duration()
-
-/**
- * The current progress of the animation, ranging from 0.0 to 1.0.
- */
-val Animation<*>.progress: Float
-    get() {
-        val duration = duration()
-        if (duration <= 0f) return if (elapsedTime > 0f) 1f else 0f
-
-        val fraction = if (isInfinite) {
-            (elapsedTime / duration) % 1.0f
-        } else {
-            (elapsedTime / duration).coerceIn(0f, 1f)
-        }
-        return when (spec) {
-            is Tween -> spec.easing.transform(fraction)
-            is InfiniteRepeatable -> {
-                val linear = (elapsedTime / spec.animation.duration) % 1.0f
-                when (spec.repeatMode) {
-                    RepeatMode.Restart -> spec.animation.easing.transform(linear)
-                    RepeatMode.Reverse -> {
-                        val mirrored = if (linear <= 0.5f) linear * 2f else (1f - linear) * 2f
-                        spec.animation.easing.transform(mirrored)
-                    }
-                }
-            }
-            is Spring -> SpringRatioSimulation.getFraction(elapsedTime, spec)
-        }
-    }
-
 
 private object SpringRatioSimulation {
     fun getFraction(elapsedTime: Float, spring: Spring): Float {

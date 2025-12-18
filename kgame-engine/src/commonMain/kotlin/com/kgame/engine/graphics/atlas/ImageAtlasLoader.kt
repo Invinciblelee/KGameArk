@@ -66,12 +66,15 @@ class DefaultImageAtlasLoader(
         val animations = jsonObject.getValue("animations").let {
             it.jsonObject.mapValues { entry ->
                 val frames = entry.value.jsonArray
-                frames.map { frame ->
-                    AtlasAnimatedFrame(
-                        name = frame.jsonObject.getString("name"),
-                        duration = frame.jsonObject.getFloat("duration")
-                    )
-                }
+                AtlasAnimatedFrames(
+                    name = entry.key,
+                    frames = frames.map { frame ->
+                        AtlasAnimatedFrame(
+                            name = frame.jsonObject.getString("name"),
+                            duration = frame.jsonObject.getFloat("duration")
+                        )
+                    }
+                )
             }
         }
 

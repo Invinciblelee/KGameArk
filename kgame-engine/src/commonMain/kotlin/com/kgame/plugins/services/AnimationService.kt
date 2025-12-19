@@ -166,17 +166,21 @@ class AnimationService {
     internal fun getCurrentFrame(tile: AnimatedTiledMapTile): TiledMapAnimationFrame {
         val state = getOrCreateState(tile.id)
 
-        if (state.elapsedTime > tile.duration) {
-            state.elapsedTime %= tile.duration
+        val totalDurationSeconds = tile.duration / 1000f
+
+        val elapsedTime = if (totalDurationSeconds > 0f) {
+            state.elapsedTime % totalDurationSeconds
+        } else {
+            0f
         }
 
         var currentFrame = tile.frames.last()
-        var accumulatedTime = 0
+        var accumulatedTime = 0f
         var index = 0
         while (index < tile.frames.size) {
             val frame = tile.frames[index++]
-            accumulatedTime += frame.duration
-            if (state.elapsedTime <= accumulatedTime) {
+            accumulatedTime += frame.duration / 1000f
+            if (elapsedTime <= accumulatedTime) {
                 currentFrame = frame
                 break
             }

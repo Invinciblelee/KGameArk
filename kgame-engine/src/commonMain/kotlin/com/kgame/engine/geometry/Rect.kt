@@ -5,6 +5,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.unit.toSize
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Visual
 import kotlin.math.PI
@@ -13,10 +17,26 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
+/**
+ * Creates an immutable [Rect] by extracting the position from the given [transform]
+ * and combining it with the specified [size].
+ *
+ * @param transform The transformation (position, rotation, etc.) to apply.
+ * @param size The dimensions of the rectangle.
+ * @return A new immutable [Rect] instance.
+ */
 fun Rect(transform: Transform, size: Size): Rect {
     return MutableRect(transform, size).toRect()
 }
 
+/**
+ * Creates a [MutableRect] and initializes its bounds based on the provided [transform]
+ * and [size]. The rectangle is typically centered or offset according to the transform's translation.
+ *
+ * @param transform The source transformation for positioning the rectangle.
+ * @param size The width and height to be assigned to the rectangle.
+ * @return A initialized [MutableRect] instance that can be further modified.
+ */
 fun MutableRect(transform: Transform, size: Size): MutableRect {
     return MutableRect(0f, 0f, 0f, 0f).apply { set(transform, size) }
 }
@@ -106,6 +126,36 @@ fun MutableRect.set(transform: Transform, size: Size) {
     set(minX, minY, maxX, maxY)
 }
 
-fun MutableRect.set(position: Offset, size: Size) {
-    set(position.x, position.y, position.x + size.width, position.y + size.height)
+/**
+ * Updates the bounds of this [MutableRect] using a [Offset] as the top-left corner
+ * and a [Size] for its dimensions.
+ */
+fun MutableRect.set(offset: Offset, size: Size) {
+    set(offset.x, offset.y, offset.x + size.width, offset.y + size.height)
+}
+
+/**
+ * Checks if this rectangle overlaps with another rectangular area defined by
+ * a top-left [offset] and [size].
+ * * Uses the Standard AABB (Axis-Aligned Bounding Box) collision detection.
+ */
+fun MutableRect.overlaps(offset: Offset, size: Size): Boolean {
+    val otherRight = offset.x + size.width
+    val otherBottom = offset.y + size.height
+
+    // Standard collision logic:
+    // They overlap if they are NOT separated in any direction.
+    return this.left < otherRight &&
+            this.right > offset.x &&
+            this.top < otherBottom &&
+            this.bottom > offset.y
+}
+
+/**
+ * Checks if this rectangle overlaps with another rectangular area defined by
+ * [IntOffset] and [IntSize]. Converts integer inputs to floats for comparison.
+ */
+fun MutableRect.overlaps(offset: IntOffset, size: IntSize): Boolean {
+    // Reusing the float version to maintain consistency
+    return overlaps(offset = offset.toOffset(), size = size.toSize())
 }

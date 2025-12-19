@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -124,10 +125,13 @@ fun Offset.toIntOffset(): IntOffset {
  * Coverts to [IntOffset], rounds [Offset.x] and [Offset.y] to the nearest integer.
  */
 fun Offset.roundToIntOffset(): IntOffset {
-    takeOrElse {  }
     return IntOffset(x.roundToInt(), y.roundToInt())
 }
 
-//inline fun Offset.takeOrElse(block: () -> Offset): Offset {
-//    return if (this.isValid() && this != Offset.Zero ) this else block()
-//}
+/**
+ * If this [IntOffset] not zero then this is returned, otherwise [block] is executed and its
+ * result is returned.
+ */
+fun IntOffset.takeOrElse(block: () -> IntOffset): IntOffset {
+    return if (this == IntOffset.Zero) block() else this
+}

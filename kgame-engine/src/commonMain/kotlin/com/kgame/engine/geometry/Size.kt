@@ -2,8 +2,12 @@ package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ScaleFactor
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 
 
 /**
@@ -32,3 +36,12 @@ fun Size.scale(factor: ScaleFactor): Size {
  */
 val Size.avgDimension: Float
     get() = (width + height) / 2f
+
+
+/**
+ * If this [IntSize] not zero then this is returned, otherwise [block] is executed and its
+ * result is returned.
+ */
+fun IntSize.takeOrElse(block: () -> IntSize): IntSize {
+    return if (this == IntSize.Zero) block() else this
+}

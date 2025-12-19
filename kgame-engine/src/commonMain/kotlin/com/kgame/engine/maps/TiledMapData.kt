@@ -3,12 +3,11 @@
 package com.kgame.engine.maps
 
 import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.text.font.FontVariation.width
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 
 /**
  * Represents a complete Tiled map. This is the generic, core data structure
@@ -24,7 +23,7 @@ import androidx.compose.ui.unit.IntSize
 data class TiledMapData(
     val columns: Int,
     val rows: Int,
-    val tileSize: IntSize,
+    val tileSize: Size,
     val layers: List<TiledMapLayer>,
     val tilesets: List<TiledMapSet>,
     val properties: Map<String, String> = emptyMap()
@@ -45,9 +44,14 @@ data class TiledMapData(
 
         /** Flag for diagonal flipping (rotation). */
         const val FLIPPED_DIAGONALLY_FLAG = 0x20000000
+
+        fun getRealGid(gid: Int): Int {
+            // Clear flags (flipped horizontally, vertically, diagonally)
+            return gid and 0x1FFFFFFF
+        }
     }
 
-    val size: IntSize = IntSize(columns * tileSize.width, rows * tileSize.height)
+    val size: Size = Size(columns * tileSize.width, rows * tileSize.height)
 
     /**
      * Gets the [TiledMapSet] that a given Global ID (GID) belongs to.     * This follows a 'get' contract: it expects the GID to be valid.
@@ -55,10 +59,11 @@ data class TiledMapData(
      * @return Returns null if no tileset contains the given GID.
      */
     fun findMapSet(gid: Int): TiledMapSet? {
+        val realGid = getRealGid(gid)
         var index = tilesets.size - 1
         while (index >= 0) {
             val mapSet = tilesets[index--]
-            if (gid >= mapSet.id) {
+            if (realGid >= mapSet.firstGid) {
                 return mapSet
             }
         }
@@ -73,8 +78,10 @@ data class TiledMapData(
      *
      */
     fun findTile(gid: Int): TiledMapTile? {
+        val realGid = getRealGid(gid)
+        if (realGid == 0) return null
         val mapSet = findMapSet(gid) ?: return null
-        val localId = gid - mapSet.id
+        val localId = realGid - mapSet.firstGid
         return mapSet.tiles.getOrElse(localId) { EmptyTiledMapTile }
     }
 
@@ -88,34 +95,12 @@ data class TiledMapData(
      * @return The [TiledMapSet] that the GID belongs to, or null if the GID is invalid.
      */
     fun getClip(outRect: MutableRect, gid: Int): TiledMapSet? {
-        val mapSet = findMapSet(gid) ?: return null
+        val realGid = getRealGid(gid)
+        if (realGid == 0) return null
 
-        // Use standardized IntSize and IntOffset values
-        val (tileW, tileH) = mapSet.tileSize
-        val (imgW, imgH) = mapSet.size
-        val spacing = mapSet.spacing
-        val margin = mapSet.margin
+        val mapSet = findMapSet(realGid) ?: return null
 
-        val localId = gid - mapSet.id
-
-        // 1. Calculate columns based on image size and spacing
-        // Formula: (TotalWidth - 2 * Margin + Spacing) / (TileWidth + Spacing)
-        // Tiled standard: Usually only one margin is applied at the start.
-        val columns = (imgW - margin + spacing) / (tileW + spacing)
-
-        val col = localId % columns
-        val row = localId / columns
-
-        // 2. Calculate coordinates
-        val left = margin + col * (tileW + spacing)
-        val top = margin + row * (tileH + spacing)
-
-        outRect.set(
-            left = left.toFloat(),
-            top = top.toFloat(),
-            right = (left + tileW).toFloat(),
-            bottom = (top + tileH).toFloat()
-        )
+        mapSet.getClip(outRect, realGid)
 
         return mapSet
     }
@@ -127,10 +112,10 @@ data class TiledMapData(
      * @param index Zero-based position in the layer's `data` array.
      * @return Pixel offset relative to the map center.
      */
-    fun getOffset(index: Int): IntOffset {
+    fun getOffset(index: Int): Offset {
         val col = index % columns
         val row = index / columns
-        return IntOffset(
+        return Offset(
             col * tileSize.width - size.width / 2,
             row * tileSize.height - size.height / 2
         )
@@ -151,19 +136,42 @@ data class TiledMapData(
         val left = col * tileWidth - size.width / 2
         val top  = row * tileHeight - size.height / 2
         bounds.set(
-            left   = left.toFloat(),
-            top    = top.toFloat(),
-            right  = (left + tileWidth).toFloat(),
-            bottom = (top + tileHeight).toFloat()
+            left   = left,
+            top    = top,
+            right  = left + tileWidth,
+            bottom = top + tileHeight
         )
     }
+    /**
+     * Computes the visual bounding box of a tile in world space.
+     * * If [gid] is 0 or no tileset is found, it defaults to the grid cell bounds.
+     * This single method covers rendering, culling, and logical interaction.
+     */
+    fun getBounds(bounds: MutableRect, index: Int, gid: Int) {
+        // Basic Grid Calculation (Internal logic)
+        val gridX = (index % columns) * tileSize.width - size.width / 2f
+        val gridY = (index / columns) * tileSize.height - size.height / 2f
 
+        val mapSet = findMapSet(gid)
+        if (mapSet == null) {
+            // Fallback: Just return the grid square
+            bounds.set(gridX, gridY, gridX + tileSize.width, gridY + tileSize.height)
+            return
+        }
+
+        // Tiled alignment logic: Left-aligned and Bottom-aligned
+        val (visW, visH) = mapSet.tileSize
+        val drawX = gridX + mapSet.offset.x
+        val drawY = (gridY + tileSize.height) - visH + mapSet.offset.y
+
+        bounds.set(drawX, drawY, drawX + visW, drawY + visH)
+    }
 }
 
 /**
  * Describes a tileset, which is a collection of tiles from a single texture atlas.
  *
- * @param id The starting global ID (GID) of a tile in this tileset.
+ * @param firstGid The starting global ID (GID) of a tile in this tileset.
  * @param name The name of the tileset.
  * @param tileSize The render size of a single tile in pixels.
  * @param spacing The spacing between tiles in the tileset image.
@@ -175,17 +183,51 @@ data class TiledMapData(
  * @param tiles A map of tile IDs to their metadata.
  */
 data class TiledMapSet(
-    val id: Int,
+    val firstGid: Int,
     val name: String,
-    val tileSize: IntSize,
-    val spacing: Int,
-    val margin: Int,
-    val offset: IntOffset,
-    val size: IntSize,
+    val tileSize: Size,
+    val spacing: Float,
+    val margin: Float,
+    val offset: Offset,
+    val size: Size,
     val image: ImageBitmap,
     val terrains: Map<String, Int>,
     val tiles: Map<Int, TiledMapTile>,
-)
+) {
+    // Calculate how many columns and rows fit in the image
+    // Formula: (ImageDimension - 2 * margin + spacing) / (tileSize + spacing)
+    val columns: Int = ((size.width - 2 * margin + spacing) / (tileSize.width + spacing)).toInt().coerceAtLeast(1)
+
+    // Note: Usually tilesets provide a 'tilecount' attribute.
+    // If you have 'tilecount', use: rows = ceil(tilecount / columns)
+    // If not, calculate based on image height:
+    val rows: Int = ((size.height - 2 * margin + spacing) / (tileSize.height + spacing)).toInt().coerceAtLeast(1)
+
+
+    /**
+     * Calculates the source rectangle using the Global ID (GID).
+     * @param outRect The rectangle to be populated with source coordinates.
+     * @param gid The raw GID from map data (should be pre-stripped of flags).
+     */
+    fun getClip(outRect: MutableRect, gid: Int) {
+        // Convert Global ID to Local ID
+        val localId = gid - firstGid
+
+        val tw = tileSize.width
+        val th = tileSize.height
+
+        // Calculate grid position
+        val col = localId % columns
+        val row = localId / columns
+
+        // Calculate source coordinates: margin + index * (size + spacing)
+        val left = margin + col * (tw + spacing)
+        val top = margin + row * (th + spacing)
+
+        outRect.set(left, top, left + tw, top + th)
+    }
+
+}
 
 /**
  * [Tile Metadata Abstraction]
@@ -287,8 +329,8 @@ data class TiledMapImageLayer(
     override val opacity: Float,
     override val visible: Boolean,
     override val properties: Map<String, String>,
-    val offset: IntOffset,
-    val size: IntSize,
+    val offset: Offset,
+    val size: Size,
     val image: ImageBitmap,
 ) : TiledMapLayer
 
@@ -330,7 +372,7 @@ interface TiledMapObject {
     val visible: Boolean
     val properties: Map<String, String>
 
-    val offset: IntOffset
+    val offset: Offset
 }
 
 /**
@@ -344,8 +386,8 @@ data class TiledMapTileObject(
     override val type: String,
     override val visible: Boolean,
     override val properties: Map<String, String>,
-    override val offset: IntOffset,
-    val size: IntSize,
+    override val offset: Offset,
+    val size: Size,
     val gid: Int,
 ) : TiledMapObject
 
@@ -360,25 +402,25 @@ data class TiledMapShapeObject(
     override val type: String,
     override val visible: Boolean,
     override val properties: Map<String, String>,
-    override val offset: IntOffset,
+    override val offset: Offset,
     val shape: TiledMapShape
 ) : TiledMapObject
 
 sealed interface TiledMapShape {
-    val size: IntSize
+    val size: Size
 
-    data class Rectangle(override val size: IntSize) : TiledMapShape
+    data class Rectangle(override val size: Size) : TiledMapShape
 
-    data class Ellipse(override val size: IntSize) : TiledMapShape
+    data class Ellipse(override val size: Size) : TiledMapShape
 
-    data class Polygon(val points: List<IntOffset>) : TiledMapShape {
-        override val size: IntSize = if (points.isEmpty()) {
-            IntSize.Zero
+    data class Polygon(val points: List<Offset>) : TiledMapShape {
+        override val size: Size = if (points.isEmpty()) {
+            Size.Zero
         } else {
-            var minX = Int.MAX_VALUE
-            var minY = Int.MAX_VALUE
-            var maxX = Int.MIN_VALUE
-            var maxY = Int.MIN_VALUE
+            var minX = Float.MAX_VALUE
+            var minY = Float.MAX_VALUE
+            var maxX = Float.MIN_VALUE
+            var maxY = Float.MIN_VALUE
 
             for (point in points) {
                 minX = minOf(minX, point.x)
@@ -387,14 +429,14 @@ sealed interface TiledMapShape {
                 maxY = maxOf(maxY, point.y)
             }
 
-            IntSize(maxX - minX, maxY - minY)
+            Size(maxX - minX, maxY - minY)
         }
 
         val path: Path by lazy {
             Path().apply {
                 for ((index, point) in points.withIndex()) {
-                    if (index == 0) moveTo(point.x.toFloat(), point.y.toFloat())
-                    else lineTo(point.x.toFloat(), point.y.toFloat())
+                    if (index == 0) moveTo(point.x, point.y)
+                    else lineTo(point.x, point.y)
                 }
                 close()
             }
@@ -402,6 +444,6 @@ sealed interface TiledMapShape {
     }
 
     object Point : TiledMapShape {
-        override val size: IntSize = IntSize.Zero
+        override val size: Size = Size.Zero
     }
 }

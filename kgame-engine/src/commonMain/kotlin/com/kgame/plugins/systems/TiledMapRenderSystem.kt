@@ -2,9 +2,13 @@ package com.kgame.plugins.systems
 
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.center
+import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.center
 import androidx.compose.ui.unit.roundToIntSize
 import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.unit.toSize
@@ -12,7 +16,9 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
+import com.kgame.engine.geometry.overlaps
 import com.kgame.engine.geometry.roundToIntOffset
+import com.kgame.engine.geometry.takeOrElse
 import com.kgame.engine.graphics.drawscope.withCameraTransform
 import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.EmptyTiledMapTile
@@ -47,7 +53,6 @@ class TiledMapRenderSystem(
     private val clipRect = MutableRect(0f, 0f, 0f, 0f)
 
     private val boundsRect = MutableRect(0f, 0f, 0f, 0f)
-
     private val frustumRect = MutableRect(0f, 0f, 0f, 0f)
 
     /**
@@ -114,18 +119,16 @@ class TiledMapRenderSystem(
             val gid = layer.data[tileIndex++]
             if (gid == 0) continue
 
-            tiledMap.getBounds(boundsRect, tileIndex - 1)
-            if (!frustumRect.overlaps(boundsRect)) continue
-
             val tile = tiledMap.findTile(gid) ?: continue
 
-            val finalGid = when (tile) {
-                is StaticTiledMapTile, is EmptyTiledMapTile -> gid
-                is AnimatedTiledMapTile -> {
-                    val currentFrame = animationService.getCurrentFrame(tile)
-                    currentFrame.id
-                }
+            val finalGid = if (tile is AnimatedTiledMapTile) {
+                animationService.getCurrentFrame(tile).id
+            } else {
+                gid
             }
+
+            tiledMap.getBounds(boundsRect, tileIndex - 1)
+//            if (!frustumRect.overlaps(boundsRect)) continue
 
             val tileset = tiledMap.getClip(clipRect, finalGid) ?: continue
 
@@ -138,7 +141,10 @@ class TiledMapRenderSystem(
         }
     }
 
-    private fun DrawScope.drawTiledMapGroupLayer(layer: TiledMapGroupLayer, tiledMap: TiledMapData) {
+    private fun DrawScope.drawTiledMapGroupLayer(
+        layer: TiledMapGroupLayer,
+        tiledMap: TiledMapData
+    ) {
         var index = 0
         while (index < layer.layers.size) {
             val childLayer = layer.layers[index++]
@@ -146,26 +152,42 @@ class TiledMapRenderSystem(
         }
     }
 
-    private fun DrawScope.drawTiledMapImageLayer(layer: TiledMapImageLayer, tiledMap: TiledMapData) {
+    private fun DrawScope.drawTiledMapImageLayer(
+        layer: TiledMapImageLayer,
+        tiledMap: TiledMapData
+    ) {
+        val dstOffset = layer.offset - layer.size.center
+
+        if (!frustumRect.overlaps(dstOffset, layer.size)) {
+            return
+        }
+
         drawImage(
             image = layer.image,
-            dstOffset = layer.offset,
-            dstSize = layer.size,
-            alpha = 1.0f
+            dstOffset = dstOffset.roundToIntOffset(),
+            dstSize = layer.size.roundToIntSize(),
+            alpha = layer.opacity
         )
     }
 
-    private fun DrawScope.drawTiledMapObjectLayer(layer: TiledMapObjectLayer, tiledMap: TiledMapData) {
+    private fun DrawScope.drawTiledMapObjectLayer(
+        layer: TiledMapObjectLayer,
+        tiledMap: TiledMapData
+    ) {
         var index = 0
         while (index < layer.objects.size) {
-            when(val obj = layer.objects[index++]) {
-                is TiledMapTileObject -> drawTiledMapTileObject(obj, tiledMap)
+            when (val obj = layer.objects[index++]) {
+                is TiledMapTileObject -> drawTiledMapTileObject(obj, layer, tiledMap)
                 is TiledMapShapeObject -> drawTiledMapShapeObject(obj, layer)
             }
         }
     }
 
-    private fun DrawScope.drawTiledMapTileObject(obj: TiledMapTileObject, tiledMap: TiledMapData) {
+    private fun DrawScope.drawTiledMapTileObject(
+        obj: TiledMapTileObject,
+        layer: TiledMapObjectLayer,
+        tiledMap: TiledMapData
+    ) {
         val tile = tiledMap.findTile(obj.gid) ?: return
 
         val finalGid = if (tile is AnimatedTiledMapTile) {
@@ -176,48 +198,65 @@ class TiledMapRenderSystem(
 
         val tileset = tiledMap.getClip(clipRect, finalGid) ?: return
 
-        val width = (obj.shape as? TiledMapShape.Rectangle)?.width?.toFloat() ?: tileset.tileSize.width.toFloat()
-        val height = (obj.shape as? TiledMapShape.Rectangle)?.height?.toFloat() ?: tileset.tileSize.height.toFloat()
+        val dstSize = obj.size.takeOrElse { tileset.tileSize }
+        val dstOffset = (obj.offset - dstSize.center)
 
-        val dstOffset = Offset(
-            x = obj.position.x.toFloat(),
-            y = (obj.position.y - height) // Tiled 坐标转换
-        )
-
+        if (!frustumRect.overlaps(dstOffset, dstSize)) {
+            return
+        }
 
         drawImage(
             image = tileset.image,
             srcOffset = clipRect.topLeft.roundToIntOffset(),
             srcSize = clipRect.size.roundToIntSize(),
             dstOffset = dstOffset.roundToIntOffset(),
-            dstSize = IntSize(width.toInt(), height.toInt())
+            dstSize = dstSize.roundToIntSize(),
+            alpha = layer.opacity
         )
     }
 
-    private fun DrawScope.drawTiledMapShapeObject(obj: TiledMapShapeObject, layer: TiledMapObjectLayer) {
+    private fun DrawScope.drawTiledMapShapeObject(
+        obj: TiledMapShapeObject,
+        layer: TiledMapObjectLayer
+    ) {
+        if (!frustumRect.overlaps(obj.offset, obj.shape.size)) {
+            return
+        }
+
         when (val shape = obj.shape) {
             is TiledMapShape.Rectangle -> {
                 drawRect(
                     color = layer.color,
-                    topLeft = obj.offset.toOffset(),
-                    size = shape.size.toSize(),
+                    topLeft = obj.offset,
+                    size = shape.size,
+                    alpha = layer.opacity
                 )
             }
 
             is TiledMapShape.Ellipse -> {
                 drawOval(
                     color = layer.color,
-                    topLeft = obj.offset.toOffset(),
-                    size = shape.size.toSize()
+                    topLeft = obj.offset,
+                    size = shape.size,
+                    alpha = layer.opacity
                 )
             }
 
             is TiledMapShape.Polygon -> {
-                drawPath(shape.path, layer.color)
+                drawPath(
+                    path = shape.path,
+                    color = layer.color,
+                    alpha = layer.opacity
+                )
             }
 
             is TiledMapShape.Point -> {
-                drawCircle(layer.color, radius = 4f, center = obj.offset.toOffset())
+                drawCircle(
+                    color = layer.color,
+                    radius = 4f,
+                    center = obj.offset,
+                    alpha = layer.opacity
+                )
             }
         }
     }

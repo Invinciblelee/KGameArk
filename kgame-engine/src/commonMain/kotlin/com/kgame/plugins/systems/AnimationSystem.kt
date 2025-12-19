@@ -26,7 +26,7 @@ import com.kgame.plugins.services.CameraService
  */
 class AnimationSystem(
     private val cameraService: CameraService = inject(),
-    val animationService: AnimationService = inject()
+    private val animationService: AnimationService = inject()
 ) : IteratingSystem(
     family = family {
         all(Transform, Renderable)
@@ -39,11 +39,6 @@ class AnimationSystem(
         )
     }
 ) {
-
-    override fun onTick(deltaTime: Float) {
-        animationService.update(deltaTime)
-        super.onTick(deltaTime)
-    }
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]

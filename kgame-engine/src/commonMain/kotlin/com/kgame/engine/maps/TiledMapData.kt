@@ -1,14 +1,14 @@
-@file:Suppress("ConvertTwoComparisonsToRangeCheck")
+@file:Suppress("ConvertTwoComparisonsToRangeCheck", "ArrayInDataClass")
 
 package com.kgame.engine.maps
 
-import androidx.collection.SimpleArrayMap
 import androidx.compose.ui.geometry.MutableRect
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.IntOffset
-import com.kgame.plugins.systems.TiledMapRenderSystem
+import androidx.compose.ui.unit.IntSize
 
 /**
  * Represents a complete Tiled map. This is the generic, core data structure
@@ -16,10 +16,7 @@ import com.kgame.plugins.systems.TiledMapRenderSystem
  *
  * @param columns The total columns of the map in number of tiles.
  * @param rows The total rows of the map in number of tiles.
- * @param width The total width of the map in pixels.
- * @param height The total height of the map in pixels.
- * @param tileWidth The render width of a single tile in pixels.
- * @param tileHeight The render height of a single tile in pixels.
+ * @param tileSize The render size of a single tile in pixels.
  * @param layers A list of all layers in the map, ordered by their rendering sequence.
  * @param tilesets A list of all tilesets used by this map.
  * @param properties Custom properties defined for the map.
@@ -27,16 +24,11 @@ import com.kgame.plugins.systems.TiledMapRenderSystem
 data class TiledMapData(
     val columns: Int,
     val rows: Int,
-    val tileWidth: Int,
-    val tileHeight: Int,
+    val tileSize: IntSize,
     val layers: List<TiledMapLayer>,
     val tilesets: List<TiledMapSet>,
     val properties: Map<String, String> = emptyMap()
 ) {
-
-    val width: Int = columns * tileWidth
-    val height: Int = rows * tileHeight
-
     companion object {
         /**
          * A bitmask used to clear all flipping and rotation flags from a Tiled GID.
@@ -49,11 +41,13 @@ data class TiledMapData(
         const val FLIPPED_HORIZONTALLY_FLAG = 0x80000000.toInt()
 
         /** Flag for vertical flipping. */
-        const val FLIPPED_VERTICALLY_FLAG = 0x40000000.toInt()
+        const val FLIPPED_VERTICALLY_FLAG = 0x40000000
 
         /** Flag for diagonal flipping (rotation). */
-        const val FLIPPED_DIAGONALLY_FLAG = 0x20000000.toInt()
+        const val FLIPPED_DIAGONALLY_FLAG = 0x20000000
     }
+
+    val size: IntSize = IntSize(columns * tileSize.width, rows * tileSize.height)
 
     /**
      * Gets the [TiledMapSet] that a given Global ID (GID) belongs to.     * This follows a 'get' contract: it expects the GID to be valid.
@@ -94,27 +88,35 @@ data class TiledMapData(
      * @return The [TiledMapSet] that the GID belongs to, or null if the GID is invalid.
      */
     fun getClip(outRect: MutableRect, gid: Int): TiledMapSet? {
-        // 1. Find the correct tileset for the GID.
-        // We use a manual loop for performance, avoiding the overhead of `find` or `firstOrNull`.
         val mapSet = findMapSet(gid) ?: return null
 
-        // 2. Calculate the local ID of the tile within this specific tileset.
+        // Use standardized IntSize and IntOffset values
+        val (tileW, tileH) = mapSet.tileSize
+        val (imgW, imgH) = mapSet.size
+        val spacing = mapSet.spacing
+        val margin = mapSet.margin
+
         val localId = gid - mapSet.id
 
-        // 4. Calculate the row and column index of the tile in the tileset grid.
-        val columnsInTileset = mapSet.image.width / mapSet.tileWidth
-        val col = localId % columnsInTileset
-        val row = localId / columnsInTileset
+        // 1. Calculate columns based on image size and spacing
+        // Formula: (TotalWidth - 2 * Margin + Spacing) / (TileWidth + Spacing)
+        // Tiled standard: Usually only one margin is applied at the start.
+        val columns = (imgW - margin + spacing) / (tileW + spacing)
 
-        // 5. Calculate the top-left pixel coordinates and set them on the outRect.
+        val col = localId % columns
+        val row = localId / columns
+
+        // 2. Calculate coordinates
+        val left = margin + col * (tileW + spacing)
+        val top = margin + row * (tileH + spacing)
+
         outRect.set(
-            left = (col * mapSet.tileWidth).toFloat(),
-            top = (row * mapSet.tileHeight).toFloat(),
-            right = ((col + 1) * mapSet.tileWidth).toFloat(),
-            bottom = ((row + 1) * mapSet.tileHeight).toFloat()
+            left = left.toFloat(),
+            top = top.toFloat(),
+            right = (left + tileW).toFloat(),
+            bottom = (top + tileH).toFloat()
         )
 
-        // 6. Return the tileset, which contains the ImageBitmap needed for drawing.
         return mapSet
     }
 
@@ -129,8 +131,8 @@ data class TiledMapData(
         val col = index % columns
         val row = index / columns
         return IntOffset(
-            col * tileWidth - width / 2,
-            row * tileHeight - height / 2
+            col * tileSize.width - size.width / 2,
+            row * tileSize.height - size.height / 2
         )
     }
 
@@ -143,10 +145,11 @@ data class TiledMapData(
      * @param index  Zero-based position in the layer's `data` array.
      */
     fun getBounds(bounds: MutableRect, index: Int) {
+        val (tileWidth, tileHeight) = tileSize
         val col = index % columns
         val row = index / columns
-        val left = col * tileWidth - width / 2
-        val top  = row * tileHeight - height / 2
+        val left = col * tileWidth - size.width / 2
+        val top  = row * tileHeight - size.height / 2
         bounds.set(
             left   = left.toFloat(),
             top    = top.toFloat(),
@@ -162,24 +165,24 @@ data class TiledMapData(
  *
  * @param id The starting global ID (GID) of a tile in this tileset.
  * @param name The name of the tileset.
- * @param image The tileset's source image.
- * @param tileWidth The render width of a single tile in pixels.
- * @param tileHeight The render height of a single tile in pixels.
+ * @param tileSize The render size of a single tile in pixels.
  * @param spacing The spacing between tiles in the tileset image.
  * @param margin The margin around the tiles in the tileset image.
  * @param offset The offset to apply to tiles when rendering.
+ * @param size The total size in pixels.
+ * @param image The tileset's source image.
  * @param terrains A map of terrain names to their corresponding tile IDs.
  * @param tiles A map of tile IDs to their metadata.
  */
 data class TiledMapSet(
     val id: Int,
     val name: String,
-    val image: ImageBitmap,
-    val tileWidth: Int,
-    val tileHeight: Int,
+    val tileSize: IntSize,
     val spacing: Int,
     val margin: Int,
     val offset: IntOffset,
+    val size: IntSize,
+    val image: ImageBitmap,
     val terrains: Map<String, Int>,
     val tiles: Map<Int, TiledMapTile>,
 )
@@ -236,70 +239,13 @@ data class TiledMapAnimationFrame(
 )
 
 /**
- * [Tiled Map Animation State Manager]
- * A dedicated class responsible for managing and updating the runtime state of all Tiled map animations.
- *
- * This class embodies the "State Manager" design pattern, effectively decoupling the animation's
- * definition data (stored in [AnimatedTiledMapTile]) from its runtime state (e.g., elapsed time).
- *
- * The [TiledMapRenderSystem] will hold an instance of this class, delegating all animation state
- * updates and queries to it, which simplifies the renderer's logic and centralizes state management.
- */
-class TiledMapAnimationState {
-
-    private data class AnimationRuntimeState(
-        var elapsedTime: Float = 0f,
-        var currentFrameIndex: Int = 0
-    )
-
-    private val animationStates = SimpleArrayMap<Int, AnimationRuntimeState>()
-
-
-    fun update(deltaTime: Float) {
-        var index = 0
-        while (index < animationStates.size()) {
-            val state = animationStates.valueAt(index++)
-            state.elapsedTime += deltaTime * 1000 // Convert delta time (seconds) to milliseconds
-        }
-    }
-
-    fun getCurrentFrame(tile: AnimatedTiledMapTile): TiledMapAnimationFrame {
-        val animationState = getAnimationRuntimeState(tile.id)
-
-        if (animationState.elapsedTime > tile.duration) {
-            animationState.elapsedTime %= tile.duration
-        }
-
-        var currentFrame = tile.frames.last()
-        var accumulatedTime = 0
-        for (frame in tile.frames) {
-            accumulatedTime += frame.duration
-            if (animationState.elapsedTime <= accumulatedTime) {
-                currentFrame = frame
-                break
-            }
-        }
-        return currentFrame
-    }
-
-    private fun getAnimationRuntimeState(key: Int): AnimationRuntimeState {
-        var state = animationStates[key]
-        if (state == null) {
-            state = AnimationRuntimeState()
-            animationStates.put(key, state)
-        }
-        return state
-    }
-
-}
-
-/**
  * [Layer Abstraction]
  * A sealed interface to support different types of map layers.
  */
 sealed interface TiledMapLayer {
     val name: String
     val color: Color
+    val opacity: Float
     val visible: Boolean
     val properties: Map<String, String>
 }
@@ -313,6 +259,7 @@ sealed interface TiledMapLayer {
 data class TiledMapTileLayer(
     override val name: String,
     override val color: Color,
+    override val opacity: Float,
     override val visible: Boolean,
     override val properties: Map<String, String>,
     val columns: Int,
@@ -327,44 +274,7 @@ data class TiledMapTileLayer(
         return data[y * columns + x]
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || this::class != other::class) return false
-
-        other as TiledMapTileLayer
-
-        if (visible != other.visible) return false
-        if (columns != other.columns) return false
-        if (rows != other.rows) return false
-        if (name != other.name) return false
-        if (properties != other.properties) return false
-        if (!data.contentEquals(other.data)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = visible.hashCode()
-        result = 31 * result + columns
-        result = 31 * result + rows
-        result = 31 * result + name.hashCode()
-        result = 31 * result + properties.hashCode()
-        result = 31 * result + data.contentHashCode()
-        return result
-    }
 }
-
-/**
- * [Object Layer]
- * Stores free-floating game objects like spawn points, collision areas, etc.
- */
-data class TiledMapObjectLayer(
-    override val name: String,
-    override val color: Color,
-    override val visible: Boolean,
-    override val properties: Map<String, String>,
-    val objects: List<TiledMapObject>
-) : TiledMapLayer
 
 /**
  * [Image Layer]
@@ -374,11 +284,12 @@ data class TiledMapObjectLayer(
 data class TiledMapImageLayer(
     override val name: String,
     override val color: Color,
+    override val opacity: Float,
     override val visible: Boolean,
     override val properties: Map<String, String>,
+    val offset: IntOffset,
+    val size: IntSize,
     val image: ImageBitmap,
-    val x: Float = 0f, // The horizontal offset of the image layer in pixels.
-    val y: Float = 0f // The vertical offset of the image layer in pixels.
 ) : TiledMapLayer
 
 /**
@@ -389,32 +300,108 @@ data class TiledMapImageLayer(
 data class TiledMapGroupLayer(
     override val name: String,
     override val color: Color,
+    override val opacity: Float,
     override val visible: Boolean,
     override val properties: Map<String, String>,
     val layers: List<TiledMapLayer> // A list of all child layers contained within this group. (包含子图层)
 ) : TiledMapLayer
 
 /**
+ * [Object Layer]
+ * Stores free-floating game objects like spawn points, collision areas, etc.
+ */
+data class TiledMapObjectLayer(
+    override val name: String,
+    override val color: Color,
+    override val opacity: Float,
+    override val visible: Boolean,
+    override val properties: Map<String, String>,
+    val objects: List<TiledMapObject>
+) : TiledMapLayer
+
+/**
  * [Map Object]
  * Describes a single object's position, size, and properties within an object layer.
  */
-data class TiledMapObject(
-    val id: Int,
-    val gid: Int,
-    val name: String,
-    val type: String,
-    val x: Float,
-    val y: Float,
-    val shape: TiledMapShape,
+interface TiledMapObject {
+    val id: Int
+    val name: String
+    val type: String
+    val visible: Boolean
     val properties: Map<String, String>
-)
 
-sealed class TiledMapShape {
-    data class Rectangle(val width: Float, val height: Float) : TiledMapShape()
+    val offset: IntOffset
+}
 
-    data class Ellipse(val width: Float, val height: Float) : TiledMapShape()
+/**
+ * [Tile Object]
+ * An object that references a specific tile from a tileset.
+ * Note: In Tiled, the offset usually points to the BOTTOM-LEFT of the tile.
+ */
+data class TiledMapTileObject(
+    override val id: Int,
+    override val name: String,
+    override val type: String,
+    override val visible: Boolean,
+    override val properties: Map<String, String>,
+    override val offset: IntOffset,
+    val size: IntSize,
+    val gid: Int,
+) : TiledMapObject
 
-    data class Polygon(val points: List<Offset>) : TiledMapShape()
+/**
+ * [Shape Object]
+ * A geometric object such as a Rectangle, Ellipse, or Polygon.
+ * Note: The offset usually points to the TOP-LEFT of the bounding box.
+ */
+data class TiledMapShapeObject(
+    override val id: Int,
+    override val name: String,
+    override val type: String,
+    override val visible: Boolean,
+    override val properties: Map<String, String>,
+    override val offset: IntOffset,
+    val shape: TiledMapShape
+) : TiledMapObject
 
-    object Point : TiledMapShape()
+sealed interface TiledMapShape {
+    val size: IntSize
+
+    data class Rectangle(override val size: IntSize) : TiledMapShape
+
+    data class Ellipse(override val size: IntSize) : TiledMapShape
+
+    data class Polygon(val points: List<IntOffset>) : TiledMapShape {
+        override val size: IntSize = if (points.isEmpty()) {
+            IntSize.Zero
+        } else {
+            var minX = Int.MAX_VALUE
+            var minY = Int.MAX_VALUE
+            var maxX = Int.MIN_VALUE
+            var maxY = Int.MIN_VALUE
+
+            for (point in points) {
+                minX = minOf(minX, point.x)
+                minY = minOf(minY, point.y)
+                maxX = maxOf(maxX, point.x)
+                maxY = maxOf(maxY, point.y)
+            }
+
+            IntSize(maxX - minX, maxY - minY)
+        }
+
+        val path: Path by lazy {
+            Path().apply {
+                for ((index, point) in points.withIndex()) {
+                    if (index == 0) moveTo(point.x.toFloat(), point.y.toFloat())
+                    else lineTo(point.x.toFloat(), point.y.toFloat())
+                }
+                close()
+            }
+        }
+    }
+
+    object Point : TiledMapShape {
+        override val size: IntSize = IntSize.Zero
+    }
 }

@@ -4,6 +4,8 @@ import androidx.collection.SimpleArrayMap
 import androidx.compose.animation.core.RepeatMode
 import com.kgame.engine.graphics.atlas.AtlasAnimatedFrame
 import com.kgame.engine.graphics.atlas.ImageAtlas
+import com.kgame.engine.maps.AnimatedTiledMapTile
+import com.kgame.engine.maps.TiledMapAnimationFrame
 import com.kgame.plugins.components.Animation
 import com.kgame.plugins.components.Identifiable
 import com.kgame.plugins.components.InfiniteRepeatable
@@ -161,20 +163,42 @@ class AnimationService {
         return frames[state.frameIndex]
     }
 
-    fun play(target: Identifiable) {
-        val state = getOrCreateState(target.id)
+    internal fun getCurrentFrame(tile: AnimatedTiledMapTile): TiledMapAnimationFrame {
+        val state = getOrCreateState(tile.id)
+
+        if (state.elapsedTime > tile.duration) {
+            state.elapsedTime %= tile.duration
+        }
+
+        var currentFrame = tile.frames.last()
+        var accumulatedTime = 0
+        var index = 0
+        while (index < tile.frames.size) {
+            val frame = tile.frames[index++]
+            accumulatedTime += frame.duration
+            if (state.elapsedTime <= accumulatedTime) {
+                currentFrame = frame
+                break
+            }
+        }
+
+        return currentFrame
+    }
+
+    fun play(id: Int) {
+        val state = getOrCreateState(id)
         if (state.status == RuntimeState.Status.Stopped) {
             state.elapsedTime = 0f
         }
         state.status = RuntimeState.Status.Playing
     }
 
-    fun pause(target: Identifiable) {
-        states[target.id]?.status = RuntimeState.Status.Paused
+    fun pause(id: Int) {
+        states[id]?.status = RuntimeState.Status.Paused
     }
 
-    fun stop(target: Identifiable) {
-        val state = states[target.id]
+    fun stop(id: Int) {
+        val state = states[id]
         if (state != null) {
             state.status = RuntimeState.Status.Stopped
             state.elapsedTime = 0f
@@ -216,3 +240,9 @@ private object SpringRatioSimulation {
         val dampedFreq = natFreq * sqrt(1 - dampingRatio * dampingRatio); val r = -dampingRatio * natFreq; val sinCoeff = r / dampedFreq; return exp(r * t) * (cos(dampedFreq * t) + sinCoeff * sin(dampedFreq * t))
     }
 }
+
+fun AnimationService.play(identifiable: Identifiable) = play(identifiable.id)
+
+fun AnimationService.pause(identifiable: Identifiable) = pause(identifiable.id)
+
+fun AnimationService.stop(identifiable: Identifiable) = stop(identifiable.id)

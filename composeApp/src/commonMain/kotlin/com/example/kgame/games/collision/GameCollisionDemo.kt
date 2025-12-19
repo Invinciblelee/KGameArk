@@ -32,7 +32,6 @@ import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
-import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.CollisionSystem

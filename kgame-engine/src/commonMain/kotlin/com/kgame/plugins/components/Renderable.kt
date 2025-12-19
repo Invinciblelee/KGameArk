@@ -236,7 +236,6 @@ data class Renderable(
         return zIndex.compareTo(other.zIndex)
     }
 
-
     /**
      * Checks if the renderable is visible and has an alpha greater than 0.
      */

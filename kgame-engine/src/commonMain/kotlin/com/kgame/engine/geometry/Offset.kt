@@ -1,6 +1,7 @@
 package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.layout.ScaleFactor
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.PI
@@ -16,8 +17,6 @@ import kotlin.math.sqrt
 fun Offset.angleDegrees(): Float {
     return (angleRadians() * 180 / PI).toFloat()
 }
-
-
 
 /**
  * The angle of this [Offset] in radians, in the range from -PI to PI.
@@ -125,5 +124,10 @@ fun Offset.toIntOffset(): IntOffset {
  * Coverts to [IntOffset], rounds [Offset.x] and [Offset.y] to the nearest integer.
  */
 fun Offset.roundToIntOffset(): IntOffset {
+    takeOrElse {  }
     return IntOffset(x.roundToInt(), y.roundToInt())
 }
+
+//inline fun Offset.takeOrElse(block: () -> Offset): Offset {
+//    return if (this.isValid() && this != Offset.Zero ) this else block()
+//}

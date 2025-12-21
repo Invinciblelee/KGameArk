@@ -1,6 +1,8 @@
 package com.kgame.plugins.systems
 
-import androidx.compose.ui.geometry.MutableRect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -9,7 +11,6 @@ import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.ecs.collection.compareEntityBy
-import com.kgame.engine.graphics.drawscope.drawDebugBounds
 import com.kgame.engine.graphics.drawscope.withCameraTransform
 import com.kgame.engine.graphics.drawscope.withCenteredTransform
 import com.kgame.engine.graphics.drawscope.withLocalTransform
@@ -29,15 +30,8 @@ class RenderSystem(
 
     companion object {
         var isDebugging = false
-    }
 
-    private val visibleWorldBounds = MutableRect(0f, 0f, 0f, 0f)
-    private val visibleWorldStroke = Stroke(width = 10f)
-
-    override fun onTick(deltaTime: Float) {
-        if (isDebugging) {
-            cameraService.culler.getBounds(visibleWorldBounds)
-        }
+        private val DebugStroke = Stroke(2f)
     }
 
     override fun onRender(drawScope: DrawScope) {
@@ -49,15 +43,6 @@ class RenderSystem(
 
             drawScope.withCameraTransform(camera, camTrans, camShake) {
                 super.onRender(this)
-
-                if (isDebugging) {
-                    drawRect(
-                        color = Color.Green,
-                        topLeft = visibleWorldBounds.topLeft,
-                        size = visibleWorldBounds.size,
-                        style = visibleWorldStroke
-                    )
-                }
             }
         } else {
            drawScope.withCenteredTransform {
@@ -71,7 +56,7 @@ class RenderSystem(
         val transform = entity[Transform]
         if (renderable.isHiding) return
 
-        val shouldDraw = cameraService.culler.overlaps(transform, renderable.size)
+        val shouldDraw = cameraService.culler.overlaps(transform, renderable.bounds)
 
         if (shouldDraw) {
             drawScope.withLocalTransform(transform, renderable.size) {
@@ -79,9 +64,40 @@ class RenderSystem(
             }
 
             if (isDebugging) {
-                drawScope.drawDebugBounds(transform, renderable.size)
+                drawScope.drawDebugBounds(transform.position, renderable.size)
             }
         }
     }
+
+    private fun DrawScope.drawDebugBounds(
+        position: Offset,
+        size: Size,
+        color: Color = Color.Green
+    ) {
+        if (size.isUnspecified) return
+
+        // Calculate the top-left corner of the AABB based on the entity's center position and size.
+        // This is the only CPU calculation needed.
+        val topLeftX = position.x - size.width / 2f
+        val topLeftY = position.y - size.height / 2f
+
+        // Draw a simple, non-rotated rectangle.
+        // This is extremely fast and offloads the drawing to the GPU.
+        drawRect(
+            color = color,
+            topLeft = Offset(topLeftX, topLeftY),
+            size = size,
+            style = DebugStroke
+        )
+
+        // Optional: Draw a small circle or cross at the entity's exact position (its center).
+        // This helps to distinguish the position from the bounding box.
+        drawCircle(
+            color = Color.Yellow,
+            radius = 4f,
+            center = position
+        )
+    }
+
 
 }

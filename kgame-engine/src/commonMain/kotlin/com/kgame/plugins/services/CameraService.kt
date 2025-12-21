@@ -4,6 +4,8 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
+import androidx.compose.ui.text.font.FontVariation.width
 import com.kgame.ecs.Entity
 import com.kgame.ecs.EntityComponentContext
 import com.kgame.ecs.World
@@ -20,7 +22,6 @@ import com.kgame.plugins.components.Elasticity
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Smooth
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyCameraTransition
 import com.kgame.plugins.components.applyElasticityFollow
 import com.kgame.plugins.components.applySmoothFollow
@@ -32,7 +33,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 class CameraService(
-    private val resolution: ResolutionManager,
+    resolution: ResolutionManager,
     world: World = World.requireCurrentWorld()
 ) : EntityComponentContext(world.componentService) {
 
@@ -53,23 +54,10 @@ class CameraService(
     }
 
     internal fun getCameraEntityOrDefault(cameraName: String?): Entity? {
-        return if (cameraName != null) {
-            getCameraEntity(cameraName)
-        } else {
-            mainCameraEntity
+        val cameraEntity = cameraName?.let { name ->
+            family.firstOrNull { it[Camera].name == name }
         }
-    }
-
-    fun getWorldBounds(cameraName: String? = null): Rect {
-        val cameraEntity = getCameraEntityOrDefault(cameraName)
-        return cameraEntity?.getOrNull(WorldBounds)?.rect ?: resolution.virtualSize.run {
-            Rect(-width / 2f, -height / 2f, width / 2f, height / 2f)
-        }
-    }
-
-    fun getCameraBounds(cameraName: String? = null): Rect {
-        val cameraEntity = getCameraEntityOrDefault(cameraName)
-        return cameraEntity?.getOrNull(Camera)?.bounds ?: Rect.Zero
+        return cameraEntity ?: mainCameraEntity
     }
 
 }
@@ -526,19 +514,19 @@ class CameraFrustumCuller(
      *      then performs a final overlap check against this precise frustum.
      *
      * @param transform The transform of the entity to be checked.
-     * @param size The size of the entity to be checked.
+     * @param bounds The local bounds of the entity to be checked.
      * @param cameraName The optional name of the camera to be used for the check.
      *                   If null, the main camera is used.
      * @return `false` if the transform is definitively outside the camera's view and should be culled.
      *         `true` if the transform is potentially inside the view and should be rendered.
      */
-    fun overlaps(transform: Transform, size: Size, cameraName: String? = null): Boolean {
+    fun overlaps(transform: Transform, bounds: Rect, cameraName: String? = null): Boolean {
         // --- Setup ---
         // If the camera cannot be found, there is no basis for culling, so we don't cull.
         val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return true
         val camera = cameraEntity.getOrNull(Camera) ?: return true
 
-        entityBounds.set(transform, size)
+        entityBounds.set(transform, bounds)
 
         // --- 1. Broad-Phase Culling (World Bounds Check) ---
         val cameraBounds = camera.bounds

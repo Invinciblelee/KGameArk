@@ -87,7 +87,7 @@ data class Viewport(
 class Camera(
     val name: String = "",
 
-    isMain: Boolean = false,
+    var isMain: Boolean = false,
     var isActive: Boolean = true,
     var isTracking: Boolean = true,
 
@@ -98,9 +98,6 @@ class Camera(
     override fun type() = Camera
 
     companion object : ComponentType<Camera>()
-
-    var isMain: Boolean = isMain
-        internal set
 
 }
 

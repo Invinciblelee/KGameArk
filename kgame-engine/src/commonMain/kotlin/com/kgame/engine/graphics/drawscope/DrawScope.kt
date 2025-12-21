@@ -3,13 +3,10 @@ package com.kgame.engine.graphics.drawscope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
-import androidx.compose.ui.geometry.isUnspecified
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
-import com.kgame.engine.geometry.ResolutionScaleType
 import com.kgame.engine.geometry.ResolutionManager
+import com.kgame.engine.geometry.ResolutionScaleType
 import com.kgame.engine.geometry.toOffset
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
@@ -149,44 +146,4 @@ inline fun DrawScope.withLocalTransform(
         // Restore the original size of the draw context.
         drawContext.size = oldSize
     }
-}
-
-private val DebugStroke = Stroke(width = 1f)
-
-/**
- * Draws a debug visualization for a Transform in the world coordinate system.
- * This function accurately mirrors the transformation logic of `withLocalTransform`
- * to ensure the debug visualization perfectly matches the rendered entity.
- *
- * @param transform The Transform component to visualize.
- * @param color The color to use for the debug graphics.
- */
-fun DrawScope.drawDebugBounds(
-    transform: Transform,
-    size: Size,
-    color: Color = Color.Green
-) {
-    if (size.isUnspecified) return
-
-    // Calculate the top-left corner of the AABB based on the entity's center position and size.
-    // This is the only CPU calculation needed.
-    val topLeftX = transform.position.x - size.width / 2f
-    val topLeftY = transform.position.y - size.height / 2f
-
-    // Draw a simple, non-rotated rectangle.
-    // This is extremely fast and offloads the drawing to the GPU.
-    drawRect(
-        color = color,
-        topLeft = Offset(topLeftX, topLeftY),
-        size = size,
-        style = DebugStroke
-    )
-
-    // Optional: Draw a small circle or cross at the entity's exact position (its center).
-    // This helps to distinguish the position from the bounding box.
-    drawCircle(
-        color = Color.Yellow,
-        radius = 4f,
-        center = transform.position
-    )
 }

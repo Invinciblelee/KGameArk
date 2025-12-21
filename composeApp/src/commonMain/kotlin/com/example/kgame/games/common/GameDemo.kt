@@ -48,11 +48,9 @@ import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.GameEnvironment
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
-import com.kgame.engine.graphics.shader.BlueSky
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.math.randomOffset
-import com.kgame.engine.ui.ActiveRectangle
 import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.LocalWindowManager
 import com.kgame.engine.ui.Rectangle
@@ -65,6 +63,7 @@ import com.kgame.plugins.components.AlphaAnimation
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
+import com.kgame.plugins.components.Hitbox
 import com.kgame.plugins.components.Elasticity
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PolygonVisual
@@ -87,6 +86,7 @@ import com.kgame.plugins.systems.CameraSystem
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.systems.SteeringSystem
+import com.kgame.plugins.systems.TiledMapCollisionSystem
 import com.kgame.plugins.systems.TiledMapRenderSystem
 import kotlin.math.hypot
 import kotlin.random.Random
@@ -611,6 +611,7 @@ fun GameDemo(environment: GameEnvironment) {
                     +PhysicsSystem(gravity = Offset.Zero)
                     +SilkPhysicsSystem()
                     +SilkCollisionSystem()
+                    +TiledMapCollisionSystem()
                     +CameraSystem()
                     +AnimationTickSystem()
                     +AnimationSystem()
@@ -626,17 +627,17 @@ fun GameDemo(environment: GameEnvironment) {
                 }
 
                 val player = entity {
-                    +Transform()
+                    +Transform(position = Offset(0f, -100f))
                     +PlayerTag()
                     +SpriteAnimation("run")
+                    +Hitbox(Rect(left = -15f, top = -10f, right = 15f, bottom = 25f))
                     +Renderable(SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
                 }
 
                 entity {
-                    +Transform()
+                    +Transform(position = Offset(0f, -100f))
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
-                    +WorldBounds(worldBounds)
                     +CameraTarget(player)
                     +CameraShake()
                     +Camera("player", isMain = true, bounds = worldBounds)
@@ -661,33 +662,36 @@ fun GameDemo(environment: GameEnvironment) {
                     +Transform()
                     +Elasticity(stiffness = 80f, damping = 10f)
                     +RigidBody()
-                    +WorldBounds(worldBounds)
                     +CameraTarget(enemy)
                     +CameraShake()
                     +Camera("enemy")
                 }
 
-                entities(100) {
-                    val velX = (-40f..40f).random()
-                    val velY = (-40f..40f).random()
-                    val mass = 1f + Random.nextFloat()
+//                entities(100) {
+//                    val velX = (-40f..40f).random()
+//                    val velY = (-40f..40f).random()
+//                    val mass = 1f + Random.nextFloat()
+//
+//                    val enemyInstance = EnemyTag()
+//                    val size = (25f..50f).random()
+//                    +Transform(worldBounds.randomOffset())
+//                    +RigidBody(Offset(velX, velY), mass = mass)
+//                    +AlphaAnimation(
+//                        from = 0f,
+//                        to = 1f,
+//                        spec = InfiniteRepeatable(Tween())
+//                    )
+//                    +enemyInstance
+//                    +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
+//                }
+            }
 
-                    val enemyInstance = EnemyTag()
-                    val size = (25f..50f).random()
-                    +Transform(worldBounds.randomOffset())
-                    +RigidBody(Offset(velX, velY), mass = mass)
-                    +AlphaAnimation(
-                        from = 0f,
-                        to = 1f,
-                        spec = InfiniteRepeatable(Tween())
-                    )
-                    +enemyInstance
-                    +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
-                }
+            onCreate {
+//                RenderSystem.isDebugging = true
+                TiledMapRenderSystem.isDebugging = true
             }
 
             onStart {
-                RenderSystem.isDebugging = true
                 audio.playMusic(assets[GameAssets.Music.BGM], loop = true)
                 println("Game enter")
             }
@@ -708,7 +712,7 @@ fun GameDemo(environment: GameEnvironment) {
             onRender { fpsCalculator.advanceFrame() }
 
             onBackgroundUI {
-                ActiveRectangle(BlueSky())
+                Rectangle(Color.Black)
             }
 
             onForegroundUI {

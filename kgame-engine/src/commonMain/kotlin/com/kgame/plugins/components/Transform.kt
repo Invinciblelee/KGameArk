@@ -21,7 +21,6 @@ data class Transform(
     companion object : ComponentType<Transform>()
 }
 
-
 /**
  * Copies all transform properties (position, size, rotation, scale, pivots)
  * into the supplied [transform] instance.
@@ -34,6 +33,20 @@ fun Transform.copyTo(transform: Transform) {
     transform.rotationPivot = this.rotationPivot
     transform.scale         = this.scale
     transform.scalePivot    = this.scalePivot
+}
+
+/**
+ *
+ */
+fun Transform.offset(x: Float = 0f, y: Float = 0f) {
+    position += Offset(x, y)
+}
+
+/**
+ *
+ */
+fun Transform.position(x: Float = position.x, y: Float = position.y) {
+    position = Offset(x, y)
 }
 
 /**

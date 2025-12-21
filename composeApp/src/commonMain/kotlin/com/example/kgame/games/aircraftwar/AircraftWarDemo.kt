@@ -11,8 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -175,9 +177,9 @@ private class EnemySpawnSystem(
     val assets: AssetsManager = inject()
 ) : IntervalSystem(interval = Fixed(0.5f)) { // 每 0.5 秒生成一波敌人
 
+    private val worldBounds = MutableRect(Offset.Zero, Size.Zero)
 
     override fun onTick(deltaTime: Float) {
-        val worldBounds = cameraService.getWorldBounds()
 
         val spawnXMin = worldBounds.left
         val spawnXMax = worldBounds.right

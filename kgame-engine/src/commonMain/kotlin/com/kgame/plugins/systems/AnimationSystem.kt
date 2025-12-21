@@ -25,7 +25,6 @@ import com.kgame.plugins.services.CameraService
  * logic of timing, state calculation, and property application.
  */
 class AnimationSystem(
-    private val cameraService: CameraService = inject(),
     private val animationService: AnimationService = inject()
 ) : IteratingSystem(
     family = family {
@@ -77,10 +76,6 @@ class AnimationSystem(
 
         val renderable = entity.getOrNull(Renderable)
         if (renderable != null) {
-            if (!cameraService.culler.overlaps(transform, renderable.size)) {
-                return
-            }
-
             val spriteVisual = renderable.visual as? SpriteVisual
             if (spriteVisual != null) {
                 val spriteAnimation = entity.getOrNull(SpriteAnimation)

@@ -29,7 +29,7 @@ interface ResolutionManager {
     fun applySize(
         actualSize: Size = this.actualSize,
         virtualSize: Size = this.virtualSize,
-        scaleType: ResolutionScaleType = ResolutionScaleType.Fit
+        scaleType: ResolutionScaleType = ResolutionScaleType.Fill
     ) {
         this.actualSize = actualSize
         this.virtualSize = virtualSize

@@ -1,8 +1,11 @@
 package com.kgame.plugins.components
 
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
@@ -40,11 +43,26 @@ abstract class Visual {
         this.size = Size(width, height)
     }
 
-    open var size: Size = Size.Unspecified
+    private var _bounds: Rect = InfiniteRect
+    val bounds: Rect get() = _bounds
+
+    var size: Size = Size.Unspecified
+        set(value) {
+            if (field != value) {
+                field = value
+                _bounds = onComputeBounds()
+            }
+        }
 
     open var alpha: Float = 1f
 
-    val isSizeSpecified: Boolean get() = size.isSpecified
+    protected open fun onComputeBounds(): Rect {
+        return if (size.isSpecified) {
+            Rect(Offset.Zero, size)
+        } else {
+            InfiniteRect
+        }
+    }
 
     /**
      * Drawing logic.
@@ -53,10 +71,19 @@ abstract class Visual {
      */
     abstract fun DrawScope.draw()
 
+    companion object {
+        private val InfiniteRect = Rect(
+            Float.NEGATIVE_INFINITY,
+            Float.NEGATIVE_INFINITY,
+            Float.POSITIVE_INFINITY,
+            Float.POSITIVE_INFINITY
+        )
+    }
+
 }
 
 
-class CircleVisual(
+open class CircleVisual(
     var color: Color,
     size: Float,
     val style: DrawStyle = Fill
@@ -68,7 +95,7 @@ class CircleVisual(
 
 }
 
-class RectangleVisual(
+open class RectangleVisual(
     var color: Color,
     size: Size,
     val cornerRadius: CornerRadius = CornerRadius.Zero,
@@ -83,7 +110,7 @@ class RectangleVisual(
     }
 }
 
-class PolygonVisual(
+open class PolygonVisual(
     var color: Color,
     size: Size,
     val sides: Int,
@@ -102,11 +129,11 @@ class PolygonVisual(
         style = style
     )
 
-    private val path = Path()
-
     init {
         require(sides >= 3) { "A polygon must have at least 3 sides." }
     }
+
+    private val path = Path()
 
     override fun DrawScope.draw() {
         toPolygonPath(path, sides, size.width, size.height)
@@ -157,43 +184,37 @@ class PolygonVisual(
 
 }
 
-class ImageVisual(
+open class ImageVisual(
     val bitmap: ImageBitmap,
     size: Size = Size.Unspecified
-) : Visual() {
+) : Visual(size) {
 
-    override var size: Size = size
-        get() = field.let {
-            if (it.isSpecified) it
-            else Size(bitmap.width.toFloat(), bitmap.height.toFloat())
-        }
+    override fun onComputeBounds(): Rect {
+        val effectiveSize = if (size.isSpecified) size else Size(bitmap.width.toFloat(), bitmap.height.toFloat())
+        return Rect(Offset.Zero, effectiveSize)
+    }
 
     override fun DrawScope.draw() {
         drawImage(
             image = bitmap,
-            dstSize = if (isSizeSpecified) {
-                size.toIntSize()
-            } else {
-                IntSize(bitmap.width, bitmap.height)
-            },
+            dstSize = bounds.size.toIntSize(),
             alpha = alpha
         )
     }
 
 }
 
-class SpriteVisual(
+open class SpriteVisual(
     val atlas: ImageAtlas,
     private var name: String,
     size: Size = Size.Unspecified
-) : Visual() {
+) : Visual(size) {
     private var region: AtlasRegion = atlas.getRegion(name)
 
-    override var size: Size = size
-        get() = field.let {
-            if (it.isSpecified) it
-            else region.size.toSize()
-        }
+    override fun onComputeBounds(): Rect {
+        val effectiveSize = if (size.isSpecified) size else region.size.toSize()
+        return Rect(Offset.Zero, effectiveSize)
+    }
 
     fun setFrame(name: String) {
         if (this.name == name) return
@@ -207,11 +228,7 @@ class SpriteVisual(
             srcOffset = region.offset,
             srcSize = region.size,
             dstOffset = IntOffset.Zero,
-            dstSize = if (isSizeSpecified) {
-                size.toIntSize()
-            } else {
-                region.size
-            },
+            dstSize = bounds.size.toIntSize(),
             alpha = alpha
         )
     }
@@ -250,13 +267,19 @@ data class Renderable(
 
 
     /**
-     * Returns the size of visual
+     * Returns the size of [visual]
      */
     val size: Size
         get() = visual.size
 
     /**
-     * Returns the alpha of visual
+     * Returns the bounds of [visual]
+     */
+    val bounds: Rect
+        get() = visual.bounds
+
+    /**
+     * Returns the alpha of [visual]
      */
     val alpha: Float
         get() = visual.alpha

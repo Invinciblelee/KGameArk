@@ -29,6 +29,9 @@
   </data>
  </layer>
  <objectgroup name="Objektebene 1">
-  <object id="4" name="NPC" x="295" y="304"/>
+  <object id="4" name="NPC" x="240" y="240"/>
+ </objectgroup>
+ <objectgroup name="Collision 1" draworder="index">
+   <object id="1" name="GiantCentralBox" type="solid" x="128" y="128" width="64" height="64"/>
  </objectgroup>
 </map>

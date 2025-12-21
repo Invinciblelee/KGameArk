@@ -4,9 +4,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.decodeToImageBitmap
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Element
 import com.kgame.engine.asset.AssetsReader
+import com.kgame.engine.graphics.image.filterColor
 import com.kgame.engine.utils.Color
 import com.kgame.engine.utils.zip.Compression
 import com.kgame.engine.utils.zip.decompress
@@ -47,10 +50,11 @@ class TmxMapLoader(
         val tileWidth = mapElement.attr("tilewidth").toFloat()
         val tileHeight = mapElement.attr("tileheight").toFloat()
         val renderOrder = mapElement.attr("renderorder")
+        val backgroundColor = Color(mapElement.attr("backgroundcolor"), Color.Transparent)
 
         // 3. Parse Tilesets
         val mapSets = mapElement.select("tileset").map { element ->
-            parseTiledMapSet(element, path)
+            parseTiledMapSet(element, tileWidth, tileHeight, path)
         }
 
         // 4. Parse Layers (including groups recursively)
@@ -64,10 +68,11 @@ class TmxMapLoader(
             columns = mapWidthInTiles,
             rows = mapHeightInTiles,
             tileSize = Size(tileWidth, tileHeight),
+            backgroundColor = backgroundColor,
             layers = mapLayers,
             tilesets = mapSets,
             properties = properties
-        )
+        ).normalized()
     }
 
     // --- Core Parsing Helpers ---
@@ -96,7 +101,12 @@ class TmxMapLoader(
 
     // --- Tileset Parsing ---
 
-    private suspend fun parseTiledMapSet(element: Element, tmxPath: String): TiledMapSet {
+    private suspend fun parseTiledMapSet(
+        element: Element,
+        mapTileWidth: Float,
+        mapTileHeight: Float,
+        tmxPath: String
+    ): TiledMapSet {
         val id = element.attr("firstgid").toInt()
         val name = element.attr("name")
 
@@ -117,10 +127,14 @@ class TmxMapLoader(
         }
 
         val imageSource = imageElement.attr("source")
+        val imageTransColor = Color(imageElement.attr("trans"), Color.Transparent)
         val tilesetImagePath = getRelativePath(tmxPath, imageSource)
 
         val imageBytes = assetsReader.readBytes(tilesetImagePath)
-        val imageBitmap = imageBytes.decodeToImageBitmap()
+        var imageBitmap = imageBytes.decodeToImageBitmap()
+        if (imageTransColor != Color.Transparent) {
+            imageBitmap = imageBitmap.filterColor(imageTransColor)
+        }
 
         val imageWidth = imageElement.attr("width").toFloatOrNull() ?: imageBitmap.width.toFloat()
         val imageHeight = imageElement.attr("height").toFloatOrNull() ?: imageBitmap.height.toFloat()
@@ -130,8 +144,8 @@ class TmxMapLoader(
             Offset(it.attr("x").toFloat(), it.attr("y").toFloat())
         } ?: Offset.Zero
 
-        val tileWidth = tilesetElement.attr("tilewidth").toFloatOrNull() ?: 0f
-        val tileHeight = tilesetElement.attr("tileheight").toFloatOrNull() ?: 0f
+        val tileWidth = tilesetElement.attr("tilewidth").toFloatOrNull() ?: mapTileWidth
+        val tileHeight = tilesetElement.attr("tileheight").toFloatOrNull() ?: mapTileHeight
         val spacing = tilesetElement.attr("spacing").toFloatOrNull() ?: 0f
         val margin = tilesetElement.attr("margin").toFloatOrNull() ?: 0f
 
@@ -182,10 +196,10 @@ class TmxMapLoader(
         element: Element,
         columns: Int,
         rows: Int,
-        order: String,
+        order: String
     ): TiledMapTileLayer {
         val name = element.attr("name")
-        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
+        val color = Color(element.attr("color"), Color.Transparent)
         val opacity = element.attr("opacity").toFloatOrNull() ?: 1f
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
@@ -232,25 +246,25 @@ class TmxMapLoader(
             else -> error("Unsupported Tiled data format encoding: $encoding.")
         }
 
+        check(intArrayData.size == columns * rows) {
+            "Tile layer data size mismatch. Expected ${columns * rows}, got ${intArrayData.size}"
+        }
+
         val finalData = if (order == "right-down") {
             intArrayData
         } else {
+            val isLeft = order.contains("left")
+            val isUp = order.contains("up")
             IntArray(columns * rows).apply {
-                val isLeft = order.contains("left")
-                val isUp = order.contains("up")
                 for (y in 0 until rows) {
                     for (x in 0 until columns) {
                         val rawIndex = y * columns + x
-                        val targetX = if (isLeft) (columns - 1 - x) else x
-                        val targetY = if (isUp) (rows - 1 - y) else y
-                        this[targetY * columns + targetX] = intArrayData[rawIndex]
+                        val physX = if (isLeft) (columns - 1 - x) else x
+                        val physY = if (isUp) (rows - 1 - y) else y
+                        this[physY * columns + physX] = intArrayData[rawIndex]
                     }
                 }
             }
-        }
-
-        check(finalData.size == columns * rows) {
-            "Tile layer data size mismatch. Expected ${columns * rows}, got ${finalData.size}"
         }
 
         return TiledMapTileLayer(
@@ -269,71 +283,20 @@ class TmxMapLoader(
 
     private fun parseTiledMapObjectLayer(element: Element, order: String): TiledMapObjectLayer {
         val name = element.attr("name")
-        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
+        val color = Color(element.attr("color"), Color.Transparent)
         val opacity = element.attr("opacity").toFloatOrNull() ?: 1f
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
 
         val objects = element.select("object").map { objElement ->
-            val objId = objElement.attr("id").toIntOrNull() ?: 0
-            val objName = objElement.attr("name")
-            val objType = objElement.attr("type")
-            val objVisible = objElement.attr("visible").let { it.isEmpty() || it != "0" }
-            val objProperties = parseProperties(objElement.selectFirst("properties"))
-
-            val x = objElement.attr("x").toFloatOrNull() ?: 0f
-            val y = objElement.attr("y").toFloatOrNull() ?: 0f
-            val width = objElement.attr("width").toFloatOrNull() ?: Float.NaN
-            val height = objElement.attr("height").toFloatOrNull() ?: Float.NaN
-
-            val gid = objElement.attr("gid").toIntOrNull()
-
-            if (gid != null) {
-                TiledMapTileObject(
-                    id = objId,
-                    name = objName,
-                    type = objType,
-                    visible = objVisible,
-                    properties = objProperties,
-                    offset = Offset(x, y - height),
-                    size = Size(width, height),
-                    gid = gid
-                )
-            } else {
-                val shape = when {
-                    objElement.selectFirst("polygon") != null -> {
-                        val pointsStr = objElement.selectFirst("polygon")?.attr("points") ?: ""
-                        val points = pointsStr.split(" ").filter { it.isNotBlank() }.map { pair ->
-                            val coords = pair.split(",")
-                            Offset(coords[0].toFloat(), coords[1].toFloat())
-                        }
-                        TiledMapShape.Polygon(points)
-                    }
-                    objElement.selectFirst("ellipse") != null -> {
-                        TiledMapShape.Ellipse(Size(width, height))
-                    }
-                    objElement.selectFirst("point") != null -> {
-                        TiledMapShape.Point
-                    }
-                    else -> {
-                        TiledMapShape.Rectangle(Size(width, height))
-                    }
-                }
-                TiledMapShapeObject(
-                    id = objId,
-                    name = objName,
-                    type = objType,
-                    visible = objVisible,
-                    properties = objProperties,
-                    offset = Offset(x, y),
-                    shape = shape
-                )
-            }
+            parseTiledMapObject(objElement)
         }
 
         val sortedObjects = when (order) {
-            "right-down", "left-down" -> objects.sortedBy { it.offset.y }
-            "right-up", "left-up" -> objects.sortedByDescending { it.offset.y }
+            "right-down" -> objects.sortedWith(compareBy({ it.position.y }, { it.position.x }))
+            "left-down" -> objects.sortedWith(compareBy({ it.position.y }, { -it.position.x }))
+            "right-up" -> objects.sortedWith(compareBy({ -it.position.y }, { it.position.x }))
+            "left-up" -> objects.sortedWith(compareBy({ -it.position.y }, { -it.position.x }))
             else -> objects
         }
 
@@ -347,11 +310,70 @@ class TmxMapLoader(
         )
     }
 
+    private fun parseTiledMapObject(objElement: Element): TiledMapObject {
+        val objId = objElement.attr("id").toIntOrNull() ?: 0
+        val objName = objElement.attr("name")
+        val objType = objElement.attr("type")
+        val objVisible = objElement.attr("visible").let { it.isEmpty() || it != "0" }
+        val objProperties = parseProperties(objElement.selectFirst("properties"))
+
+        val x = objElement.attr("x").toFloatOrNull() ?: 0f
+        val y = objElement.attr("y").toFloatOrNull() ?: 0f
+        val width = objElement.attr("width").toFloatOrNull() ?: 0f
+        val height = objElement.attr("height").toFloatOrNull() ?: 0f
+
+        val gid = objElement.attr("gid").toIntOrNull()
+
+        return if (gid != null) {
+            TiledMapTileObject(
+                id = objId,
+                name = objName,
+                type = objType,
+                visible = objVisible,
+                properties = objProperties,
+                position = Offset(x, y),
+                size = Size(width, height),
+                gid = gid
+            )
+        } else {
+            val shape = when {
+                objElement.selectFirst("polygon") != null -> {
+                    TiledMapShape.Polygon(parsePoints(objElement.selectFirst("polygon")))
+                }
+                objElement.selectFirst("polyline") != null -> {
+                    TiledMapShape.Polyline(parsePoints(objElement.selectFirst("polyline")))
+                }
+                objElement.selectFirst("ellipse") != null -> {
+                    TiledMapShape.Ellipse(Size(width, height))
+                }
+                objElement.selectFirst("point") != null -> {
+                    TiledMapShape.Point
+                }
+                else -> {
+                    if (width != 0f && height != 0f) {
+                        TiledMapShape.Rectangle(Size(width, height))
+                    } else {
+                        TiledMapShape.Point
+                    }
+                }
+            }
+            TiledMapShapeObject(
+                id = objId,
+                name = objName,
+                type = objType,
+                visible = objVisible,
+                properties = objProperties,
+                position = Offset(x, y),
+                shape = shape
+            )
+        }
+    }
+
     // --- Layer Parsing: Image Layer ---
 
     private suspend fun parseTiledMapImageLayer(element: Element, tmxPath: String): TiledMapImageLayer {
         val name = element.attr("name")
-        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
+        val color = Color(element.attr("color"), Color.Transparent)
         val opacity = element.attr("opacity").toFloatOrNull() ?: 1f
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
@@ -361,8 +383,12 @@ class TmxMapLoader(
         }
 
         val imageSource = imageElement.attr("source")
+        val imageTransColor = Color(imageElement.attr("trans"), Color.Transparent)
         val imageBytes = assetsReader.readBytes(getRelativePath(tmxPath, imageSource))
-        val imageBitmap = imageBytes.decodeToImageBitmap()
+        var imageBitmap = imageBytes.decodeToImageBitmap()
+        if (imageTransColor != Color.Transparent) {
+            imageBitmap = imageBitmap.filterColor(imageTransColor)
+        }
 
         val x = element.attr("offsetx").toFloatOrNull() ?: 0f
         val y = element.attr("offsety").toFloatOrNull() ?: 0f
@@ -377,7 +403,7 @@ class TmxMapLoader(
             visible = visible,
             properties = properties,
             image = imageBitmap,
-            offset = Offset(x, y),
+            position = Offset(x, y),
             size = Size(width, height)
         )
     }
@@ -392,7 +418,7 @@ class TmxMapLoader(
         tmxPath: String
     ): TiledMapGroupLayer {
         val name = element.attr("name")
-        val color = Color(hex = element.attr("color"), defaultColor = Color.Transparent)
+        val color = Color(element.attr("color"), Color.Transparent)
         val opacity = element.attr("opacity").toFloatOrNull() ?: 1f
         val visible = element.attr("visible").let { it.isEmpty() || it != "0" }
         val properties = parseProperties(element.selectFirst("properties"))
@@ -413,7 +439,7 @@ class TmxMapLoader(
     // --- Utility Functions ---
 
     /**
-     * Parses all <property> tags under a parent element into a map.
+     * Parses all <property> tags under a parent element.
      */
     private fun parseProperties(propertiesElement: Element?): Map<String, String> {
         if (propertiesElement == null) return emptyMap()
@@ -423,6 +449,17 @@ class TmxMapLoader(
             // TMX properties can have a 'value' attribute or be empty if no value is set
             val value = propElement.attr("value")
             name to value
+        }
+    }
+
+    /**
+     * Parses all points under a parent element.
+     */
+    private fun parsePoints(shapeElement: Element?): List<Offset> {
+        val pointsStr = shapeElement?.attr("points") ?: return emptyList()
+        return pointsStr.split(" ").filter { it.isNotBlank() }.map { pair ->
+            val coords = pair.split(",")
+            Offset(coords[0].toFloat(), coords[1].toFloat())
         }
     }
 

@@ -4,123 +4,77 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.toRect
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.toOffset
-import androidx.compose.ui.unit.toSize
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.Visual
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Creates an immutable [Rect] by extracting the position from the given [transform]
- * and combining it with the specified [size].
- *
- * @param transform The transformation (position, rotation, etc.) to apply.
- * @param size The dimensions of the rectangle.
- * @return A new immutable [Rect] instance.
+ * Projects local [rect] into world space using [transform] .
+ * @receiver The [MutableRect] to update.
+ * @param transform The world transformation state.
+ * @param rect The local bounding box (typically 0,0 based).
  */
-fun Rect(transform: Transform, size: Size): Rect {
-    return MutableRect(transform, size).toRect()
-}
-
-/**
- * Creates a [MutableRect] and initializes its bounds based on the provided [transform]
- * and [size]. The rectangle is typically centered or offset according to the transform's translation.
- *
- * @param transform The source transformation for positioning the rectangle.
- * @param size The width and height to be assigned to the rectangle.
- * @return A initialized [MutableRect] instance that can be further modified.
- */
-fun MutableRect(transform: Transform, size: Size): MutableRect {
-    return MutableRect(0f, 0f, 0f, 0f).apply { set(transform, size) }
-}
-
-/**
- * Calculates the World-Axis Aligned Bounding Box (AABB) for an entity based on its
- * [transform] and original [size], and writes the result to this [MutableRect] receiver.
- *
- * This method correctly accounts for the entity's rotation and scaling to produce an
- * AABB that fully encloses the transformed geometry. It achieves this by transforming the
- * corner points of the local bounding box and finding the new min/max world coordinates.
- *
- * @receiver MutableRect This rectangle is modified in place to hold the resulting World-AABB.
- * @param transform The World Transform component of the target entity (position, rotation, scale).
- * @param size The un-transformed, local size of the target entity's [Visual] or collision volume.
- */
-fun MutableRect.set(transform: Transform, size: Size) {
-    if (size == Size.Unspecified) {
+fun MutableRect.set(
+    transform: Transform,
+    rect: Rect
+) {
+    if (rect.isInfinite) {
         set(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+        return
+    }
+
+    if (rect.isEmpty) {
+        val pos = transform.position
+        set(pos.x, pos.y, pos.x, pos.y)
         return
     }
 
     val position = transform.position
     val scale = transform.scale
+    val rotation = transform.rotation
+    val w = rect.width
+    val h = rect.height
 
-    val halfW = size.width / 2f
-    val halfH = size.height / 2f
+    // --- 1. Calculate transformation pivots relative to the bounds ---
+    val rotPivX = rect.left + transform.rotationPivot.pivotFractionX * w
+    val rotPivY = rect.top + transform.rotationPivot.pivotFractionY * h
+    val sclPivX = rect.left + transform.scalePivot.pivotFractionX * w
+    val sclPivY = rect.top + transform.scalePivot.pivotFractionY * h
 
-    // Pre-calculate rotation values
-    val angleRad = transform.rotation * (PI / 180f).toFloat()
-    val sin = sin(angleRad)
-    val cos = cos(angleRad)
-
-    // Convert Pivot coordinates to offsets relative to the center of the object (0, 0)
-    // 0.5 (center) -> 0
-    // 0.0 (left/top) -> -halfW
-    // 1.0 (right/bottom) -> +halfW
-    val scalePivotX = (transform.scalePivot.pivotFractionX * size.width) - halfW
-    val scalePivotY = (transform.scalePivot.pivotFractionY * size.height) - halfH
-    val rotationPivotX = (transform.rotationPivot.pivotFractionX * size.width) - halfW
-    val rotationPivotY = (transform.rotationPivot.pivotFractionY * size.height) - halfH
+    val angleRad = rotation * (PI / 180f).toFloat()
+    val cosA = cos(angleRad)
+    val sinA = sin(angleRad)
 
     var minX = Float.POSITIVE_INFINITY
     var minY = Float.POSITIVE_INFINITY
     var maxX = Float.NEGATIVE_INFINITY
     var maxY = Float.NEGATIVE_INFINITY
 
+    // --- 2. Transform corners to world space ---
     for (i in 0..3) {
-        // Define corner relative to center (0, 0)
-        val cornerX = if (i and 1 == 0) -halfW else halfW
-        val cornerY = if (i < 2) -halfH else halfH
+        var px = if (i and 1 == 0) rect.left else rect.right
+        var py = if (i < 2) rect.top else rect.bottom
 
-        var px = cornerX
-        var py = cornerY
+        // A. Apply Rotation around the local rotation pivot
+        val dxR = px - rotPivX
+        val dyR = py - rotPivY
+        px = rotPivX + (dxR * cosA - dyR * sinA)
+        py = rotPivY + (dxR * sinA + dyR * cosA)
 
-        // 1. Rotate around the rotation pivot
-        px -= rotationPivotX
-        py -= rotationPivotY
-        val rotatedX = px * cos - py * sin
-        val rotatedY = px * sin + py * cos
-        px = rotatedX
-        py = rotatedY
-        px += rotationPivotX
-        py += rotationPivotY
+        // B. Apply Scaling around the local scale pivot
+        px = sclPivX + (px - sclPivX) * scale.scaleX
+        py = sclPivY + (py - sclPivY) * scale.scaleY
 
-        // 2. Scale around the scale pivot
-        px -= scalePivotX
-        py -= scalePivotY
-        px *= scale.scaleX
-        py *= scale.scaleY
-        px += scalePivotX
-        py += scalePivotY
-
-        // 3. Translate to the final world position
-        // Note: Here we assume that position refers to the center of the object in world coordinates.
-        // If position is defined as the top-left corner, further adjustments would be needed.
-        // However, based on the definition of cornerX, we typically consider the center here.
+        // C. Final Translation
+        // Translates the local point to world space by the entity position.
         px += position.x
         py += position.y
 
-        minX = min(minX, px)
-        minY = min(minY, py)
-        maxX = max(maxX, px)
-        maxY = max(maxY, py)
+        if (px < minX) minX = px
+        if (px > maxX) maxX = px
+        if (py < minY) minY = py
+        if (py > maxY) maxY = py
     }
 
     set(minX, minY, maxX, maxY)
@@ -135,27 +89,8 @@ fun MutableRect.set(offset: Offset, size: Size) {
 }
 
 /**
- * Checks if this rectangle overlaps with another rectangular area defined by
- * a top-left [offset] and [size].
- * * Uses the Standard AABB (Axis-Aligned Bounding Box) collision detection.
+ * Updates the bounds of this [MutableRect] with given [Rect][rect].
  */
-fun MutableRect.overlaps(offset: Offset, size: Size): Boolean {
-    val otherRight = offset.x + size.width
-    val otherBottom = offset.y + size.height
-
-    // Standard collision logic:
-    // They overlap if they are NOT separated in any direction.
-    return this.left < otherRight &&
-            this.right > offset.x &&
-            this.top < otherBottom &&
-            this.bottom > offset.y
-}
-
-/**
- * Checks if this rectangle overlaps with another rectangular area defined by
- * [IntOffset] and [IntSize]. Converts integer inputs to floats for comparison.
- */
-fun MutableRect.overlaps(offset: IntOffset, size: IntSize): Boolean {
-    // Reusing the float version to maintain consistency
-    return overlaps(offset = offset.toOffset(), size = size.toSize())
+fun MutableRect.set(rect: Rect) {
+    set(rect.left, rect.top, rect.right, rect.bottom)
 }

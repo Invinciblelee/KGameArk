@@ -9,7 +9,7 @@ import com.kgame.engine.audio.AudioState.None
 import com.kgame.engine.audio.AudioState.Paused
 import com.kgame.engine.audio.AudioState.Playing
 import com.kgame.engine.audio.AudioState.Ready
-import com.kgame.engine.core.PlatformContext
+import com.kgame.platform.PlatformContext
 import kotlinx.coroutines.flow.StateFlow
 
 /**

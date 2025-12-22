@@ -132,7 +132,7 @@ class TiledMapCollisionSystem : IntervalSystem() {
                 val surfaceY = y1 + t * dy
 
                 // Flattened nested if
-                if (entBottom >= surfaceY && entBottom - 5f < surfaceY && absDx >= absDy) {
+                if (entBottom >= surfaceY && entBottom - 10f < surfaceY && absDx >= absDy) {
                     transform.offset(y = surfaceY - entBottom)
                     entityBounds.set(transform, hitbox.rect)
                 }

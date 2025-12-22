@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.input.key.Key.Companion.P
 import androidx.compose.ui.unit.roundToIntSize
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
@@ -17,6 +18,7 @@ import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.geometry.roundToIntOffset
 import com.kgame.engine.graphics.drawscope.withCameraTransform
+import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.TiledMapData
 import com.kgame.engine.maps.TiledMapGroupLayer
 import com.kgame.engine.maps.TiledMapImageLayer
@@ -133,7 +135,13 @@ class TiledMapRenderSystem(
             if (!frustumRect.overlaps(boundsRect)) continue
 
             val tileset = tiledMap.findMapSet(gid) ?: continue
-            val finalGid = tileset.resolveGid(gid) { animationService.getCurrentFrame(it) }
+            val tile = tileset.findTile(gid) ?: continue
+
+            val finalGid = if (tile is AnimatedTiledMapTile) {
+                animationService.getCurrentFrame(tile).id
+            } else {
+                tile.id
+            }
 
             tileset.getClip(clipRect, finalGid)
 
@@ -197,7 +205,13 @@ class TiledMapRenderSystem(
         }
 
         val tileset = tiledMap.findMapSet(obj.gid) ?: return
-        val finalGid = tileset.resolveGid(obj.gid) { animationService.getCurrentFrame(it) }
+        val tile = tileset.findTile(obj.gid) ?: return
+
+        val finalGid = if (tile is AnimatedTiledMapTile) {
+            animationService.getCurrentFrame(tile).id
+        } else {
+            tile.id
+        }
 
         tileset.getClip(clipRect, finalGid)
 

@@ -2,8 +2,8 @@ package com.kgame.engine.audio
 
 import androidx.compose.runtime.Stable
 import com.kgame.engine.asset.SourceUri
-import com.kgame.engine.core.PlatformContext
 import com.kgame.engine.log.Logger
+import com.kgame.platform.PlatformContext
 
 /**
  * Manages the audio of the kgame.

@@ -1,10 +1,8 @@
 package com.example.kgame.games
 
 import com.kgame.engine.asset.AssetsReader
-import com.kgame.engine.core.GameEnvironment
-import com.kgame.engine.core.PlatformContext
-import kgame.composeapp.generated.resources.Res
-
+import com.kgame.platform.KGameHost
+import kgameark.composeapp.generated.resources.Res
 
 private val DefaultAssetsReader = object : AssetsReader {
     override suspend fun readBytes(path: String): ByteArray {
@@ -16,6 +14,5 @@ private val DefaultAssetsReader = object : AssetsReader {
     }
 }
 
-fun GameEnvironment(context: PlatformContext): GameEnvironment {
-    return GameEnvironment(context, DefaultAssetsReader)
-}
+object GameHost: KGameHost(DefaultAssetsReader)
+

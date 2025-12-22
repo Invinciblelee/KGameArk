@@ -31,7 +31,6 @@ import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
-import com.kgame.engine.core.GameEnvironment
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.input.InputManager
@@ -47,12 +46,12 @@ import com.kgame.plugins.components.CharacterStats
 import com.kgame.plugins.components.CleanupTag
 import com.kgame.plugins.components.EnemyBulletTag
 import com.kgame.plugins.components.EnemyTag
+import com.kgame.plugins.components.ImageVisual
 import com.kgame.plugins.components.PlayerBulletTag
 import com.kgame.plugins.components.PlayerTag
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Scroller
-import com.kgame.plugins.components.ImageVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Visual
 import com.kgame.plugins.components.WorldBounds
@@ -261,12 +260,9 @@ private data object Menu
 private data object Battle
 
 @Composable
-fun AircraftWarDemo(environment: GameEnvironment) {
+fun AircraftWarDemo() {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
-    KGame(
-        environment = environment,
-        sceneStack = sceneStack
-    ) {
+    KGame(sceneStack = sceneStack) {
         scene<Menu> {
             onStart {
                 println("Enter")
@@ -287,10 +283,6 @@ fun AircraftWarDemo(environment: GameEnvironment) {
         }
 
         scene<Battle> {
-            resources {
-                +GameAssets.Image.Background
-            }
-
             world(configuration = {
                 systems {
                     // 1. 先收集玩家输入
@@ -343,6 +335,9 @@ fun AircraftWarDemo(environment: GameEnvironment) {
                 }
             }
 
+            onCreate {
+                load(GameAssets.Image.Background)
+            }
 
             onUpdate {
                 if (input.isKeyUp(Key.Escape)) sceneStack.pop()

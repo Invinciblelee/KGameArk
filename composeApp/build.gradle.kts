@@ -1,7 +1,6 @@
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -12,11 +11,7 @@ plugins {
 }
 
 kotlin {
-    androidTarget {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
-        }
-    }
+    androidTarget()
 
     listOf(
         iosX64(),
@@ -51,11 +46,12 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.ui.tooling.preview)
-            implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtime)
+            implementation(libs.androidx.lifecycle.common)
+            implementation(libs.androidx.lifecycle.viewmodel.navigation3)
             implementation(libs.kotlinx.coroutines.core)
 
-            implementation(project(":kgame-engine"))
+            implementation(project(":kgame"))
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
@@ -90,6 +86,7 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
+
     packaging {
         resources {
             excludes += listOf(
@@ -141,10 +138,6 @@ android {
     tasks.getByName("preBuild") {
         dependsOn("copyWasmAssets")
     }
-}
-
-dependencies {
-    debugImplementation(libs.compose.ui.tooling)
 }
 
 compose.desktop {

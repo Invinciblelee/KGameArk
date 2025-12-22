@@ -1,14 +1,10 @@
 package com.example.kgame
 
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.window.ComposeViewport
-import com.example.kgame.games.GameEnvironment
-import com.kgame.engine.core.PlatformContext
+import com.example.kgame.games.GameHost
 
 @OptIn(ExperimentalComposeUiApi::class)
-fun main() {
-    ComposeViewport {
-        App(GameEnvironment(PlatformContext))
-    }
+fun main() = GameHost {
+    App()
 }
 

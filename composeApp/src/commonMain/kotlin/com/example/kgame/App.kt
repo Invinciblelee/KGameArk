@@ -5,9 +5,7 @@ package com.example.kgame
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.kgame.games.collision.GameCollisionDemo
 import com.example.kgame.games.common.GameDemo
-import com.kgame.engine.core.GameEnvironment
 
 
 @Composable
@@ -15,8 +13,8 @@ expect fun AppTheme(content: @Composable () -> Unit)
 
 @Composable
 @Preview
-fun App(environment: GameEnvironment) {
+fun App() {
     AppTheme {
-        GameDemo(environment)
+        GameDemo()
     }
 }

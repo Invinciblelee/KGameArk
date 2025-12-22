@@ -3,9 +3,7 @@ package com.example.kgame
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import com.example.kgame.games.GameEnvironment
+import com.example.kgame.games.GameHost
 import com.example.kgame.ktor.plugins.installCallLogging
 import com.example.kgame.ktor.plugins.installContentNegotiation
 import com.example.kgame.ktor.plugins.installRouting
@@ -14,7 +12,6 @@ import com.example.kgame.utils.getDeviceIpAddress
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.jetty.jakarta.Jetty
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.MainScope
@@ -24,14 +21,10 @@ class MainActivity : ComponentActivity() {
 
     private val server = GameServer()
 
-    private val environment = GameEnvironment(this)
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-
-        setContent {
-            App(environment)
+        GameHost(this) {
+            App()
         }
     }
 

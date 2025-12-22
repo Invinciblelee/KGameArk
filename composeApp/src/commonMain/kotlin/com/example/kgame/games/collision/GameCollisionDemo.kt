@@ -16,7 +16,7 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
-import com.kgame.engine.core.GameEnvironment
+import com.kgame.ecs.configureWorld
 import com.kgame.engine.core.KSimpleGame
 import com.kgame.engine.math.random
 import com.kgame.engine.math.randomOffset
@@ -69,9 +69,8 @@ private class MovementSystem(
 private val EaseOutOvershoot = CubicBezierEasing(0.4f, 1.5f, 0.8f, 1.0f)
 
 @Composable
-fun GameCollisionDemo(environment: GameEnvironment) {
+fun GameCollisionDemo() {
     KSimpleGame(
-        environment = environment,
         modifier = Modifier.fillMaxSize(),
     ) {
         val anim = ScaleAnimation(
@@ -83,7 +82,7 @@ fun GameCollisionDemo(environment: GameEnvironment) {
             )
         )
 
-        val world = world(configuration = {
+        world(configuration = {
             systems {
                 +CollisionSystem()
                 +MovementSystem()
@@ -125,8 +124,8 @@ fun GameCollisionDemo(environment: GameEnvironment) {
             }
         }
 
-        resources {
-            +GameAssets.Atlas.Walk
+        onCreate {
+            load(GameAssets.Atlas.Walk)
         }
 
         val fpsCalculator = FpsCalculator()

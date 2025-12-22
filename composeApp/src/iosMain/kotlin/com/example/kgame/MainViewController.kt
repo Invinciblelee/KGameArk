@@ -1,12 +1,8 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package com.example.kgame
 
-import androidx.compose.ui.window.ComposeUIViewController
-import com.example.kgame.games.GameEnvironment
-import com.kgame.engine.core.PlatformContext
+import androidx.compose.ui.ExperimentalComposeUiApi
+import com.example.kgame.games.GameHost
 
-fun MainViewController() = ComposeUIViewController(
-    configure = {
-
-    }
-) { App(GameEnvironment(PlatformContext)) }
-
+fun MainViewController() = GameHost { App() }

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		C9CD48B879D1454B0F235707 /* CMP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CMP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9CD48B879D1454B0F235707 /* KGameArk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KGameArk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		57843FA93D39A0AF36A0BE82 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C9CD48B879D1454B0F235707 /* CMP.app */,
+				C9CD48B879D1454B0F235707 /* KGameArk.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = C9CD48B879D1454B0F235707 /* CMP.app */;
+			productReference = C9CD48B879D1454B0F235707 /* KGameArk.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

@@ -9,16 +9,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.text.TextPainter.paint
 import androidx.compose.ui.unit.dp
-import com.kgame.engine.core.GameEnvironment
 import com.kgame.engine.core.KSimpleGame
 import com.kgame.engine.ui.Rectangle
 
 @Composable
-fun SimpleGameDemo(environment: GameEnvironment) {
+fun SimpleGameDemo() {
     KSimpleGame(
-        environment = environment,
         modifier = Modifier.fillMaxSize(),
     ) {
         var color = Color.Red
@@ -29,9 +30,13 @@ fun SimpleGameDemo(environment: GameEnvironment) {
             }
         }
 
-        onRender { drawCircle(color, radius = 50f) }
+        onRender {
+            drawCircle(color, radius = 50f)
+        }
 
-        onBackgroundUI { Rectangle(Color.Blue) }
+        onBackgroundUI {
+            Rectangle(Color.Blue)
+        }
 
         onForegroundUI {
             Button(

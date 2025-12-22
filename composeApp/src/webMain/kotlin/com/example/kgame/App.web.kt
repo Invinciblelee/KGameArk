@@ -23,16 +23,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
-import kgame.composeapp.generated.resources.NotoSansSC_Black
-import kgame.composeapp.generated.resources.NotoSansSC_Bold
-import kgame.composeapp.generated.resources.NotoSansSC_ExtraBold
-import kgame.composeapp.generated.resources.NotoSansSC_ExtraLight
-import kgame.composeapp.generated.resources.NotoSansSC_Light
-import kgame.composeapp.generated.resources.NotoSansSC_Medium
-import kgame.composeapp.generated.resources.NotoSansSC_Regular
-import kgame.composeapp.generated.resources.NotoSansSC_SemiBold
-import kgame.composeapp.generated.resources.NotoSansSC_Thin
-import kgame.composeapp.generated.resources.Res
+import kgameark.composeapp.generated.resources.NotoSansSC_Black
+import kgameark.composeapp.generated.resources.NotoSansSC_Bold
+import kgameark.composeapp.generated.resources.NotoSansSC_ExtraBold
+import kgameark.composeapp.generated.resources.NotoSansSC_ExtraLight
+import kgameark.composeapp.generated.resources.NotoSansSC_Light
+import kgameark.composeapp.generated.resources.NotoSansSC_Medium
+import kgameark.composeapp.generated.resources.NotoSansSC_Regular
+import kgameark.composeapp.generated.resources.NotoSansSC_SemiBold
+import kgameark.composeapp.generated.resources.NotoSansSC_Thin
+import kgameark.composeapp.generated.resources.Res
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -51,10 +51,10 @@ actual fun AppTheme(content: @Composable () -> Unit) {
     AnimatedContent(
         targetState = fontFamily,
         transitionSpec = { fadeIn() togetherWith fadeOut() }
-    ) { ff ->
-        if (ff != null) {
+    ) { family ->
+        if (family != null) {
             MaterialExpressiveTheme(
-                typography = createTypography(ff),
+                typography = createTypography(family),
                 content = content
             )
         } else {
@@ -72,7 +72,7 @@ actual fun AppTheme(content: @Composable () -> Unit) {
 private suspend fun loadFontFamily(): FontFamily = coroutineScope {
     val environment = getSystemResourceEnvironment()
 
-    val fontResources = listOf(
+    val fontResources = mapOf(
         FontWeight.Thin to Res.font.NotoSansSC_Thin,
         FontWeight.ExtraLight to Res.font.NotoSansSC_ExtraLight,
         FontWeight.Light to Res.font.NotoSansSC_Light,

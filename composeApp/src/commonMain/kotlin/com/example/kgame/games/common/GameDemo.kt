@@ -45,11 +45,9 @@ import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
-import com.kgame.engine.core.GameEnvironment
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.input.InputManager
-import com.kgame.engine.math.random
 import com.kgame.engine.math.randomOffset
 import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.LocalWindowManager
@@ -59,13 +57,11 @@ import com.kgame.engine.ui.WindowHeader
 import com.kgame.engine.ui.applyJoypad
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.engine.utils.KeyTrigger
-import com.kgame.plugins.components.AlphaAnimation
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
-import com.kgame.plugins.components.Hitbox
 import com.kgame.plugins.components.Elasticity
-import com.kgame.plugins.components.InfiniteRepeatable
+import com.kgame.plugins.components.Hitbox
 import com.kgame.plugins.components.PolygonVisual
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
@@ -73,7 +69,6 @@ import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.Tween
 import com.kgame.plugins.components.Visual
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyImpulseFromSegment
@@ -151,9 +146,10 @@ private class SilkBounds(
     companion object : ComponentType<SilkBounds>()
 }
 
-private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color, size: Size) : Visual(size) {
+private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color, size: Size) :
+    Visual(size) {
 
-    private  val delegate = PolygonVisual(color, size, 8)
+    private val delegate = PolygonVisual(color, size, 8)
 
 
     override fun DrawScope.draw() {
@@ -556,18 +552,10 @@ private data class Battle(val value: String)
 private data class GameState(var score: Int)
 
 @Composable
-fun GameDemo(environment: GameEnvironment) {
+fun GameDemo() {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
-    KGame(
-        environment = environment,
-        sceneStack = sceneStack,
-    ) {
+    KGame(sceneStack = sceneStack) {
         scene<Menu> {
-            resources {
-                +GameAssets.Music.BGM
-                +GameAssets.Sound.Eat
-            }
-
             onUpdate {
                 if (input.isKeyDown(Key.Spacebar)) {
                     sceneStack.push(Battle("From Key Event"))
@@ -592,15 +580,7 @@ fun GameDemo(environment: GameEnvironment) {
         }
 
         scene<Battle> {
-            resources {
-                +GameAssets.Image.Player
-                +GameAssets.Sound.Eat
-                +GameAssets.Music.BGM
-                +GameAssets.Atlas.Walk
-                +GameAssets.TiledMap.Example
-            }
-
-           world(configuration = {
+            world(configuration = {
                 injectables {
                     +GameState(0)
                 }
@@ -631,7 +611,13 @@ fun GameDemo(environment: GameEnvironment) {
                     +PlayerTag()
                     +SpriteAnimation("run")
                     +Hitbox(Rect(left = -15f, top = -10f, right = 15f, bottom = 25f))
-                    +Renderable(SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(50f, 50f)), zIndex = 1)
+                    +Renderable(
+                        SpriteVisual(
+                            assets[GameAssets.Atlas.Walk],
+                            "frame_0_0",
+                            size = Size(50f, 50f)
+                        ), zIndex = 1
+                    )
                 }
 
                 entity {
@@ -686,7 +672,16 @@ fun GameDemo(environment: GameEnvironment) {
 //                }
             }
 
+
             onCreate {
+                load(
+                    GameAssets.Image.Player,
+                    GameAssets.Sound.Eat,
+                    GameAssets.Music.BGM,
+                    GameAssets.Atlas.Walk,
+                    GameAssets.TiledMap.Example
+                )
+
 //                RenderSystem.isDebugging = true
                 TiledMapRenderSystem.isDebugging = true
             }
@@ -767,7 +762,7 @@ fun GameDemo(environment: GameEnvironment) {
     }
 }
 
-private class TestWindow(): Window(400.dp, 300.dp) {
+private class TestWindow() : Window(200.dp, 200.dp) {
 
     private var text by mutableStateOf("")
 

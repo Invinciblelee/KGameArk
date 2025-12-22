@@ -1,6 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
-rootProject.name = "KGame"
+rootProject.name = "KGameArk"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
@@ -35,4 +35,4 @@ plugins {
 }
 
 include(":composeApp")
-include(":kgame-engine")
+include(":kgame")

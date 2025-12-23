@@ -581,10 +581,6 @@ fun GameDemo() {
         scene<Battle> {
             world {
                 configure {
-                    families {
-
-                    }
-
                     systems {
                         +PlayerControlSystem()
                         +SilkControlSystem()

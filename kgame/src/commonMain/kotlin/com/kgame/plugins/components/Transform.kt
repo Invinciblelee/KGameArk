@@ -19,6 +19,8 @@ data class Transform(
 ) : Component<Transform> {
     override fun type() = Transform
     companion object : ComponentType<Transform>()
+
+    var flags: Int = 0
 }
 
 /**

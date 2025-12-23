@@ -102,17 +102,28 @@ class TiledMapCollisionSystem : IntervalSystem() {
         pos: Offset,
         points: List<Offset>
     ) {
+        /* ---------- 0 GC 区域 ---------- */
         val count = points.size - 1
-        val halfWidth = entityBounds.width * 0.5f
+        if (count <= 0) return
 
-        val entCenterX = entityBounds.center.x
-        val entCenterY = entityBounds.center.y
-        val entBottom = entityBounds.bottom
+        val halfW   = entityBounds.width  * 0.5f
+        val entL    = entityBounds.left
+        val entR    = entityBounds.right
+        val entB    = entityBounds.bottom
+        val entCx   = entityBounds.center.x
+        val entCy   = entityBounds.center.y
 
-        var index = 0
-        while (index < count) {
-            val p1 = points[index++]
-            val p2 = points[index]
+        // 1. 整段走向：用首末点 x 差判断“主方向”
+        val overallDx = points[count].x - points[0].x
+        val overallLeft = overallDx < 0f        // true 表示整段向左上坡
+
+        // 2. 地板/阶梯：水平主段，允许 -4~+4px 抬起
+        var onFloor = false
+        var i = 0
+        while (i < count) {
+            val p1 = points[i]
+            val p2 = points[i + 1]
+            i++
 
             val x1 = p1.x + pos.x
             val y1 = p1.y + pos.y
@@ -121,51 +132,78 @@ class TiledMapCollisionSystem : IntervalSystem() {
 
             val dx = x2 - x1
             val dy = y2 - y1
-            val absDx = if (dx < 0f) -dx else dx
-            val absDy = if (dy < 0f) -dy else dy
+            val adx = if (dx >= 0f) dx else -dx
+            val ady = if (dy >= 0f) dy else -dy
+            if (ady > adx) continue
 
-            // 1. Vertical Resolution (Floor Snapping)
-            val minX = min(x1, x2); val maxX = max(x1, x2)
+            val minX = if (x1 < x2) x1 else x2
+            val maxX = if (x1 > x2) x1 else x2
+            if (entCx < minX || entCx > maxX) continue
 
-            if (entCenterX >= minX && entCenterX <= maxX) {
-                val t = if (absDx < 0.001f) 0.5f else (entCenterX - x1) / dx
-                val surfaceY = y1 + t * dy
-
-                // Flattened nested if
-                if (entBottom >= surfaceY && entBottom - 10f < surfaceY && absDx >= absDy) {
-                    transform.offset(y = surfaceY - entBottom)
-                    entityBounds.set(transform, hitbox.rect)
-                }
-            }
-
-            // 2. Horizontal Resolution (Wall Blocking)
-            val minY = min(y1, y2); val maxY = max(y1, y2)
-
-            // Use Guard Clauses to flatten the structure
-            if (absDy <= absDx) continue
-            if (entCenterY < minY || entCenterY > maxY) continue
-
-            val ty = (entCenterY - y1) / dy // absDy > absDx ensures dy != 0
-            val surfaceX = x1 + ty * dx
-
-            // Calculate currentXSurfaceY for the Gate check
-            val txGate = if (absDx < 0.001f) 0.5f else (entCenterX - x1) / dx
-            val currentXSurfaceY = y1 + txGate * dy
-
-            if (entBottom > currentXSurfaceY + 5f) continue
-
-            val dist = entCenterX - surfaceX
-            val absDist = if (dist < 0f) -dist else dist
-
-            if (absDist < halfWidth) {
-                if (entCenterX < surfaceX) {
-                    transform.offset(x = surfaceX - entityBounds.right)
-                } else {
-                    transform.offset(x = surfaceX - entityBounds.left)
-                }
-                entityBounds.set(transform, hitbox.rect)
+            val t  = if (adx < 0.0001f) 0.5f else (entCx - x1) / dx
+            val surfY = y1 + t * dy
+            val lift = surfY - entB
+            if (lift >= -4f && lift <= 4f) {
+                transform.offset(y = lift)
+                onFloor = true
             }
         }
+
+        // 3. 墙体：按“本段 dx 符号”决定挡哪一侧，只挡最近的一段
+        var bestDist = 0x7FFFFFFF
+        var bestSurfX = 0f
+        var bestLeft  = true
+
+        i = 0
+        while (i < count) {
+            val p1 = points[i]
+            val p2 = points[i + 1]
+            i++
+
+            val x1 = p1.x + pos.x
+            val y1 = p1.y + pos.y
+            val x2 = p2.x + pos.x
+            val y2 = p2.y + pos.y
+
+            val dx = x2 - x1
+            val dy = y2 - y1
+            val adx = if (dx >= 0f) dx else -dx
+            val ady = if (dy >= 0f) dy else -dy
+            if (adx <= ady) continue
+
+            val minY = if (y1 < y2) y1 else y2
+            val maxY = if (y1 > y2) y1 else y2
+            if (entCy < minY || entCy > maxY) continue
+
+            val ty = (entCy - y1) / dy
+            val surfX = x1 + ty * dx
+
+            val dxi = ((entCx - surfX) * 256f).toInt()
+            val absDxi = if (dxi >= 0) dxi else -dxi
+            val halfWi = (halfW * 256f).toInt()
+            if (absDxi >= halfWi) continue
+
+            // 关键：用“本段 dx”决定挡哪一侧
+            val wallLeft = dxi > 0
+            val match = if (dx < 0f) wallLeft else !wallLeft   // ← 向左段挡左，向右段挡右
+            if (!match) continue
+
+            if (absDxi < bestDist) {
+                bestDist  = absDxi
+                bestSurfX = surfX
+                bestLeft  = wallLeft
+            }
+        }
+
+        if (bestDist != 0x7FFFFFFF) {
+            if (bestLeft) transform.offset(x = bestSurfX - entR)
+            else          transform.offset(x = bestSurfX - entL)
+        }
+
+        // 4. 写回贴地标志（第 0 位）
+        transform.flags = transform.flags and 1.inv() or (if (onFloor) 1 else 0)
+
+        entityBounds.set(transform, hitbox.rect)
     }
 
 

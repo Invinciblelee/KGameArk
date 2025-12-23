@@ -56,7 +56,6 @@ import com.kgame.engine.ui.Window
 import com.kgame.engine.ui.WindowHeader
 import com.kgame.engine.ui.applyJoypad
 import com.kgame.engine.utils.FpsCalculator
-import com.kgame.engine.utils.KeyTrigger
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
@@ -501,7 +500,7 @@ private class PlayerControlSystem(
 
     override fun onTick(deltaTime: Float) {
         super.onTick(deltaTime)
-        KeyTrigger.check(input, Key.Six) {
+        if (input.isKeyJustPressed(Key.Six)) {
             currentCamera = if (currentCamera == "player") {
                 cameraService.director.switchCameraSmoothly("enemy")
                 "enemy"
@@ -510,7 +509,7 @@ private class PlayerControlSystem(
                 "player"
             }
         }
-        KeyTrigger.check(input, Key.Seven) {
+        if (input.isKeyJustPressed(Key.Seven)) {
             cameraService.director.shake(1f)
         }
     }
@@ -580,6 +579,86 @@ fun GameDemo() {
         }
 
         scene<Battle> {
+            world {
+                configure {
+                    assets[GameAssets.Atlas.Walk]
+                }
+
+                spawn {
+                    val worldBounds = Rect(-640f, -600f, 640f, 600f)
+
+                    entity {
+                        +WorldBounds(worldBounds)
+                        +TiledMap(assets[GameAssets.TiledMap.Example])
+                    }
+
+                    val player = entity {
+                        +Transform(position = Offset(0f, -100f))
+                        +PlayerTag()
+                        +SpriteAnimation("run")
+                        +Hitbox(Rect(left = -15f, top = -10f, right = 15f, bottom = 25f))
+                        +Renderable(
+                            SpriteVisual(
+                                assets[GameAssets.Atlas.Walk],
+                                "frame_0_0",
+                                size = Size(50f, 50f)
+                            ), zIndex = 1
+                        )
+                    }
+
+                    entity {
+                        +Transform(position = Offset(0f, -100f))
+                        +Elasticity(stiffness = 80f, damping = 10f)
+                        +RigidBody()
+                        +CameraTarget(player)
+                        +CameraShake()
+                        +Camera("player", isMain = true, bounds = worldBounds)
+                    }
+
+                    entity {
+                        val silk = SilkComponent(WuXing.Water)
+                        +Transform()
+                        +silk
+                        +Renderable(SilkVisual(silk), zIndex = 2)
+                        +SilkBounds()
+                    }
+
+                    val enemy = entity {
+                        +Transform(worldBounds.randomOffset())
+                        +RigidBody()
+                        +EnemyTag()
+                        +Renderable(EnemyVisual(EnemyTag(), color = Color.Green, size = Size(50f, 50f)))
+                    }
+
+                    entity {
+                        +Transform()
+                        +Elasticity(stiffness = 80f, damping = 10f)
+                        +RigidBody()
+                        +CameraTarget(enemy)
+                        +CameraShake()
+                        +Camera("enemy")
+                    }
+
+//                entities(100) {
+//                    val velX = (-40f..40f).random()
+//                    val velY = (-40f..40f).random()
+//                    val mass = 1f + Random.nextFloat()
+//
+//                    val enemyInstance = EnemyTag()
+//                    val size = (25f..50f).random()
+//                    +Transform(worldBounds.randomOffset())
+//                    +RigidBody(Offset(velX, velY), mass = mass)
+//                    +AlphaAnimation(
+//                        from = 0f,
+//                        to = 1f,
+//                        spec = InfiniteRepeatable(Tween())
+//                    )
+//                    +enemyInstance
+//                    +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
+//                }
+                }
+            }
+
             world(configuration = {
                 injectables {
                     +GameState(0)
@@ -599,77 +678,7 @@ fun GameDemo() {
                     +RenderSystem()
                 }
             }) {
-                val worldBounds = Rect(-640f, -600f, 640f, 600f)
 
-                entity {
-                    +WorldBounds(worldBounds)
-                    +TiledMap(assets[GameAssets.TiledMap.Example])
-                }
-
-                val player = entity {
-                    +Transform(position = Offset(0f, -100f))
-                    +PlayerTag()
-                    +SpriteAnimation("run")
-                    +Hitbox(Rect(left = -15f, top = -10f, right = 15f, bottom = 25f))
-                    +Renderable(
-                        SpriteVisual(
-                            assets[GameAssets.Atlas.Walk],
-                            "frame_0_0",
-                            size = Size(50f, 50f)
-                        ), zIndex = 1
-                    )
-                }
-
-                entity {
-                    +Transform(position = Offset(0f, -100f))
-                    +Elasticity(stiffness = 80f, damping = 10f)
-                    +RigidBody()
-                    +CameraTarget(player)
-                    +CameraShake()
-                    +Camera("player", isMain = true, bounds = worldBounds)
-                }
-
-                entity {
-                    val silk = SilkComponent(WuXing.Water)
-                    +Transform()
-                    +silk
-                    +Renderable(SilkVisual(silk), zIndex = 2)
-                    +SilkBounds()
-                }
-
-                val enemy = entity {
-                    +Transform(worldBounds.randomOffset())
-                    +RigidBody()
-                    +EnemyTag()
-                    +Renderable(EnemyVisual(EnemyTag(), color = Color.Green, size = Size(50f, 50f)))
-                }
-
-                entity {
-                    +Transform()
-                    +Elasticity(stiffness = 80f, damping = 10f)
-                    +RigidBody()
-                    +CameraTarget(enemy)
-                    +CameraShake()
-                    +Camera("enemy")
-                }
-
-//                entities(100) {
-//                    val velX = (-40f..40f).random()
-//                    val velY = (-40f..40f).random()
-//                    val mass = 1f + Random.nextFloat()
-//
-//                    val enemyInstance = EnemyTag()
-//                    val size = (25f..50f).random()
-//                    +Transform(worldBounds.randomOffset())
-//                    +RigidBody(Offset(velX, velY), mass = mass)
-//                    +AlphaAnimation(
-//                        from = 0f,
-//                        to = 1f,
-//                        spec = InfiniteRepeatable(Tween())
-//                    )
-//                    +enemyInstance
-//                    +Renderable(EnemyVisual(enemyInstance, color = Color.random(), size = Size(size, size)))
-//                }
             }
 
 
@@ -697,7 +706,7 @@ fun GameDemo() {
             }
 
             onUpdate {
-                if (input.isKeyUp(Key.Escape) || input.isKeyUp(Key.Back)) {
+                if (input.isKeyJustReleased(Key.Escape) || input.isKeyJustReleased(Key.Back)) {
                     sceneStack.pop()
                 }
             }

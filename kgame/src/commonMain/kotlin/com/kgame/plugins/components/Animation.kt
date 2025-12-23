@@ -37,7 +37,7 @@ data class Tween(
  * @param repeatMode Repeat mode of the animation.
  */
 data class InfiniteRepeatable(
-    val animation: Tween,
+    val animation: Tween = Tween(),
     val repeatMode: RepeatMode = RepeatMode.Restart
 ) : AnimationSpec
 

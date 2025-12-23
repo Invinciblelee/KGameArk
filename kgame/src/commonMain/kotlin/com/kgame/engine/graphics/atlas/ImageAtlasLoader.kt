@@ -6,11 +6,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import com.kgame.engine.asset.AssetsReader
-import com.kgame.engine.utils.getBoolean
-import com.kgame.engine.utils.getFloat
-import com.kgame.engine.utils.getInt
-import com.kgame.engine.utils.getObject
-import com.kgame.engine.utils.getString
+import com.kgame.engine.utils.internal.getBoolean
+import com.kgame.engine.utils.internal.getFloat
+import com.kgame.engine.utils.internal.getInt
+import com.kgame.engine.utils.internal.getObject
+import com.kgame.engine.utils.internal.getString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray

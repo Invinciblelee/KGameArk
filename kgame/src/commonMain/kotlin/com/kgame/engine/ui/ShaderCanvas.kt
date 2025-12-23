@@ -20,6 +20,23 @@ import com.kgame.engine.math.round
 import kotlinx.coroutines.isActive
 
 @Composable
+fun ShaderCanvas(
+    shader: Shader,
+    modifier: Modifier = Modifier,
+    onDraw: DrawScope.(Brush) -> Unit,
+) {
+    val shaderEffect = remember(shader) { ShaderEffect(shader) }
+
+    Canvas(modifier.onSizeChanged {
+        shaderEffect.updateResolution(it.toSize())
+    }) {
+        if (shaderEffect.ready) {
+            onDraw(shaderEffect.obtain())
+        }
+    }
+}
+
+@Composable
 fun ActiveShaderCanvas(
     shader: Shader,
     speed: Float = 1f,
@@ -60,23 +77,6 @@ fun ActiveShaderCanvas(
     }) {
         redrawSignal
 
-        if (shaderEffect.ready) {
-            onDraw(shaderEffect.obtain())
-        }
-    }
-}
-
-@Composable
-fun StaticShaderCanvas(
-    shader: Shader,
-    modifier: Modifier = Modifier,
-    onDraw: DrawScope.(Brush) -> Unit,
-) {
-    val shaderEffect = remember(shader) { ShaderEffect(shader) }
-
-    Canvas(modifier.onSizeChanged {
-        shaderEffect.updateResolution(it.toSize())
-    }) {
         if (shaderEffect.ready) {
             onDraw(shaderEffect.obtain())
         }

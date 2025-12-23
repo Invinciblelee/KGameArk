@@ -1,5 +1,7 @@
 package com.kgame.ecs
 
+import kotlin.reflect.KClass
+
 /**
  * DSL marker for the [WorldConfiguration].
  */
@@ -32,11 +34,18 @@ class InjectableConfiguration(private val world: World) {
     }
 
     /**
+     * Adds the specified [dependency] which can then be injected via [World.inject].
+     */
+    fun <T: Any> add(dependency: T) {
+        add(dependency::class.simpleName ?: dependency::class.toString(), dependency)
+    }
+
+    /**
      * Adds the specified [dependency][T]
      *
      * @see add
      */
-    inline operator fun <reified T: Any> T.unaryPlus() = add(T::class.simpleName ?: T::class.toString(), this)
+    inline operator fun <reified T: Any> T.unaryPlus() = add(this)
 
 }
 
@@ -53,11 +62,51 @@ class SystemConfiguration(
      *
      * @throws [FleksSystemAlreadyAddedException] if the system was already added before.
      */
-    private fun <T : IntervalSystem> add(system: T) {
+    fun <T : IntervalSystem> add(system: T) {
         if (systems.any { it::class == system::class }) {
             throw FleksSystemAlreadyAddedException(system::class)
         }
         systems += system
+    }
+
+    /**
+     * Adds the [system] to the [world][World] and places it before the [target] system.
+     * If the [target] system is not found, the [system] will be added to the end.
+     *
+     * @see add
+     * @throws [FleksSystemAlreadyAddedException] if the [system] was already added before.
+     */
+    fun <T : IntervalSystem> addBefore(target: KClass<out IntervalSystem>, system: T) {
+        if (systems.any { it::class == system::class }) {
+            throw FleksSystemAlreadyAddedException(system::class)
+        }
+
+        val index = systems.indexOfFirst { it::class == target }
+        if (index != -1) {
+            systems.add(index, system)
+        } else {
+            systems += system
+        }
+    }
+
+    /**
+     * Adds the [system] to the [world][World] and places it after the [target] system.
+     * If the [target] system is not found, the [system] will be added to the end.
+     *
+     * @see add
+     * @throws [FleksSystemAlreadyAddedException] if the [system] was already added before.
+     */
+    fun <T : IntervalSystem> addAfter(target: KClass<out IntervalSystem>, system: T) {
+        if (systems.any { it::class == system::class }) {
+            throw FleksSystemAlreadyAddedException(system::class)
+        }
+
+        val index = systems.indexOfFirst { it::class == target }
+        if (index != -1) {
+            systems.add(index + 1, system)
+        } else {
+            systems += system
+        }
     }
 
     /**
@@ -66,7 +115,6 @@ class SystemConfiguration(
      * @see add
      */
     operator fun <T : IntervalSystem> T.unaryPlus() = add(this)
-
 }
 
 /**
@@ -116,14 +164,9 @@ class FamilyConfiguration(
 @WorldCfgMarker
 class WorldConfiguration(@PublishedApi internal val world: World) {
 
-    private var internalInjectableCfg: (InjectableConfiguration.() -> Unit)? = null
     private var injectableCfg: (InjectableConfiguration.() -> Unit)? = null
     private var familyCfg: (FamilyConfiguration.() -> Unit)? = null
     private var systemCfg: (SystemConfiguration.() -> Unit)? = null
-
-    internal fun internalInjectables(cfg: InjectableConfiguration.() -> Unit) {
-        internalInjectableCfg = cfg
-    }
 
     fun injectables(cfg: InjectableConfiguration.() -> Unit) {
         injectableCfg = cfg
@@ -172,7 +215,6 @@ class WorldConfiguration(@PublishedApi internal val world: World) {
      * The order is important to correctly trigger [FamilyHook]s and [EntityHook]s.
      */
     fun configure() {
-        internalInjectableCfg?.invoke(InjectableConfiguration(world))
         injectableCfg?.invoke(InjectableConfiguration(world))
         familyCfg?.invoke(FamilyConfiguration(world))
         SystemConfiguration(world.mutableSystems).also {

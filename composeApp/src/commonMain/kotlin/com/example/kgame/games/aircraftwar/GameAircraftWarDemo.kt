@@ -260,7 +260,7 @@ private data object Menu
 private data object Battle
 
 @Composable
-fun AircraftWarDemo() {
+fun GameAircraftWarDemo() {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
     KGame(sceneStack = sceneStack) {
         scene<Menu> {
@@ -340,7 +340,7 @@ fun AircraftWarDemo() {
             }
 
             onUpdate {
-                if (input.isKeyUp(Key.Escape)) sceneStack.pop()
+                if (input.isKeyJustPressed(Key.Escape)) sceneStack.pop()
             }
 
             onForegroundUI {

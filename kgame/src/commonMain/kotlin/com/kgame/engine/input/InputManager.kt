@@ -34,9 +34,10 @@ interface InputManager {
     fun onPointerEnd()
 
     fun isKeyDown(key: Key): Boolean
-    fun isKeyUp(key: Key): Boolean
 
-    fun isKeyPressed(key: Key): Boolean
+    fun isKeyJustPressed(key: Key): Boolean
+
+    fun isKeyJustReleased(key: Key): Boolean
 
     fun getAxis(positive: Key, negative: Key): Float
     fun endFrame()
@@ -108,14 +109,14 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         return (state and MASK_IS_DOWN) != 0L
     }
 
-    override fun isKeyUp(key: Key): Boolean {
-        val state = keyStates.getOrDefault(key.keyCode, 0L)
-        return (state and MASK_WAS_DOWN) != 0L && (state and MASK_IS_DOWN) == 0L
-    }
-
-    override fun isKeyPressed(key: Key): Boolean {
+    override fun isKeyJustPressed(key: Key): Boolean {
         val state = keyStates.getOrDefault(key.keyCode, 0L)
         return (state and MASK_WAS_DOWN) == 0L && (state and MASK_IS_DOWN) != 0L
+    }
+
+    override fun isKeyJustReleased(key: Key): Boolean {
+        val state = keyStates.getOrDefault(key.keyCode, 0L)
+        return (state and MASK_WAS_DOWN) != 0L && (state and MASK_IS_DOWN) == 0L
     }
 
     override fun getAxis(positive: Key, negative: Key): Float {

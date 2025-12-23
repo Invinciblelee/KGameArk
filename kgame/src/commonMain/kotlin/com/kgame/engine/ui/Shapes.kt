@@ -30,9 +30,9 @@ fun Circle(brush: Brush, radius: Dp = Dp.Unspecified, modifier: Modifier = Modif
 }
 
 @Composable
-fun StaticCircle(shader: Shader, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
+fun Circle(shader: Shader, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
-    StaticShaderCanvas(shader, modifier.then(sizeModifier)) {
+    ShaderCanvas(shader, modifier.then(sizeModifier)) {
         drawCircle(it)
     }
 }
@@ -76,7 +76,7 @@ fun Rectangle(brush: Brush, size: DpSize = DpSize.Unspecified, modifier: Modifie
 @Composable
 fun Rectangle(shader: Shader, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
-    StaticShaderCanvas(shader, modifier.then(sizeModifier)) {
+    ShaderCanvas(shader, modifier.then(sizeModifier)) {
         drawRect(it)
     }
 }

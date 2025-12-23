@@ -3,13 +3,13 @@ package com.kgame.engine.dsl
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.kgame.ecs.World
-import com.kgame.ecs.WorldConfiguration
+import com.kgame.ecs.WorldCfgMarker
 import com.kgame.engine.core.AssetsScope
 import com.kgame.engine.core.GameEngine
 import com.kgame.engine.core.GameScene
 import com.kgame.engine.core.GameScope
 import com.kgame.engine.core.GameWorld
+import com.kgame.engine.core.GameWorldBuilder
 
 @GameDslMarker
 class SceneBuilderScope<T: Any>(
@@ -31,16 +31,9 @@ class SceneBuilderScope<T: Any>(
 
     fun world(
         capacity: Int = 1024,
-        configuration: WorldConfiguration.() -> Unit,
-        initWorld: World.() -> Unit
+        builder: GameWorldBuilder.() -> Unit
     ) {
-        val world = GameWorld(
-            engine,
-            capacity,
-            configuration,
-            initWorld
-        )
-        this.world = world
+        world = GameWorldBuilder(engine, capacity).apply(builder).build()
     }
 
     fun onCreate(block: suspend AssetsScope.() -> Unit) {

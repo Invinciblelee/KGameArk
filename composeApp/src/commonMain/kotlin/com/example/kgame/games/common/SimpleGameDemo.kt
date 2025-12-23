@@ -8,39 +8,59 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.text.TextPainter.paint
 import androidx.compose.ui.unit.dp
+import com.example.kgame.games.shader.BlueSky
 import com.kgame.engine.core.KSimpleGame
-import com.kgame.engine.ui.Rectangle
+import com.kgame.engine.ui.ActiveRectangle
+import com.kgame.plugins.components.CircleVisual
+import com.kgame.plugins.components.InfiniteRepeatable
+import com.kgame.plugins.components.Renderable
+import com.kgame.plugins.components.RigidBody
+import com.kgame.plugins.components.ScaleAnimation
+import com.kgame.plugins.components.Transform
+import com.kgame.plugins.systems.AnimationSystem
+import com.kgame.plugins.systems.AnimationTickSystem
+import com.kgame.plugins.systems.RenderSystem
 
 @Composable
 fun SimpleGameDemo() {
     KSimpleGame(
         modifier = Modifier.fillMaxSize(),
     ) {
-        var color = Color.Red
+        val circleVisual = CircleVisual(color = Color.Red, size = 100f)
 
-        onUpdate {
-            if (input.isKeyDown(Key.Spacebar)) {
-                color = if (color == Color.Red) Color.Yellow else Color.Red
+        world(configuration = {
+            systems {
+                +AnimationTickSystem()
+                +AnimationSystem()
+                +RenderSystem()
+            }
+        }) {
+            entity {
+                +Transform()
+                +RigidBody(velocity = Offset(10f, 0f))
+                +ScaleAnimation(from = 1f, to = 2f, spec = InfiniteRepeatable())
+                +Renderable(visual = circleVisual)
             }
         }
 
-        onRender {
-            drawCircle(color, radius = 50f)
+        onUpdate {
+            if (input.isKeyJustPressed(Key.Spacebar)) {
+                circleVisual.color =
+                    if (circleVisual.color == Color.Red) Color.Yellow else Color.Red
+            }
         }
 
         onBackgroundUI {
-            Rectangle(Color.Blue)
+            ActiveRectangle(BlueSky())
         }
 
         onForegroundUI {
             Button(
-                onClick = {} ,
+                onClick = {},
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
             ) {
                 Text(

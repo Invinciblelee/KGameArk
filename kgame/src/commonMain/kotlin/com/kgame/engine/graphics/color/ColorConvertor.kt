@@ -1,10 +1,9 @@
-package com.kgame.engine.utils
+package com.kgame.engine.graphics.color
 
 import androidx.compose.ui.graphics.Color
 
-fun Color(hex: String, defaultColor: Color? = null): Color {
+fun Color(hex: String, fallbackColor: Color? = null): Color {
     val cleanHex = hex.removePrefix("#")
-
     return try {
         when (cleanHex.length) {
             6 -> { // RRGGBB
@@ -25,6 +24,6 @@ fun Color(hex: String, defaultColor: Color? = null): Color {
             else -> throw IllegalArgumentException("Unsupported hex color: $hex")
         }
     } catch (e: Exception) {
-        defaultColor ?: throw e
+        fallbackColor ?: throw e
     }
 }

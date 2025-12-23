@@ -1,4 +1,4 @@
-package com.kgame.engine.utils
+package com.kgame.engine.utils.internal
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -11,34 +11,34 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 
-fun JsonObject.getString(key: String): String {
+internal fun JsonObject.getString(key: String): String {
     return this.getValue(key).jsonPrimitive.content
 }
 
-fun JsonObject.getInt(key: String): Int {
+internal fun JsonObject.getInt(key: String): Int {
     return this.getValue(key).jsonPrimitive.int
 }
 
-fun JsonObject.getLong(key: String): Long {
+internal fun JsonObject.getLong(key: String): Long {
     return this.getValue(key).jsonPrimitive.long
 }
 
-fun JsonObject.getFloat(key: String): Float {
+internal fun JsonObject.getFloat(key: String): Float {
     return this.getValue(key).jsonPrimitive.float
 }
 
-fun JsonObject.getDouble(key: String): Double {
+internal fun JsonObject.getDouble(key: String): Double {
     return this.getValue(key).jsonPrimitive.double
 }
 
-fun JsonObject.getBoolean(key: String): Boolean {
+internal fun JsonObject.getBoolean(key: String): Boolean {
     return this.getValue(key).jsonPrimitive.boolean
 }
 
-fun JsonObject.getArray(key: String): JsonArray {
+internal fun JsonObject.getArray(key: String): JsonArray {
     return this.getValue(key).jsonArray
 }
 
-fun JsonObject.getObject(key: String): JsonObject {
+internal fun JsonObject.getObject(key: String): JsonObject {
     return this.getValue(key).jsonObject
 }

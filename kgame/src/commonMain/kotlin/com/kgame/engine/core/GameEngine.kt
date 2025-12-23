@@ -17,7 +17,7 @@ import com.kgame.engine.geometry.DefaultResolutionManager
 import com.kgame.engine.geometry.ResolutionManager
 import com.kgame.engine.input.DefaultInputManager
 import com.kgame.engine.input.InputManager
-import com.kgame.engine.utils.Disposable
+import com.kgame.engine.utils.internal.Disposable
 import com.kgame.platform.PlatformContext
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.currentCoroutineContext

@@ -283,55 +283,59 @@ fun GameAircraftWarDemo() {
         }
 
         scene<Battle> {
-            world(configuration = {
-                systems {
-                    // 1. 先收集玩家输入
-                    +AircraftControlSystem()
+            world {
+                configure {
+                    systems {
+                        // 1. 先收集玩家输入
+                        +AircraftControlSystem()
 
-                    // 2. 物理/边界结算（真正改变 Transform）
-                    +PhysicsSystem(gravity = Offset.Zero)
-                    +BoundarySystem()
+                        // 2. 物理/边界结算（真正改变 Transform）
+                        +PhysicsSystem(gravity = Offset.Zero)
+                        +BoundarySystem()
 
-                    // 3. 游戏逻辑
-                    +EnemySpawnSystem()
-                    +EnemyWeaponSystem()
-                    +CollisionSystem()
-                    +CleanupSystem()
+                        // 3. 游戏逻辑
+                        +EnemySpawnSystem()
+                        +EnemyWeaponSystem()
+                        +CollisionSystem()
+                        +CleanupSystem()
 
-                    // 4. 摄像机必须在“所有位移”完成之后
-                    +CameraSystem()
+                        // 4. 摄像机必须在“所有位移”完成之后
+                        +CameraSystem()
 
-                    +ScrollerDriveSystem()
-                    +ScrollerRenderSystem()
+                        +ScrollerDriveSystem()
+                        +ScrollerRenderSystem()
 
-                    // 5. 最后才画
-                    +RenderSystem()
-                }
-            }) {
-                val worldBounds = Rect(-400f, -400f, 400f, 300f)
-
-                entity {
-                    val image = assets[GameAssets.Image.Background]
-                    +Transform()
-                    +Scroller(speed = -120f, axis = Axis.Y)
-                    +Renderable(ImageVisual(image), zIndex = -100)
+                        // 5. 最后才画
+                        +RenderSystem()
+                    }
                 }
 
-                // 1. 玩家实体
-                val player = entity {
-                    +Transform()
-                    +PlayerTag
-                    +CharacterStats(maxHp = 100f)
-                    +WeaponComponent(cooldown = 0.2f)
-                    +Renderable(PlayerVisual())
-                }
+                spawn {
+                    val worldBounds = Rect(-400f, -400f, 400f, 300f)
 
-                entity {
-                    +Transform()
-                    +WorldBounds(worldBounds)
-                    +CameraTarget(player)
-                    +CameraShake()
-                    +Camera("player", isMain = true, isTracking = false)
+                    entity {
+                        val image = assets[GameAssets.Image.Background]
+                        +Transform()
+                        +Scroller(speed = -120f, axis = Axis.Y)
+                        +Renderable(ImageVisual(image), zIndex = -100)
+                    }
+
+                    // 1. 玩家实体
+                    val player = entity {
+                        +Transform()
+                        +PlayerTag
+                        +CharacterStats(maxHp = 100f)
+                        +WeaponComponent(cooldown = 0.2f)
+                        +Renderable(PlayerVisual())
+                    }
+
+                    entity {
+                        +Transform()
+                        +WorldBounds(worldBounds)
+                        +CameraTarget(player)
+                        +CameraShake()
+                        +Camera("player", isMain = true, isTracking = false)
+                    }
                 }
             }
 

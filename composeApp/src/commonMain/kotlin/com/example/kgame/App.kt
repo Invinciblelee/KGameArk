@@ -16,6 +16,6 @@ expect fun AppTheme(content: @Composable () -> Unit)
 @Preview
 fun App() {
     AppTheme {
-        SimpleGameDemo()
+        GameDemo()
     }
 }

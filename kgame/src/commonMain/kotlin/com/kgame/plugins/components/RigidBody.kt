@@ -90,6 +90,9 @@ data class Wander(
  * @param force The force to add.
  */
 fun RigidBody.applyForce(force: Offset) {
+    if (this.mass <= 0f) {
+        return
+    }
     this.acceleration += force / this.mass
 }
 

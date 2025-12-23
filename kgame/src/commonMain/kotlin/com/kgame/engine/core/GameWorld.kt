@@ -25,9 +25,7 @@ internal class GameWorld(
     private var instance: World? = null
 
     private fun ensureWorld(): World {
-        return instance ?: configureWorld(entityCapacity) {
-            configuration()
-        }.also { instance = it }
+        return instance ?: configureWorld(entityCapacity, configuration).also { instance = it }
     }
 
     fun init() {
@@ -83,11 +81,8 @@ class GameWorldBuilder(
                 +scope.assets
                 +scope.resolution
                 +scope.textMeasurer
-
-                if (useDefaultSystems) {
-                    +CameraService(scope.resolution)
-                    +AnimationService()
-                }
+                +CameraService(scope.resolution)
+                +AnimationService()
             }
 
             if (useDefaultSystems) {
@@ -97,8 +92,8 @@ class GameWorldBuilder(
                     +TiledMapCollisionSystem()
                     +AnimationTickSystem()
                     +AnimationSystem()
-                    +TiledMapRenderSystem()
                     +CameraSystem()
+                    +TiledMapRenderSystem()
                     +RenderSystem()
                 }
             }

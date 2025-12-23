@@ -581,7 +581,24 @@ fun GameDemo() {
         scene<Battle> {
             world {
                 configure {
-                    assets[GameAssets.Atlas.Walk]
+                    families {
+
+                    }
+
+                    systems {
+                        +PlayerControlSystem()
+                        +SilkControlSystem()
+                        +SteeringSystem()
+                        +PhysicsSystem(gravity = Offset.Zero)
+                        +SilkPhysicsSystem()
+                        +SilkCollisionSystem()
+                        +TiledMapCollisionSystem()
+                        +CameraSystem()
+                        +AnimationTickSystem()
+                        +AnimationSystem()
+                        +TiledMapRenderSystem()
+                        +RenderSystem()
+                    }
                 }
 
                 spawn {
@@ -658,29 +675,6 @@ fun GameDemo() {
 //                }
                 }
             }
-
-            world(configuration = {
-                injectables {
-                    +GameState(0)
-                }
-                systems {
-                    +PlayerControlSystem()
-                    +SilkControlSystem()
-                    +SteeringSystem()
-                    +PhysicsSystem(gravity = Offset.Zero)
-                    +SilkPhysicsSystem()
-                    +SilkCollisionSystem()
-                    +TiledMapCollisionSystem()
-                    +CameraSystem()
-                    +AnimationTickSystem()
-                    +AnimationSystem()
-                    +TiledMapRenderSystem()
-                    +RenderSystem()
-                }
-            }) {
-
-            }
-
 
             onCreate {
                 load(

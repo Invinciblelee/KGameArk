@@ -82,45 +82,49 @@ fun GameCollisionDemo() {
             )
         )
 
-        world(configuration = {
-            systems {
-                +CollisionSystem()
-                +MovementSystem()
-                +AnimationSystem()
-                +RenderSystem()
-            }
-        }) {
-            val bounds = Rect(-400f, -300f, 400f, 300f)
-
-            entities(50) {
-                val velX = (-40f..40f).random()
-                val velY = (-40f..40f).random()
-                val mass = 1f + Random.nextFloat()
-                val color = Color.random()
-
-                // 创建随机移动和碰撞的实体
-                +Transform(bounds.randomOffset())
-                +RigidBody(Offset(velX, velY), mass = mass)
-                +Renderable(CircleVisual(color, 40f), zIndex = 1)
+        world {
+            configure {
+                systems {
+                    +CollisionSystem()
+                    +MovementSystem()
+                    +AnimationSystem()
+                    +RenderSystem()
+                }
             }
 
-            // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
-            val e = entity {
-                +Transform()
-                +RigidBody(Offset.Zero, mass = 0f)
-                +anim
-                +SpriteAnimation("run")
-                +Renderable(
-                    visual = SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0"),
-                    zIndex = 1
-                )
-            }
+            spawn {
+                val bounds = Rect(-400f, -300f, 400f, 300f)
 
-            entity {
-                +Transform()
-                +WorldBounds(bounds)
-                +CameraTarget(e)
-                +Camera(isMain = true, bounds = bounds)
+                entities(50) {
+                    val velX = (-40f..40f).random()
+                    val velY = (-40f..40f).random()
+                    val mass = 1f + Random.nextFloat()
+                    val color = Color.random()
+
+                    // 创建随机移动和碰撞的实体
+                    +Transform(bounds.randomOffset())
+                    +RigidBody(Offset(velX, velY), mass = mass)
+                    +Renderable(CircleVisual(color, 40f), zIndex = 1)
+                }
+
+                // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
+                val e = entity {
+                    +Transform()
+                    +RigidBody(Offset.Zero, mass = 0f)
+                    +anim
+                    +SpriteAnimation("run")
+                    +Renderable(
+                        visual = SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0"),
+                        zIndex = 1
+                    )
+                }
+
+                entity {
+                    +Transform()
+                    +WorldBounds(bounds)
+                    +CameraTarget(e)
+                    +Camera(isMain = true, bounds = bounds)
+                }
             }
         }
 

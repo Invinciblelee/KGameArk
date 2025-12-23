@@ -32,18 +32,16 @@ fun SimpleGameDemo() {
     ) {
         val circleVisual = CircleVisual(color = Color.Red, size = 100f)
 
-        world(configuration = {
-            systems {
-                +AnimationTickSystem()
-                +AnimationSystem()
-                +RenderSystem()
-            }
-        }) {
-            entity {
-                +Transform()
-                +RigidBody(velocity = Offset(10f, 0f))
-                +ScaleAnimation(from = 1f, to = 2f, spec = InfiniteRepeatable())
-                +Renderable(visual = circleVisual)
+        world {
+            useDefaultSystems()
+
+            spawn {
+                entity {
+                    +Transform()
+                    +RigidBody(velocity = Offset(10f, 0f))
+                    +ScaleAnimation(from = 1f, to = 2f, spec = InfiniteRepeatable())
+                    +Renderable(visual = circleVisual)
+                }
             }
         }
 
@@ -60,7 +58,10 @@ fun SimpleGameDemo() {
 
         onForegroundUI {
             Button(
-                onClick = {},
+                onClick = {
+                    circleVisual.color =
+                        if (circleVisual.color == Color.Red) Color.Yellow else Color.Red
+                },
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
             ) {
                 Text(

@@ -36,8 +36,8 @@ class InjectableConfiguration(private val world: World) {
     /**
      * Adds the specified [dependency] which can then be injected via [World.inject].
      */
-    fun <T: Any> add(dependency: T) {
-        add(dependency::class.simpleName ?: dependency::class.toString(), dependency)
+    inline fun <reified T: Any> add(dependency: T) {
+        add(T::class.simpleName ?: T::class.toString(), dependency)
     }
 
     /**
@@ -85,7 +85,7 @@ class SystemConfiguration(
         if (index != -1) {
             systems.add(index, system)
         } else {
-            systems += system
+            systems.add(0, system)
         }
     }
 
@@ -105,7 +105,7 @@ class SystemConfiguration(
         if (index != -1) {
             systems.add(index + 1, system)
         } else {
-            systems += system
+            systems.add(system)
         }
     }
 

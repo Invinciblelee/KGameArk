@@ -23,7 +23,7 @@ composeMaterialIcons = "1.7.3"
 kotlinxSerialization = "1.9.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.29.0"
-kotlinBrowser = "2025.12.8"
+kotlinBrowser = "2025.12.10"
 kotlinCss = "2025.12.8"
 
 ktor = "3.3.3"

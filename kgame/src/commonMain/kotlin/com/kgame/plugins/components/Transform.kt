@@ -20,7 +20,9 @@ data class Transform(
     override fun type() = Transform
     companion object : ComponentType<Transform>()
 
-    var flags: Int = 0
+    val x: Float get() = position.x
+
+    val y: Float get() = position.y
 }
 
 /**

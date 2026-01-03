@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,8 +93,6 @@ internal class GameScene<T : Any>(
         world?.dispose()
 
         onDestroy?.invoke()
-
-
     }
 
     private fun update(deltaTime: Float) {

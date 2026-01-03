@@ -1,10 +1,14 @@
 package com.kgame.plugins.systems
 
+import androidx.collection.SimpleArrayMap
+import androidx.compose.ui.graphics.PathMeasure
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
+import com.kgame.engine.math.degrees
 import com.kgame.plugins.components.AlphaAnimation
+import com.kgame.plugins.components.PathAnimation
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RotationAnimation
 import com.kgame.plugins.components.ScaleAnimation
@@ -17,7 +21,7 @@ import com.kgame.plugins.components.applyRotation
 import com.kgame.plugins.components.applyScale
 import com.kgame.plugins.components.applyTranslation
 import com.kgame.plugins.services.AnimationService
-import com.kgame.plugins.services.CameraService
+import kotlin.math.atan2
 
 /**
  * The AnimationSystem is responsible for updating all entities with animations.
@@ -72,6 +76,16 @@ class AnimationSystem(
                 pivot = scaleAnimation.pivot,
                 fraction = progress,
             )
+        }
+
+        val pathAnimation = entity.getOrNull(PathAnimation)
+        if (pathAnimation != null) {
+            // Service handles everything: timing, easing, and path sampling
+            transform.position = animationService.getPathPosition(pathAnimation)
+
+            if (pathAnimation.orientToPath) {
+                transform.rotation = animationService.getPathRotation(pathAnimation)
+            }
         }
 
         val renderable = entity.getOrNull(Renderable)

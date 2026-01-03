@@ -3,12 +3,9 @@ package com.kgame.engine.graphics.shader
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ShaderBrush
-import com.kgame.engine.geometry.scale
 import com.kgame.engine.graphics.shader.Shader.Companion.DELTA_TIME
 import com.kgame.engine.graphics.shader.Shader.Companion.RESOLUTION
 import com.kgame.engine.graphics.shader.Shader.Companion.TIME
-import com.kgame.engine.maps.TiledMapShape.Point.size
 
 /**
  * Describes a platform-independent shader effect
@@ -102,7 +99,9 @@ abstract class ShaderEffect {
     fun updateTime(deltaTime: Float) {
         totalTime += deltaTime
         uniform(TIME, totalTime)
-        uniform(DELTA_TIME, deltaTime)
+        if (shader.sksl.contains(DELTA_TIME)) {
+            uniform(DELTA_TIME, deltaTime)
+        }
     }
 
     protected abstract fun createBrush(): Brush

@@ -2,16 +2,21 @@ package com.kgame.plugins.services // Or a new `animation` package
 
 import androidx.collection.SimpleArrayMap
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.PathMeasure
 import com.kgame.engine.graphics.atlas.AtlasAnimatedFrame
 import com.kgame.engine.graphics.atlas.ImageAtlas
 import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.TiledMapAnimationFrame
+import com.kgame.engine.math.degrees
 import com.kgame.plugins.components.Animation
 import com.kgame.plugins.components.Identifiable
 import com.kgame.plugins.components.InfiniteRepeatable
+import com.kgame.plugins.components.PathAnimation
 import com.kgame.plugins.components.Spring
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Tween
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -30,6 +35,7 @@ class AnimationService {
     private data class RuntimeState(
         var elapsedTime: Float = 0f,
         var frameIndex: Int = 0,
+        var pathLength: Float = -1f,
         var status: Status = Status.Playing
     ) {
 
@@ -40,6 +46,8 @@ class AnimationService {
     }
 
     private val states = SimpleArrayMap<Int, RuntimeState>()
+
+    private val sharedMeasure = PathMeasure()
 
 
     internal fun update(deltaTime: Float) {
@@ -187,6 +195,49 @@ class AnimationService {
         }
 
         return currentFrame
+    }
+
+    /**
+     * [Get Path Position]
+     * Calculates the current world position along the path for a [PathAnimation].
+     * It automatically handles path length caching within the service's internal state.
+     */
+    internal fun getPathPosition(animation: PathAnimation): Offset {
+        val state = getOrCreateState(animation.id)
+
+        // Step 1: Initialize path length if it hasn't been cached yet.
+        if (state.pathLength < 0f) {
+            sharedMeasure.setPath(animation.path, false)
+            state.pathLength = sharedMeasure.length
+        }
+
+        // Step 2: Use the existing getProgress logic to get the eased fraction (0.0 - 1.0)
+        val progress = getProgress(animation)
+
+        // Step 3: Sample the position
+        sharedMeasure.setPath(animation.path, false)
+        val distance = progress * state.pathLength
+        return sharedMeasure.getPosition(distance)
+    }
+
+    /**
+     * If you need rotation as well, you can return a wrapper or use getTangent.
+     */
+    internal fun getPathRotation(animation: PathAnimation): Float {
+        val state = getOrCreateState(animation.id)
+        val progress = getProgress(animation)
+        sharedMeasure.setPath(animation.path, false)
+
+        val tangent = sharedMeasure.getTangent(progress * state.pathLength)
+
+        // Safety check: only update rotation if the tangent is valid
+        if (tangent.x == 0f && tangent.y == 0f) {
+            // Option: return the last known rotation from state if you add a 'lastRotation' field
+            return 0f + animation.rotationOffset
+        }
+
+        val angle = atan2(tangent.y.toDouble(), tangent.x.toDouble())
+        return degrees(angle).toFloat() + animation.rotationOffset
     }
 
     fun play(id: Int) {

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ScaleFactor
 import com.kgame.ecs.Component
@@ -120,4 +121,24 @@ class AlphaAnimation(
     override fun type() = AlphaAnimation
 
     companion object : ComponentType<AlphaAnimation>()
+}
+
+/**
+ * A AnimationSpec of Path, used to move an entity along a specific [Path].
+ *
+ * @param path The trajectory the entity will follow.
+ * @param spec The `AnimationSpec` that defines the timing (usually [Tween] or [InfiniteRepeatable]).
+ * @param orientToPath If true, the entity's rotation will automatically align with the path's tangent.
+ * @param rotationOffset Additional rotation offset in degrees.
+ */
+class PathAnimation(
+    val path: Path,
+    spec: AnimationSpec = Tween(1f),
+    val orientToPath: Boolean = false,
+    val rotationOffset: Float = 0f
+) : Animation<Float, PathAnimation>(from = 0f, to = 1f, spec = spec) {
+
+    override fun type() = PathAnimation
+
+    companion object : ComponentType<PathAnimation>()
 }

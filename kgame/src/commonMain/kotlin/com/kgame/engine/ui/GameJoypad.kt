@@ -32,12 +32,31 @@ data class JoypadValue(
 )
 
 fun InputManager.applyJoypad(value: JoypadValue) {
-    when {
-        value.strength < 0.2f -> Unit
-        value.angle in -45f..45f -> simulateKey(Key.DirectionRight)
-        value.angle in 45f..135f -> simulateKey(Key.DirectionDown)
-        value.angle in 135f..225f -> simulateKey(Key.DirectionLeft)
-        else -> simulateKey(Key.DirectionUp)
+    if (value.strength < 0.2f) return
+
+    val angle = value.angle
+
+    // 将角度标准化到 0..360 范围内，方便判断
+    val normalizedAngle = (angle % 360f + 360f) % 360f
+
+    // 1. 左右判断 (X轴): 每个方向覆盖 90 度扇区
+    // 右: 315° ~ 360° 或 0° ~ 45°
+    if (normalizedAngle !in 45f..315f) {
+        simulateKey(Key.DirectionRight)
+    }
+    // 左: 135° ~ 225°
+    else if (normalizedAngle in 135f..225f) {
+        simulateKey(Key.DirectionLeft)
+    }
+
+    // 2. 上下判断 (Y轴): 每个方向覆盖 90 度扇区
+    // 下: 45° ~ 135°
+    if (normalizedAngle in 45f..135f) {
+        simulateKey(Key.DirectionDown)
+    }
+    // 上: 225° ~ 315°
+    else if (normalizedAngle in 225f..315f) {
+        simulateKey(Key.DirectionUp)
     }
 }
 

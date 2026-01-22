@@ -14,32 +14,27 @@ import com.kgame.plugins.services.CameraService
 /**
  * The BoundarySystem is responsible for detecting when an entity has left the world bounds.
  */
-class BoundarySystem(
-    private val cameraService: CameraService = inject(),
-) : IteratingSystem(
+class BoundarySystem() : IteratingSystem(
     family = family { all(Boundary, Transform) }
 ) {
-    private val worldBounds = MutableRect(0f, 0f, 0f, 0f)
 
-    override fun onTick(deltaTime: Float) {
-        super.onTick(deltaTime)
-    }
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
+        val worldBounds = entity.getOrNull(WorldBounds) ?: return
         val transform = entity[Transform]
         val boundary = entity[Boundary]
 
-        if (isOutsideBounds(transform, boundary.margin)) {
+        if (isOutsideBounds(transform, worldBounds, boundary.margin)) {
             boundary.onExit(this, entity)
         }
     }
 
-    private fun isOutsideBounds(transform: Transform, margin: Float): Boolean {
+    private fun isOutsideBounds(transform: Transform, worldBounds: WorldBounds, margin: Float): Boolean {
         val pos = transform.position
-        return pos.x < worldBounds.left - margin ||
-                pos.x > worldBounds.right + margin ||
-                pos.y < worldBounds.top - margin ||
-                pos.y > worldBounds.bottom + margin
+        return pos.x < worldBounds.rect.left - margin ||
+                pos.x > worldBounds.rect.right + margin ||
+                pos.y < worldBounds.rect.top - margin ||
+                pos.y > worldBounds.rect.bottom + margin
     }
 
 }

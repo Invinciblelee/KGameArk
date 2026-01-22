@@ -31,14 +31,12 @@ kotlin {
     js {
         outputModuleName = "KGameEngineKit"
         browser()
-        binaries.executable()
     }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         outputModuleName = "KGameEngineKit"
         browser()
-        binaries.executable()
     }
 
     compilerOptions {
@@ -72,7 +70,6 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksoup)
-            implementation(libs.annotations)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)

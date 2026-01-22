@@ -11,6 +11,7 @@ import com.kgame.plugins.components.Axis
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.Transform
+import kotlin.math.floor
 
 /**
  * Renders entities with a [Scroller] component, creating a seamless, infinitely repeating
@@ -49,7 +50,7 @@ class ScrollerRenderSystem :
         val scaledTileSize = when (scroller.axis) {
             Axis.X -> renderable.size.width * scale
             Axis.Y -> renderable.size.height * scale
-        }
+        } - 1f
 
         // Avoid division by zero if the tile size is invalid.
         if (scaledTileSize <= 0f) return

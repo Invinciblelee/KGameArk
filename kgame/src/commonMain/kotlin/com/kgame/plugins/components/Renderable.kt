@@ -25,61 +25,85 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-
-/**
- * The visual of renderable
- */
 abstract class Visual {
 
-    constructor(size: Size = Size.Unspecified) {
-        this.size = size
+    constructor()
+
+    constructor(size: Size) {
+        this.preferredSize = size
     }
 
-    constructor(size: Float) {
-        this.size = Size(size, size)
-    }
+    constructor(size: Float): this(Size(size, size))
 
-    constructor(width: Float, height: Float) {
-        this.size = Size(width, height)
-    }
+    constructor(width: Float, height: Float): this(Size(width, height))
 
-    private var _bounds: Rect = InfiniteRect
-    val bounds: Rect get() = _bounds
+    private var isReady = false
 
-    var size: Size = Size.Unspecified
+    /**
+     * The desired dimensions for this visual.
+     * If [Size.Unspecified], the visual should compute its layout based on intrinsic content.
+     */
+    var preferredSize: Size = Size.Unspecified
         set(value) {
-            if (field != value) {
-                field = value
-                _bounds = onComputeBounds()
+            val changed = field != value
+            if (changed) field = value
+            if (changed || !isReady) {
+                isReady = true
+                invalidateBounds()
             }
         }
 
-    open var alpha: Float = 1f
+    private var _bounds: Rect = InfiniteRect
+    /**
+     * The visual bounding box in local coordinate space.
+     * Defaults to [InfiniteRect] to represent unconstrained spatial volume.
+     */
+    val bounds: Rect get() = _bounds
 
+    /**
+     * The resolved pixel dimensions derived from the latest geometry pass.
+     * Note: Accessing this when bounds is [InfiniteRect] may yield infinite dimensions.
+     */
+    val size: Size get() = _bounds.size
+
+    open var alpha: Float = 1.0f
+
+    /**
+     * Resolves the final layout bounds.
+     * Defaults to [InfiniteRect] if [preferredSize] is not specified.
+     */
     protected open fun onComputeBounds(): Rect {
-        return if (size.isSpecified) {
-            Rect(Offset.Zero, size)
+        return if (preferredSize.isSpecified) {
+            Rect(Offset.Zero, preferredSize)
         } else {
             InfiniteRect
         }
     }
 
     /**
-     * Drawing logic.
-     * Note: RenderSystem usually applies the Matrix transformation beforehand (translation to pos,
-     * rotation and scale), so inside draw() you should generally render centered on bounds.center.
+     * Synchronizes the internal bounds.
+     * Forces a re-calculation of all cached spatial properties.
+     */
+    protected fun invalidateBounds() {
+        _bounds = onComputeBounds()
+    }
+
+    /**
+     * Renders the visual content into the provided [DrawScope].
      */
     abstract fun DrawScope.draw()
 
     companion object {
-        private val InfiniteRect = Rect(
+        /**
+         * A sentinel value representing an unbounded rectangular area.
+         */
+        protected val InfiniteRect = Rect(
             Float.NEGATIVE_INFINITY,
             Float.NEGATIVE_INFINITY,
             Float.POSITIVE_INFINITY,
             Float.POSITIVE_INFINITY
         )
     }
-
 }
 
 
@@ -101,6 +125,7 @@ open class RectangleVisual(
     val cornerRadius: CornerRadius = CornerRadius.Zero,
     val style: DrawStyle = Fill,
 ) : Visual(size) {
+
     override fun DrawScope.draw() {
         if (cornerRadius.isZero()) {
             drawRect(color, style = style, alpha = alpha)
@@ -187,10 +212,14 @@ open class PolygonVisual(
 open class ImageVisual(
     val bitmap: ImageBitmap,
     size: Size = Size.Unspecified
-) : Visual(size) {
+) : Visual() {
+
+    init {
+        preferredSize = size
+    }
 
     override fun onComputeBounds(): Rect {
-        val effectiveSize = if (size.isSpecified) size else Size(bitmap.width.toFloat(), bitmap.height.toFloat())
+        val effectiveSize = if (preferredSize.isSpecified) preferredSize else Size(bitmap.width.toFloat(), bitmap.height.toFloat())
         return Rect(Offset.Zero, effectiveSize)
     }
 
@@ -208,11 +237,16 @@ open class SpriteVisual(
     val atlas: ImageAtlas,
     private var name: String,
     size: Size = Size.Unspecified
-) : Visual(size) {
+) : Visual() {
+
     private var region: AtlasRegion = atlas.getRegion(name)
 
+    init {
+        preferredSize = size
+    }
+
     override fun onComputeBounds(): Rect {
-        val effectiveSize = if (size.isSpecified) size else region.size.toSize()
+        val effectiveSize = if (preferredSize.isSpecified) preferredSize else region.size.toSize()
         return Rect(Offset.Zero, effectiveSize)
     }
 
@@ -313,12 +347,12 @@ fun Renderable.applyAlpha(
  * Applies a new size to the renderable's visual.
  */
 fun Renderable.applySize(size: Size) {
-    visual.size = size
+    visual.preferredSize = size
 }
 
 /**
  * Applies a new size to the renderable's visual.
  */
 fun Renderable.applySize(width: Float, height: Float) {
-    visual.size = Size(width, height)
+    visual.preferredSize = Size(width, height)
 }

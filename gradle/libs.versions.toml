@@ -1,5 +1,5 @@
 [versions]
-agp = "8.13.2"
+agp = "9.0.0"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
@@ -12,23 +12,24 @@ annotations = "26.0.2-1"
 androidxActivity = "1.12.2"
 androidxLifecycle = "2.10.0-alpha07"
 androidxNavigation3UI = "1.1.0-alpha01"
-androidxNavigationEvent = "1.0.0-rc02"
+androidxNavigationEvent = "1.0.0"
 androidxSavedstate = "1.4.0"
 androidxCollection = "1.5.0"
 
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.11.0-alpha01"
+composeMultiplatform = "1.10.0"
+composeMaterial3 = "1.11.0-alpha01"
 composeMaterialIcons = "1.7.3"
 
-kotlinxSerialization = "1.9.0"
+kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
-kotlinxAtomicfu = "0.29.0"
-kotlinBrowser = "2025.12.10"
-kotlinCss = "2025.12.8"
+kotlinxAtomicfu = "0.30.0"
+kotlinBrowser = "2026.1.11"
+kotlinCss = "2026.1.11"
 
 ktor = "3.3.3"
 
-logbackJvm = "1.5.23"
+logbackJvm = "1.5.25"
 logbackAndroid = "3.0.0"
 slf4jApi = "2.0.17"
 
@@ -62,7 +63,7 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMultiplatform" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 compose-material-icons = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeMaterialIcons" }
 
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }

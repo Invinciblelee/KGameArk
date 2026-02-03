@@ -261,43 +261,82 @@ open class SpriteVisual(
     }
 
     override fun DrawScope.draw() {
-        // 1. 拿到这一帧切片真正的逻辑大小 (比如 248x303)
-        // 绝对不能用 bounds.size，否则必定拉伸变形
-        val logicalSize = region.frame.size
+        val frame = region.frame
+        val source = region.sourceSize
+        val trim = region.spriteSourceSize
+        val pivot = region.pivot
 
-        // 2. 物理采样大小：解决旋转时的采样错误
-        // 如果 rotated=true，在大图里它实际上是宽变高，高变宽
-        val physicalSrcSize = if (region.rotated) {
-            IntSize(logicalSize.height, logicalSize.width)
+        // 1. 计算缩放比
+        val sx = size.width / source.width
+        val sy = size.height / source.height
+
+        // 2. 锚点 (Canvas 上的固定位置) 与 逻辑 Pivot (原图上的像素位置)
+        val anchorX = size.width * pivot.pivotFractionX
+        val anchorY = size.height * pivot.pivotFractionY
+        val lpX = source.width * pivot.pivotFractionX
+        val lpY = source.height * pivot.pivotFractionY
+
+        val srcWidth: Int
+        val srcHeight: Int
+        val drawWidth: Int
+        val drawHeight: Int
+        val tx: Float
+        val ty: Float
+
+        if (region.rotated) {
+            // 物理采样：宽高互换
+            srcWidth = frame.height
+            srcHeight = frame.width
+            // 视觉尺寸：保持逻辑宽高一致
+            drawWidth = (srcWidth * sy).toInt()
+            drawHeight = (srcHeight * sx).toInt()
+
+            // --- 核心修复逻辑 ---
+            // 左右对齐 (已经稳了)：(trim.left - lpX) * sx
+            ty = (trim.left - lpX) * sx
+
+            // 上下对齐：在旋转坐标系中，tx 对应逻辑 Y 轴。
+            // 由于图集是顺时针旋转 90 度存放，转回来后需要补偿物理高度 (即旋转前的 frame.width)
+            tx = (trim.top - lpY + frame.width) * sy
+            // 如果依然上下闪，请将上面一行改为：tx = (trim.top - lpY + frame.width) * sy
         } else {
-            logicalSize
+            srcWidth = frame.width
+            srcHeight = frame.height
+            drawWidth = (srcWidth * sx).toInt()
+            drawHeight = (srcHeight * sy).toInt()
+
+            // 正常帧的偏移
+            tx = (trim.left - lpX) * sx
+            ty = (trim.top - lpY) * sy
         }
 
-        // 3. 计算图片在 bounds 内部的偏移量 (依靠 pivot 和 trim)
-        val pivotOffsetX = -region.sourceSize.width * region.pivot.pivotFractionX
-        val pivotOffsetY = -region.sourceSize.height * region.pivot.pivotFractionY
-        val finalX = pivotOffsetX + region.spriteSourceSize.left
-        val finalY = pivotOffsetY + region.spriteSourceSize.top
-
+        val state = if (region.rotated) "ROTATED" else "NORMAL"
+        println("""
+    [$state] 
+    Source: (${source.width}x${source.height}), Frame: (${frame.width}x${frame.height})
+    Trim: (L=${trim.left}, T=${trim.top}), Pivot: (lpX=$lpX, lpY=$lpY)
+    DrawSize: (${drawWidth}x${drawHeight}), Scale: (sx=$sx, sy=$sy)
+    Final Offset -> tx: $tx, ty: $ty
+    ------------------------------------------
+""".trimIndent())
         withTransform({
-            // A. 移动到计算好的起始点
-            translate(finalX, finalY)
+            // A. 移到锚点
+            translate(anchorX, anchorY)
 
-            // B. 处理旋转 (既然你说 -90 是方向正确的)
+            // B. 如果是旋转帧，先转坐标轴
             if (region.rotated) {
                 rotate(-90f, pivot = Offset.Zero)
-                // C. 旋转后的轴向回正：
-                // 逆时针转90度后，图片处于 X 轴下方（或左侧），需要平移回正
-                // 如果向左上角偏，说明这里需要调整。通常是向 X 负方向平移逻辑高度
-                translate(left = -logicalSize.height.toFloat(), top = 0f)
             }
+
+            // C. 应用逻辑偏移
+            translate(tx, ty)
         }) {
             drawImage(
                 image = atlas.bitmap,
-                srcOffset = region.frame.topLeft,
-                srcSize = physicalSrcSize, // 【正确】在大图上切多大
+                srcOffset = IntOffset(frame.left, frame.top),
+                srcSize = IntSize(srcWidth, srcHeight),
                 dstOffset = IntOffset.Zero,
-                dstSize = logicalSize, // 【关键】画多大 -> 必须用切片原本的大小！
+                dstSize = IntSize(drawWidth, drawHeight),
                 alpha = alpha
             )
         }

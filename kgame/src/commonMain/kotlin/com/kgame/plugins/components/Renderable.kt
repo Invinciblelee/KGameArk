@@ -12,8 +12,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.toIntRect
 import androidx.compose.ui.unit.toIntSize
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.lerp
@@ -257,14 +261,46 @@ open class SpriteVisual(
     }
 
     override fun DrawScope.draw() {
-        drawImage(
-            image = atlas.bitmap,
-            srcOffset = region.offset,
-            srcSize = region.size,
-            dstOffset = IntOffset.Zero,
-            dstSize = bounds.size.toIntSize(),
-            alpha = alpha
-        )
+        // 1. 拿到这一帧切片真正的逻辑大小 (比如 248x303)
+        // 绝对不能用 bounds.size，否则必定拉伸变形
+        val logicalSize = region.frame.size
+
+        // 2. 物理采样大小：解决旋转时的采样错误
+        // 如果 rotated=true，在大图里它实际上是宽变高，高变宽
+        val physicalSrcSize = if (region.rotated) {
+            IntSize(logicalSize.height, logicalSize.width)
+        } else {
+            logicalSize
+        }
+
+        // 3. 计算图片在 bounds 内部的偏移量 (依靠 pivot 和 trim)
+        val pivotOffsetX = -region.sourceSize.width * region.pivot.pivotFractionX
+        val pivotOffsetY = -region.sourceSize.height * region.pivot.pivotFractionY
+        val finalX = pivotOffsetX + region.spriteSourceSize.left
+        val finalY = pivotOffsetY + region.spriteSourceSize.top
+
+        withTransform({
+            // A. 移动到计算好的起始点
+            translate(finalX, finalY)
+
+            // B. 处理旋转 (既然你说 -90 是方向正确的)
+            if (region.rotated) {
+                rotate(-90f, pivot = Offset.Zero)
+                // C. 旋转后的轴向回正：
+                // 逆时针转90度后，图片处于 X 轴下方（或左侧），需要平移回正
+                // 如果向左上角偏，说明这里需要调整。通常是向 X 负方向平移逻辑高度
+                translate(left = -logicalSize.height.toFloat(), top = 0f)
+            }
+        }) {
+            drawImage(
+                image = atlas.bitmap,
+                srcOffset = region.frame.topLeft,
+                srcSize = physicalSrcSize, // 【正确】在大图上切多大
+                dstOffset = IntOffset.Zero,
+                dstSize = logicalSize, // 【关键】画多大 -> 必须用切片原本的大小！
+                alpha = alpha
+            )
+        }
     }
 }
 

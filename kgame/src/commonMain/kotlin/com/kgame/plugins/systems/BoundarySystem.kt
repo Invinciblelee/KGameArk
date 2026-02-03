@@ -1,15 +1,12 @@
 package com.kgame.plugins.systems
 
-import androidx.compose.ui.geometry.MutableRect
-import androidx.compose.ui.geometry.Rect
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
-import com.kgame.ecs.World.Companion.inject
 import com.kgame.plugins.components.Boundary
+import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
-import com.kgame.plugins.services.CameraService
 
 /**
  * The BoundarySystem is responsible for detecting when an entity has left the world bounds.
@@ -20,6 +17,7 @@ class BoundarySystem() : IteratingSystem(
 
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
+        if (entity has Camera) return
         val worldBounds = entity.getOrNull(WorldBounds) ?: return
         val transform = entity[Transform]
         val boundary = entity[Boundary]

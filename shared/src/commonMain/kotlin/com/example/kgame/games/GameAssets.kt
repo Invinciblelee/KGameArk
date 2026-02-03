@@ -20,7 +20,8 @@ object GameAssets {
     }
 
     object Atlas {
-        val Walk = AtlasKey("files/Walk.json")
+        val Walk = AtlasKey("files/walk.json")
+        val Texture = AtlasKey("files/texture.json")
     }
 
     object TiledMap {

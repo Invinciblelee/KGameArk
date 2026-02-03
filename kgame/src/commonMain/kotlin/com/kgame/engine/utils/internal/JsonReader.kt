@@ -1,44 +1,43 @@
 package com.kgame.engine.utils.internal
 
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.float
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
+import kotlinx.serialization.json.*
 
-internal fun JsonObject.getString(key: String): String {
-    return this.getValue(key).jsonPrimitive.content
+internal fun JsonObject.getString(key: String, defaultValue: String = ""): String {
+    return this[key]?.jsonPrimitive?.content ?: defaultValue
 }
 
-internal fun JsonObject.getInt(key: String): Int {
-    return this.getValue(key).jsonPrimitive.int
+internal fun JsonObject.getInt(key: String, defaultValue: Int = 0): Int {
+    return this[key]?.jsonPrimitive?.int ?: defaultValue
 }
 
-internal fun JsonObject.getLong(key: String): Long {
-    return this.getValue(key).jsonPrimitive.long
+internal fun JsonObject.getLong(key: String, defaultValue: Long = 0L): Long {
+    return this[key]?.jsonPrimitive?.long ?: defaultValue
 }
 
-internal fun JsonObject.getFloat(key: String): Float {
-    return this.getValue(key).jsonPrimitive.float
+internal fun JsonObject.getFloat(key: String, defaultValue: Float = 0f): Float {
+    return this[key]?.jsonPrimitive?.float ?: defaultValue
 }
 
-internal fun JsonObject.getDouble(key: String): Double {
-    return this.getValue(key).jsonPrimitive.double
+internal fun JsonObject.getDouble(key: String, defaultValue: Double = 0.0): Double {
+    return this[key]?.jsonPrimitive?.double ?: defaultValue
 }
 
-internal fun JsonObject.getBoolean(key: String): Boolean {
-    return this.getValue(key).jsonPrimitive.boolean
+internal fun JsonObject.getBoolean(key: String, defaultValue: Boolean = false): Boolean {
+    return this[key]?.jsonPrimitive?.booleanOrNull ?: defaultValue
 }
 
 internal fun JsonObject.getArray(key: String): JsonArray {
-    return this.getValue(key).jsonArray
+    return this[key]?.jsonArray ?: buildJsonArray { }
+}
+
+internal fun JsonObject.getArrayOrNull(key: String): JsonArray? {
+    return this[key]?.jsonArray
 }
 
 internal fun JsonObject.getObject(key: String): JsonObject {
-    return this.getValue(key).jsonObject
+    return this[key]?.jsonObject ?: buildJsonObject { }
+}
+
+internal fun JsonObject.getObjectOrNull(key: String): JsonObject? {
+    return this[key]?.jsonObject
 }

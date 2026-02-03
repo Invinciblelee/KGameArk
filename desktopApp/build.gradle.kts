@@ -12,6 +12,10 @@ kotlin {
     sourceSets {
         jvmMain.dependencies {
             implementation(project(":shared"))
+
+            implementation(libs.bundles.ktor.server)
+            implementation(libs.ktor.serialization.json)
+            implementation(libs.logback.classic)
         }
     }
 }

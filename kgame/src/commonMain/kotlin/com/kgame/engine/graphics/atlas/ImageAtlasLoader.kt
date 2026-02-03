@@ -1,6 +1,7 @@
 package com.kgame.engine.graphics.atlas
 
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.decodeToImageBitmap
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -10,6 +11,7 @@ import com.kgame.engine.utils.internal.getBoolean
 import com.kgame.engine.utils.internal.getFloat
 import com.kgame.engine.utils.internal.getInt
 import com.kgame.engine.utils.internal.getObject
+import com.kgame.engine.utils.internal.getObjectOrNull
 import com.kgame.engine.utils.internal.getString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -58,6 +60,18 @@ class DefaultImageAtlasLoader(
                     sourceSize = region.getObject("sourceSize").let { size ->
                         Size(size.getFloat("w"), size.getFloat("h"))
                     },
+                    spriteSourceSize = region.getObjectOrNull("spriteSourceSize")?.let { size ->
+                        IntRect(
+                            IntOffset(size.getInt("x"), size.getInt("y")),
+                            IntSize(size.getInt("w"), size.getInt("h"))
+                        )
+                    } ?: IntRect.Zero,
+                    pivot = region.getObjectOrNull("pivot")?.let { pivot ->
+                        TransformOrigin(
+                            pivotFractionX = pivot.getFloat("x"),
+                            pivotFractionY = pivot.getFloat("y")
+                        )
+                    } ?: TransformOrigin.Center,
                     order = region.getInt("order")
                 )
             }

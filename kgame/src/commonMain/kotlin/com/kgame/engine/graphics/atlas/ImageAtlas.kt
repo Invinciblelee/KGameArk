@@ -4,9 +4,11 @@ package com.kgame.engine.graphics.atlas
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
+import com.kgame.plugins.components.Transform
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 /**
@@ -64,6 +66,8 @@ data class AtlasRegion(
     val rotated: Boolean,
     val trimmed: Boolean,
     val sourceSize: Size,
+    val spriteSourceSize: IntRect,
+    val pivot: TransformOrigin,
     val order: Int
 ) {
 

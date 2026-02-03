@@ -9,7 +9,7 @@ junit = "4.13.2"
 
 annotations = "26.0.2-1"
 
-androidxActivity = "1.12.2"
+androidxActivity = "1.12.3"
 androidxLifecycle = "2.10.0-alpha07"
 androidxNavigation3UI = "1.1.0-alpha01"
 androidxNavigationEvent = "1.0.0"
@@ -23,13 +23,13 @@ composeMaterialIcons = "1.7.3"
 
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
-kotlinxAtomicfu = "0.30.0"
-kotlinBrowser = "2026.1.11"
-kotlinCss = "2026.1.11"
+kotlinxAtomicfu = "0.31.0"
+kotlinBrowser = "2026.2.2"
+kotlinCss = "2026.2.2"
 
-ktor = "3.3.3"
+ktor = "3.4.0"
 
-logbackJvm = "1.5.25"
+logbackJvm = "1.5.27"
 logbackAndroid = "3.0.0"
 slf4jApi = "2.0.17"
 

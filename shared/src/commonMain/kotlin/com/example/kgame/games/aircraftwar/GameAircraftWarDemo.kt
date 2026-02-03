@@ -52,12 +52,16 @@ import com.kgame.plugins.components.PlayerTag
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Scroller
+import com.kgame.plugins.components.SpriteAnimation
+import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Visual
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.components.cleanupOnExit
 import com.kgame.plugins.services.CameraService
+import com.kgame.plugins.systems.AnimationSystem
+import com.kgame.plugins.systems.AnimationTickSystem
 import com.kgame.plugins.systems.BoundarySystem
 import com.kgame.plugins.systems.CameraSystem
 import com.kgame.plugins.systems.CleanupSystem
@@ -306,6 +310,8 @@ fun GameAircraftWarDemo() {
                         // 4. 摄像机必须在“所有位移”完成之后
                         +CameraSystem()
 
+                        +AnimationTickSystem()
+                        +AnimationSystem()
                         +ScrollerDriveSystem()
                         +ScrollerRenderSystem()
 
@@ -330,7 +336,8 @@ fun GameAircraftWarDemo() {
                         +PlayerTag
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)
-                        +Renderable(PlayerVisual())
+                        +SpriteAnimation(name = "hero")
+                        +Renderable(SpriteVisual(atlas = assets[GameAssets.Atlas.Texture], name = "stormplane_hero1.png"))
                     }
 
                     entity {
@@ -345,6 +352,7 @@ fun GameAircraftWarDemo() {
 
             onCreate {
                 load(GameAssets.Image.Background)
+                load(GameAssets.Atlas.Texture)
             }
 
             onUpdate {

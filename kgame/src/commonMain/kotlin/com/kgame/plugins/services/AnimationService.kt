@@ -60,18 +60,6 @@ class AnimationService {
         }
     }
 
-    /**
-     * [Get Animation Progress]
-     * Calculates the current playback progress of a given [Animation].
-     *
-     * This function is central to the animation system. It translates the linear `elapsedTime`
-     * of an animation into a non-linear progress value, typically between `0.0f` and `1.0f`.
-     * This final value is transformed by the animation's specification (e.g., an Easing curve for a [Tween],
-     * or a physics simulation for a [Spring]).
-     *
-     * @param animation The definition of the animation, containing its duration, spec, and repeat mode.
-     * @return A [Float] representing the current completion progress of the animation.
-     */
     internal fun getProgress(animation: Animation<*, *>): Float {
         // Step 1: Get or create the runtime state for this animation.
         val state = getOrCreateState(animation.id)
@@ -130,17 +118,6 @@ class AnimationService {
         }
     }
 
-    /**
-     * Calculates and returns the name of the current frame for a given [SpriteAnimation].
-     *
-     * This function uses the animation's runtime state (managed by this service) to determine
-     * which frame of the animation sequence should be displayed at the current moment.
-     * It also handles advancing the frame index and looping the animation.
-     *
-     * @param animation The [SpriteAnimation] component containing the definition of the animation (name, speed, loop).
-     * @param atlas The [ImageAtlas] from which to retrieve the animation frame sequence.
-     * @return The name of the frame to be rendered (e.g., "run_1", "idle_0").
-     */
     internal fun getCurrentFrame(animation: SpriteAnimation, atlas: ImageAtlas): AtlasAnimatedFrame {
         // Step 1: Retrieve the runtime state for this animation. The state is managed by this service.
         val state = getOrCreateState(animation.id)
@@ -258,6 +235,21 @@ class AnimationService {
             state.status = RuntimeState.Status.Stopped
             state.elapsedTime = 0f
         }
+    }
+
+    fun isPlaying(id: Int): Boolean {
+        val state = getOrCreateState(id)
+        return state.status == RuntimeState.Status.Playing
+    }
+
+    fun isPaused(id: Int): Boolean {
+        val state = getOrCreateState(id)
+        return state.status == RuntimeState.Status.Paused
+    }
+
+    fun isStopped(id: Int): Boolean {
+        val state = getOrCreateState(id)
+        return state.status == RuntimeState.Status.Stopped
     }
 
     private fun getOrCreateState(key: Int): RuntimeState {

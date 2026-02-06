@@ -16,7 +16,7 @@ actual open class KGameHost actual constructor(
     ) {
         application(exitProcessOnExit = exitProcessOnExit) {
             CompositionLocalProvider(
-                LocalPlatformContext provides PlatformContext,
+                LocalPlatformContext provides MockPlatformContext,
                 LocalAssetsReader provides assetsReader
             ) {
                 content()

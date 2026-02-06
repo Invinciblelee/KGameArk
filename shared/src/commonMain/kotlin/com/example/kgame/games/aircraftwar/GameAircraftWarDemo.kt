@@ -11,13 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
@@ -37,8 +33,10 @@ import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.applyJoypad
+import com.kgame.plugins.components.AutoCleanupTag
 import com.kgame.plugins.components.Axis
 import com.kgame.plugins.components.Boundary
+import com.kgame.plugins.components.BoundaryStrategy
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
@@ -55,10 +53,8 @@ import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.Visual
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyKinematicMovement
-import com.kgame.plugins.components.cleanupOnExit
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.AnimationTickSystem
@@ -81,45 +77,14 @@ private data class WeaponComponent(
     companion object : ComponentType<WeaponComponent>()
 }
 
-// --- 2. 视觉组件 (Visuals) ---
-
-private class PlayerVisual() : Visual(60f) {
-    override fun DrawScope.draw() { drawCircle(Color.Blue, alpha = alpha) }
-}
-private class EnemyVisual() : Visual(40f) {
-    override fun DrawScope.draw() { drawCircle(Color.Red, alpha = alpha) }
-}
-private class BulletVisual(isPlayer: Boolean) : Visual(10f, 15f) {
-    private val brush = if (isPlayer) PlayerBrush else EnemyBrush
-
-    override fun DrawScope.draw() {
-        drawOval(brush = brush, alpha = alpha)
-    }
-
-    private companion object {
-        val PlayerBrush = Brush.verticalGradient(
-            0.0f to Color.Blue.copy(alpha = 0.0f),
-            0.5f to Color.Blue.copy(alpha = 0.6f),
-            1.0f to Color.White.copy(alpha = 0.9f)
-        )
-
-        val EnemyBrush = Brush.verticalGradient(
-            0.0f to Color.White.copy(alpha = 0.9f),
-            0.5f to Color.Red.copy(alpha = 0.6f),
-            1.0f to Color.Red.copy(alpha = 0.0f)
-        )
-    }
-
-}
-
-
-
 // --- 3. 游戏系统 (Game Systems) ---
 
 private class AircraftControlSystem(
     val cameraService: CameraService = inject(),
-    val input: InputManager = inject()
+    val input: InputManager = inject(),
+    val assets: AssetsManager = inject()
 ) : IteratingSystem(family = family { all(PlayerTag, Transform, Renderable, WeaponComponent) }) {
+    val texture = assets[GameAssets.Atlas.Texture]
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
@@ -147,17 +112,21 @@ private class AircraftControlSystem(
                     position = transform.position + Offset(0f, -renderable.size.height / 2f),
                 )
                 +RigidBody(velocity = Offset(0f, -600f), drag = 0f)
-                +Boundary(onExit = cleanupOnExit())
+                +Boundary(strategy = BoundaryStrategy.Cleanup)
                 +PlayerBulletTag(damage = 10f)
-                +Renderable(BulletVisual(true), zIndex = -1)
+                +Renderable(SpriteVisual(atlas = texture, name = "stormplane_bullet_hero.png"), zIndex = -1)
             }
         }
     }
 }
 
-private class EnemyWeaponSystem : IteratingSystem(
+private class EnemyWeaponSystem(
+    assets: AssetsManager = inject()
+) : IteratingSystem(
     family = family { all(EnemyTag, Transform, WeaponComponent) }
 ) {
+    val texture = assets[GameAssets.Atlas.Texture]
+
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val weapon = entity[WeaponComponent]
         weapon.timeUntilNextShot -= deltaTime
@@ -170,23 +139,23 @@ private class EnemyWeaponSystem : IteratingSystem(
                     position = transform.position,
                 )
                 +RigidBody(velocity = Offset(0f, 300f), drag = 0f) // 向下
-                +Boundary(onExit = cleanupOnExit())
+                +Boundary(strategy = BoundaryStrategy.Cleanup)
                 +EnemyBulletTag(damage = 15f)
-                +Renderable(BulletVisual(false), zIndex = -1)
+                +Renderable(SpriteVisual(atlas = texture, name = "stormplane_bullet_elite.png"), zIndex = -1)
             }
         }
     }
 }
 
 private class EnemySpawnSystem(
-    val assets: AssetsManager = inject()
+    assets: AssetsManager = inject()
 ) : IntervalSystem(interval = Fixed(0.5f)) { // 每 0.5 秒生成一波敌人
+
+    val texture = assets[GameAssets.Atlas.Texture]
 
     val worldBounds = Rect(-400f, -400f, 400f, 300f)
 
     override fun onTick(deltaTime: Float) {
-
-
         val spawnXMin = worldBounds.left
         val spawnXMax = worldBounds.right
 
@@ -199,7 +168,6 @@ private class EnemySpawnSystem(
             world.entity {
                 +Transform(
                     position = Offset(
-                        // 在 [spawnXMin, spawnXMax] 这个范围内随机取一个X值
                         x = Random.nextFloat() * (spawnXMax - spawnXMin) + spawnXMin,
                         y = spawnY
                     ),
@@ -207,10 +175,11 @@ private class EnemySpawnSystem(
                 +RigidBody(velocity = Offset((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
                 +CharacterStats(maxHp = 20f)
                 +WorldBounds(worldBounds)
-                +Boundary(onExit = cleanupOnExit())
+                +Boundary(strategy = BoundaryStrategy.Cleanup)
                 +WeaponComponent(cooldown = 0.5f)
                 +EnemyTag
-                +Renderable(EnemyVisual())
+                val name = if (Random.nextFloat() > 0.8) "stormplane_mob.png" else "stormplane_elite.png"
+                +Renderable(SpriteVisual(atlas = texture, name = name, size = Size(60f, 60f)))
             }
         }
     }
@@ -218,11 +187,14 @@ private class EnemySpawnSystem(
 
 private class CollisionSystem(
     val cameraService: CameraService = inject(),
-    val audio: AudioManager = inject()
+    val audio: AudioManager = inject(),
+    val assets: AssetsManager = inject()
 ) : IntervalSystem() {
     private val playerBulletFamily = family { all(PlayerBulletTag, Transform); none(EnemyTag) }
     private val enemyFamily = family { all(EnemyTag, Transform, CharacterStats) }
     private val playerFamily = family { all(PlayerTag, Transform, CharacterStats) }
+
+    private val texture = assets[GameAssets.Atlas.Texture]
 
     override fun onTick(deltaTime: Float) {
         // --- 1. 玩家子弹 vs 敌人 ---
@@ -236,7 +208,16 @@ private class CollisionSystem(
                 if ((bPos - ePos).getDistanceSquared() < (eRadius * eRadius)) {
                     val stats = enemy[CharacterStats]
                     stats.hp -= bullet[PlayerBulletTag].damage
-                    bullet.configure { +CleanupTag }
+
+                    if (stats.hp <= 0) {
+                        bullet.configure { +CleanupTag }
+                        world.entity {
+                            +Transform(position = ePos)
+                            +SpriteAnimation(name = "boom", loop = false)
+                            +AutoCleanupTag
+                            +Renderable(SpriteVisual(atlas = texture, name = "stormplane_boom_1.png", size = Size(60f, 60f)))
+                        }
+                    }
                 }
             }
         }
@@ -252,7 +233,7 @@ private class CollisionSystem(
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
 //                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
-                    cameraService.director.shake(1f)
+                    cameraService.director.shake(0.5f)
                     enemy.configure { +CleanupTag }
                 }
             }
@@ -337,7 +318,7 @@ fun GameAircraftWarDemo() {
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)
                         +SpriteAnimation(name = "hero")
-                        +Renderable(SpriteVisual(atlas = assets[GameAssets.Atlas.Texture], name = "stormplane_hero1.png"))
+                        +Renderable(SpriteVisual(atlas = assets[GameAssets.Atlas.Texture], name = "stormplane_hero1.png", size = Size(80f, 80f)))
                     }
 
                     entity {

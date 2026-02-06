@@ -43,6 +43,15 @@ data class EnemyBulletTag(val damage: Float) : Component<EnemyBulletTag> {
 data object CleanupTag : EntityTag()
 
 /**
+ * A tag indicating the entity is self-destructive and should be
+ * marked with [CleanupTag] once its animation ends.
+ *
+ * Using 'AutoCleanup' instead of 'OnFinish' makes it a descriptive
+ * property rather than a callback-style name.
+ */
+data object AutoCleanupTag : EntityTag()
+
+/**
  * A tag for entities that can be picked up by the player, such as power-ups or health packs.
  * Used to trigger pickup logic upon collision with the player.
  */
@@ -65,3 +74,8 @@ data object ObstacleTag : EntityTag()
  * Examples include lava fields, toxic clouds, or electrified floors.
  */
 data object HazardZoneTag : EntityTag()
+
+/**
+ * A transient tag added by the AnimationSystem when a non-looping animation finishes.
+ */
+data object AnimationFinishedTag : EntityTag()

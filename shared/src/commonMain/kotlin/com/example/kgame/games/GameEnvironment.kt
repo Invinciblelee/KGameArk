@@ -15,4 +15,3 @@ private val DefaultAssetsReader = object : AssetsReader {
 }
 
 object GameHost: KGameHost(DefaultAssetsReader)
-

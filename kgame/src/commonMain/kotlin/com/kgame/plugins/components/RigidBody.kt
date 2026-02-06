@@ -109,6 +109,33 @@ fun RigidBody.applyImpulse(impulse: Offset) {
 }
 
 /**
+ * Applies a reflection impulse to the rigid body based on a surface normal.
+ * This is used for bouncing off boundaries or static obstacles.
+ *
+ * @param normal The unit normal vector of the surface (must be normalized).
+ * @param restitution The coefficient of restitution (0 = no bounce, 1 = perfect elastic).
+ */
+fun RigidBody.applyReflectionImpulse(
+    normal: Offset,
+    restitution: Float = 1.0f
+) {
+    if (this.mass <= 0f) return
+
+    // Calculate the velocity component along the normal (dot product)
+    val dot = this.velocity.x * normal.x + this.velocity.y * normal.y
+
+    // Only apply impulse if the body is moving towards the surface
+    if (dot < 0f) {
+        // Change in velocity: dv = -v_n * (1 + e)
+        // Impulse: I = m * dv
+        val impulseMag = -dot * (1f + restitution) * this.mass
+        val impulse = normal * impulseMag
+
+        this.applyImpulse(impulse)
+    }
+}
+
+/**
  * Applies a torque to the RigidBody.
  * T = Iα => α = T/I, where T is the torque and α is the angular acceleration.
  * @param torque The torque to add.

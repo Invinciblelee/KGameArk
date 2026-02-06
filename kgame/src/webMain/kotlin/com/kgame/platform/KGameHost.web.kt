@@ -20,7 +20,7 @@ actual open class KGameHost actual constructor(
             configure = configure
         ) {
             CompositionLocalProvider(
-                LocalPlatformContext provides PlatformContext,
+                LocalPlatformContext provides MockPlatformContext,
                 LocalAssetsReader provides assetsReader
             ) {
                 content()

@@ -213,9 +213,15 @@ open class PolygonVisual(
 
 }
 
+enum class AspectMode {
+    Fill,
+    Fit
+}
+
 open class ImageVisual(
     val bitmap: ImageBitmap,
-    size: Size = Size.Unspecified
+    size: Size = Size.Unspecified,
+    val aspectMode: AspectMode = AspectMode.Fit
 ) : Visual() {
 
     init {
@@ -223,8 +229,26 @@ open class ImageVisual(
     }
 
     override fun onComputeBounds(): Rect {
-        val effectiveSize = if (preferredSize.isSpecified) preferredSize else Size(bitmap.width.toFloat(), bitmap.height.toFloat())
-        return Rect(Offset.Zero, effectiveSize)
+        val rawSize = Size(bitmap.width.toFloat(), bitmap.height.toFloat())
+
+        if (!preferredSize.isSpecified) {
+            return Rect(Offset.Zero, rawSize)
+        }
+
+        val finalSize = when (aspectMode) {
+            AspectMode.Fill -> {
+                preferredSize
+            }
+            AspectMode.Fit -> {
+                val scaleX = preferredSize.width / rawSize.width
+                val scaleY = preferredSize.height / rawSize.height
+                val scale = minOf(scaleX, scaleY)
+
+                rawSize * scale
+            }
+        }
+
+        return Rect(Offset.Zero, finalSize)
     }
 
     override fun DrawScope.draw() {
@@ -240,7 +264,8 @@ open class ImageVisual(
 open class SpriteVisual(
     val atlas: ImageAtlas,
     private var name: String,
-    size: Size = Size.Unspecified
+    size: Size = Size.Unspecified,
+    val aspectMode: AspectMode = AspectMode.Fit
 ) : Visual() {
 
     private var region: AtlasRegion = atlas.getRegion(name)
@@ -250,8 +275,24 @@ open class SpriteVisual(
     }
 
     override fun onComputeBounds(): Rect {
-        val effectiveSize = if (preferredSize.isSpecified) preferredSize else region.size.toSize()
-        return Rect(Offset.Zero, effectiveSize)
+        val sourceSize = region.sourceSize
+
+        if (!preferredSize.isSpecified) {
+            return Rect(Offset.Zero, sourceSize)
+        }
+
+        return when (aspectMode) {
+            AspectMode.Fill -> {
+                Rect(Offset.Zero, preferredSize)
+            }
+            AspectMode.Fit -> {
+                val scaleX = preferredSize.width / sourceSize.width
+                val scaleY = preferredSize.height / sourceSize.height
+                val scale = minOf(scaleX, scaleY)
+
+                Rect(Offset.Zero, sourceSize * scale)
+            }
+        }
     }
 
     fun setFrame(name: String) {
@@ -266,11 +307,9 @@ open class SpriteVisual(
         val trim = region.spriteSourceSize
         val pivot = region.pivot
 
-        // 1. 计算缩放比
         val sx = size.width / source.width
         val sy = size.height / source.height
 
-        // 2. 锚点 (Canvas 上的固定位置) 与 逻辑 Pivot (原图上的像素位置)
         val anchorX = size.width * pivot.pivotFractionX
         val anchorY = size.height * pivot.pivotFractionY
         val lpX = source.width * pivot.pivotFractionX
@@ -284,51 +323,30 @@ open class SpriteVisual(
         val ty: Float
 
         if (region.rotated) {
-            // 物理采样：宽高互换
             srcWidth = frame.height
             srcHeight = frame.width
-            // 视觉尺寸：保持逻辑宽高一致
             drawWidth = (srcWidth * sy).toInt()
             drawHeight = (srcHeight * sx).toInt()
 
-            // --- 核心修复逻辑 ---
-            // 左右对齐 (已经稳了)：(trim.left - lpX) * sx
             ty = (trim.left - lpX) * sx
-
-            // 上下对齐：在旋转坐标系中，tx 对应逻辑 Y 轴。
-            // 由于图集是顺时针旋转 90 度存放，转回来后需要补偿物理高度 (即旋转前的 frame.width)
-            tx = (trim.top - lpY + frame.width) * sy
-            // 如果依然上下闪，请将上面一行改为：tx = (trim.top - lpY + frame.width) * sy
+            tx = -((trim.top - lpY) * sy) - drawWidth
         } else {
             srcWidth = frame.width
             srcHeight = frame.height
             drawWidth = (srcWidth * sx).toInt()
             drawHeight = (srcHeight * sy).toInt()
 
-            // 正常帧的偏移
             tx = (trim.left - lpX) * sx
             ty = (trim.top - lpY) * sy
         }
 
-        val state = if (region.rotated) "ROTATED" else "NORMAL"
-        println("""
-    [$state] 
-    Source: (${source.width}x${source.height}), Frame: (${frame.width}x${frame.height})
-    Trim: (L=${trim.left}, T=${trim.top}), Pivot: (lpX=$lpX, lpY=$lpY)
-    DrawSize: (${drawWidth}x${drawHeight}), Scale: (sx=$sx, sy=$sy)
-    Final Offset -> tx: $tx, ty: $ty
-    ------------------------------------------
-""".trimIndent())
         withTransform({
-            // A. 移到锚点
             translate(anchorX, anchorY)
 
-            // B. 如果是旋转帧，先转坐标轴
             if (region.rotated) {
                 rotate(-90f, pivot = Offset.Zero)
             }
 
-            // C. 应用逻辑偏移
             translate(tx, ty)
         }) {
             drawImage(

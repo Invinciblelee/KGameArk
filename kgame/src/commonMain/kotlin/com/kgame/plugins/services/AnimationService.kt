@@ -65,22 +65,33 @@ class AnimationService {
         val state = getOrCreateState(animation.id)
         val duration = animation.duration
 
-        // Step 2: Handle cases where the animation is not currently playing.
+        // Step 2: Determine the total boundary of the animation.
+        // For InfiniteRepeatable, use (duration * iterations). For others, use duration.
+        val totalLimit = if (animation.spec is InfiniteRepeatable) {
+            if (animation.spec.iterations == Int.MAX_VALUE) {
+                Float.POSITIVE_INFINITY
+            } else {
+                (duration * animation.spec.iterations).coerceAtLeast(duration)
+            }
+        } else {
+            duration
+        }
+
+        // Step 3: Handle cases where the animation is not currently playing.
         if (state.status != RuntimeState.Status.Playing) {
             // If it stopped because it completed, its progress should be locked at 100%.
-            if (state.elapsedTime >= duration) return 1f
+            if (state.elapsedTime >= totalLimit) {
+                return if (animation.isInfinite) 0f else 1f
+            }
             // If it was stopped manually (e.g., via `stop(id)`), its progress should be 0%.
             if (state.elapsedTime == 0f) return 0f
         }
 
         val elapsedTime = state.elapsedTime
 
-        // Step 3: Handle finite animations that have just completed.
-        if (!animation.isInfinite && elapsedTime >= duration) {
-            // For finite animations, if the time has exceeded the duration,
-            // mark its state as stopped and return the final progress of 1.0.
+        if (elapsedTime >= totalLimit) {
+            // Mark its state as stopped when it exceeds the total calculated limit.
             state.status = RuntimeState.Status.Stopped
-            return 1f
         }
 
         // Step 4: Calculate the final progress value based on the animation's specification.
@@ -262,6 +273,12 @@ class AnimationService {
     }
 }
 
+fun AnimationService.play(identifiable: Identifiable) = play(identifiable.id)
+
+fun AnimationService.pause(identifiable: Identifiable) = pause(identifiable.id)
+
+fun AnimationService.stop(identifiable: Identifiable) = stop(identifiable.id)
+
 private object SpringRatioSimulation {
     fun getFraction(elapsedTime: Float, spring: Spring): Float {
         val natFreq = sqrt(spring.stiffness.toDouble())
@@ -287,9 +304,3 @@ private object SpringRatioSimulation {
         val dampedFreq = natFreq * sqrt(1 - dampingRatio * dampingRatio); val r = -dampingRatio * natFreq; val sinCoeff = r / dampedFreq; return exp(r * t) * (cos(dampedFreq * t) + sinCoeff * sin(dampedFreq * t))
     }
 }
-
-fun AnimationService.play(identifiable: Identifiable) = play(identifiable.id)
-
-fun AnimationService.pause(identifiable: Identifiable) = pause(identifiable.id)
-
-fun AnimationService.stop(identifiable: Identifiable) = stop(identifiable.id)

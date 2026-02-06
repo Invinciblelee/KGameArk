@@ -2,6 +2,7 @@
 
 package com.example.kgame.games.aircraftwar
 
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -33,6 +34,8 @@ import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.applyJoypad
+import com.kgame.engine.utils.FpsCalculator
+import com.kgame.plugins.components.AlphaAnimation
 import com.kgame.plugins.components.AutoCleanupTag
 import com.kgame.plugins.components.Axis
 import com.kgame.plugins.components.Boundary
@@ -45,6 +48,7 @@ import com.kgame.plugins.components.CleanupTag
 import com.kgame.plugins.components.EnemyBulletTag
 import com.kgame.plugins.components.EnemyTag
 import com.kgame.plugins.components.ImageVisual
+import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PlayerBulletTag
 import com.kgame.plugins.components.PlayerTag
 import com.kgame.plugins.components.Renderable
@@ -55,6 +59,7 @@ import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyKinematicMovement
+import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.AnimationTickSystem
@@ -187,6 +192,7 @@ private class EnemySpawnSystem(
 
 private class CollisionSystem(
     val cameraService: CameraService = inject(),
+    val animationService: AnimationService = inject(),
     val audio: AudioManager = inject(),
     val assets: AssetsManager = inject()
 ) : IntervalSystem() {
@@ -233,6 +239,14 @@ private class CollisionSystem(
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
 //                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
+                    player.configure {
+                        addIfAbsent(AlphaAnimation) {
+                            AlphaAnimation(1.0f, to = 0.0f, spec = InfiniteRepeatable(repeatMode = RepeatMode.Restart, iterations = 4))
+                        }
+                    }
+
+                    animationService.play(player.id)
+
                     cameraService.director.shake(0.5f)
                     enemy.configure { +CleanupTag }
                 }
@@ -318,6 +332,8 @@ fun GameAircraftWarDemo() {
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)
                         +SpriteAnimation(name = "hero")
+                        +WorldBounds(worldBounds)
+                        +Boundary(margin = 0f, strategy = BoundaryStrategy.Clamp)
                         +Renderable(SpriteVisual(atlas = assets[GameAssets.Atlas.Texture], name = "stormplane_hero1.png", size = Size(80f, 80f)))
                     }
 
@@ -340,13 +356,15 @@ fun GameAircraftWarDemo() {
                 if (input.isKeyJustPressed(Key.Escape)) sceneStack.pop()
             }
 
+            val fpsCalculator = FpsCalculator()
+
+            onRender { fpsCalculator.advanceFrame() }
+
             onForegroundUI {
                 GameJoypad(onValue = input::applyJoypad)
 
 
-                // 简单的 HUD 显示血量和分数 (需要从 ECS Injectables 中获取状态)
-                // val gameState = inject<GameState>() // 假设您有 GameState
-                Text("HP: ???", modifier = Modifier.padding(16.dp))
+                Text("FPS: ${fpsCalculator.fps}", modifier = Modifier.padding(16.dp))
             }
         }
     }

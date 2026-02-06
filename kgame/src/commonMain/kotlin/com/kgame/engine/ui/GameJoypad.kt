@@ -66,7 +66,7 @@ fun GameJoypad(
     onRelease: () -> Unit = {},
     modifier: Modifier = Modifier,
     radius: Dp = 48.dp,
-    deadRadius: Dp = 12.dp,
+    deadRadius: Dp = 0.dp,
     dotRadius: Dp = 24.dp,
     bgColor: Color = Color.Black.copy(alpha = 0.4f),
     dotColor: Color = Color.LightGray,

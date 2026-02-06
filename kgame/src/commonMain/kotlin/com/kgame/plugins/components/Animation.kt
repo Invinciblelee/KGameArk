@@ -36,10 +36,12 @@ data class Tween(
  * A AnimationSpec of InfiniteRepeatable, used to control the infinite repeatable animation of an entity.
  * @param animation Animation to be repeated.
  * @param repeatMode Repeat mode of the animation.
+ * @param iterations Number of times the animation should repeat.
  */
 data class InfiniteRepeatable(
     val animation: Tween = Tween(),
-    val repeatMode: RepeatMode = RepeatMode.Restart
+    val repeatMode: RepeatMode = RepeatMode.Restart,
+    val iterations: Int = Int.MAX_VALUE
 ) : AnimationSpec
 
 /**

@@ -10,10 +10,10 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.input.key.Key.Companion.P
 import androidx.compose.ui.unit.roundToIntSize
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.geometry.roundToIntOffset
@@ -41,9 +41,11 @@ import com.kgame.plugins.services.CameraService
  */
 class TiledMapRenderSystem(
     private val cameraService: CameraService = inject(),
-    private val animationService: AnimationService = inject()
+    private val animationService: AnimationService = inject(),
+    priority: SystemPriority = SystemPriorityAnchors.Render
 ) : IteratingSystem(
-    family = family { all(TiledMap) }
+    family = family { all(TiledMap) },
+    priority = priority
 ) {
 
     companion object {

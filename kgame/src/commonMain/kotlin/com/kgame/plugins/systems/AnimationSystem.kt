@@ -2,6 +2,7 @@ package com.kgame.plugins.systems
 
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.plugins.components.AlphaAnimation
@@ -13,7 +14,6 @@ import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RotationAnimation
 import com.kgame.plugins.components.ScaleAnimation
 import com.kgame.plugins.components.SpriteAnimation
-import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.TranslationAnimation
 import com.kgame.plugins.components.applyAlpha
@@ -21,6 +21,7 @@ import com.kgame.plugins.components.applyRotation
 import com.kgame.plugins.components.applyScale
 import com.kgame.plugins.components.applyTranslation
 import com.kgame.plugins.services.AnimationService
+import com.kgame.plugins.visuals.images.SpriteVisual
 
 /**
  * The AnimationSystem is responsible for updating all entities with animations.
@@ -28,7 +29,8 @@ import com.kgame.plugins.services.AnimationService
  * logic of timing, state calculation, and property application.
  */
 class AnimationSystem(
-    private val animationService: AnimationService = inject()
+    private val animationService: AnimationService = inject(),
+    priority: SystemPriority = SystemPriorityAnchors.Animation
 ) : IteratingSystem(
     family = family {
         all(Transform, Renderable)
@@ -39,7 +41,8 @@ class AnimationSystem(
             AlphaAnimation,
             SpriteAnimation
         )
-    }
+    },
+    priority = priority
 ) {
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
@@ -56,7 +59,7 @@ class AnimationSystem(
                 fraction = progress
             )
 
-            if (!animationService.isStopped(translationAnimation.id) || translationAnimation.isInfinite) {
+            if (!animationService.isStopped(translationAnimation.id, translationAnimation.name) || translationAnimation.isInfinite) {
                 isFinished = false
             }
         }
@@ -71,7 +74,7 @@ class AnimationSystem(
                 fraction = progress,
             )
 
-            if (!animationService.isStopped(rotationAnimation.id) || rotationAnimation.isInfinite) {
+            if (!animationService.isStopped(rotationAnimation.id, rotationAnimation.name) || rotationAnimation.isInfinite) {
                 isFinished = false
             }
         }
@@ -86,7 +89,7 @@ class AnimationSystem(
                 fraction = progress,
             )
 
-            if (!animationService.isStopped(scaleAnimation.id) || scaleAnimation.isInfinite) {
+            if (!animationService.isStopped(scaleAnimation.id, scaleAnimation.name) || scaleAnimation.isInfinite) {
                 isFinished = false
             }
         }
@@ -100,7 +103,7 @@ class AnimationSystem(
                 transform.rotation = animationService.getPathRotation(pathAnimation)
             }
 
-            if (!animationService.isStopped(pathAnimation.id) || pathAnimation.isInfinite) {
+            if (!animationService.isStopped(pathAnimation.id, pathAnimation.name) || pathAnimation.isInfinite) {
                 isFinished = false
             }
         }
@@ -114,7 +117,7 @@ class AnimationSystem(
                     val frame = animationService.getCurrentFrame(spriteAnimation, spriteVisual.atlas)
                     spriteVisual.setFrame(frame.name)
 
-                    if (!animationService.isStopped(spriteAnimation.id) || spriteAnimation.loop) {
+                    if (!animationService.isStopped(spriteAnimation.id, spriteAnimation.name) || spriteAnimation.loop) {
                         isFinished = false
                     }
                 }
@@ -129,7 +132,7 @@ class AnimationSystem(
                     fraction = progress
                 )
 
-                if (!animationService.isStopped(alphaAnimation.id) || alphaAnimation.isInfinite) {
+                if (!animationService.isStopped(alphaAnimation.id, alphaAnimation.name) || alphaAnimation.isInfinite) {
                     isFinished = false
                 }
             }

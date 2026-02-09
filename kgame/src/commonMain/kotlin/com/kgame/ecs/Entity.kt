@@ -14,7 +14,7 @@ import kotlin.jvm.JvmName
  * one of these entities is part of the [world][World] at any given time.
  */
 @Serializable
-data class Entity(val id: Int, val version: UInt) {
+data class Entity(override val id: Int, val version: UInt): Identifiable {
     companion object {
         val NONE = Entity(-1, 0u)
     }

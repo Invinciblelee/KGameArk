@@ -6,6 +6,7 @@ import androidx.collection.SimpleArrayMap
 import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import com.kgame.ecs.IntervalSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.engine.geometry.set
 import com.kgame.engine.maps.TiledMapShape
@@ -28,7 +29,8 @@ import kotlin.math.sqrt
  * - Concave polygon support via individual segment projection.
  * - Clean 'when' branching for improved maintainability.
  */
-class TiledMapCollisionSystem : IntervalSystem() {
+class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.Physics) :
+    IntervalSystem(priority = priority) {
     private val tiledMapFamily = family { all(TiledMap) }
     private val entitiesFamily = family { all(Transform, Hitbox) }
 
@@ -68,15 +70,40 @@ class TiledMapCollisionSystem : IntervalSystem() {
                     when (val shape = obj.shape) {
                         is TiledMapShape.Polyline -> {
                             if (obj.isPlatform) {
-                                resolvePlatformSegments(transform, hitbox, obj.position, shape.points, delta)
+                                resolvePlatformSegments(
+                                    transform,
+                                    hitbox,
+                                    obj.position,
+                                    shape.points,
+                                    delta
+                                )
                             } else {
-                                resolveSolidSegments(transform, hitbox, obj.position, shape.points, false)
+                                resolveSolidSegments(
+                                    transform,
+                                    hitbox,
+                                    obj.position,
+                                    shape.points,
+                                    false
+                                )
                             }
                         }
+
                         is TiledMapShape.Polygon -> {
-                            resolveSolidSegments(transform, hitbox, obj.position, shape.points, true)
+                            resolveSolidSegments(
+                                transform,
+                                hitbox,
+                                obj.position,
+                                shape.points,
+                                true
+                            )
                         }
-                        is TiledMapShape.Ellipse -> resolveEllipseCollision(transform, hitbox, shapeBounds)
+
+                        is TiledMapShape.Ellipse -> resolveEllipseCollision(
+                            transform,
+                            hitbox,
+                            shapeBounds
+                        )
+
                         else -> resolveRectCollision(transform, hitbox, shapeBounds)
                     }
                 }
@@ -108,9 +135,12 @@ class TiledMapCollisionSystem : IntervalSystem() {
 
         var i = 0
         while (i < count) {
-            val p1 = points[i]; val p2 = points[i + 1]; i++
-            val x1 = p1.x + pos.x; val y1 = p1.y + pos.y
-            val x2 = p2.x + pos.x; val y2 = p2.y + pos.y
+            val p1 = points[i];
+            val p2 = points[i + 1]; i++
+            val x1 = p1.x + pos.x;
+            val y1 = p1.y + pos.y
+            val x2 = p2.x + pos.x;
+            val y2 = p2.y + pos.y
 
             val minX = if (x1 < x2) x1 else x2
             val maxX = if (x1 > x2) x1 else x2
@@ -159,10 +189,14 @@ class TiledMapCollisionSystem : IntervalSystem() {
 
         var idx = 0
         while (idx < edgeCount) {
-            val p1 = points[idx++]; val p2 = points[idx % count]
-            val x1 = p1.x + pos.x; val x2 = p2.x + pos.x
-            val y1 = p1.y + pos.y; val y2 = p2.y + pos.y
-            val dx = x2 - x1; val dy = y2 - y1
+            val p1 = points[idx++];
+            val p2 = points[idx % count]
+            val x1 = p1.x + pos.x;
+            val x2 = p2.x + pos.x
+            val y1 = p1.y + pos.y;
+            val y2 = p2.y + pos.y
+            val dx = x2 - x1;
+            val dy = y2 - y1
 
             // Vertical resolve
             if (entityBounds.center.x in min(x1, x2)..max(x1, x2)) {
@@ -187,13 +221,17 @@ class TiledMapCollisionSystem : IntervalSystem() {
     }
 
     private fun resolveEllipseCollision(transform: Transform, hitbox: Hitbox, rect: MutableRect) {
-        val a = rect.width * 0.5f; val b = rect.height * 0.5f
-        val h = rect.left + a; val k = rect.top + b
-        val cx = entityBounds.center.x; val cy = entityBounds.center.y
+        val a = rect.width * 0.5f;
+        val b = rect.height * 0.5f
+        val h = rect.left + a;
+        val k = rect.top + b
+        val cx = entityBounds.center.x;
+        val cy = entityBounds.center.y
 
         if (cx in (h - a)..(h + a)) {
             val dy = b * sqrt(1f - ((cx - h) / a).pow(2))
-            val topY = k - dy; val botY = k + dy
+            val topY = k - dy;
+            val botY = k + dy
             val halfH = entityBounds.height * 0.5f
             if (abs(cy - botY) < halfH) {
                 transform.offset(y = if (cy < botY) botY - entityBounds.bottom else botY - entityBounds.top)
@@ -206,7 +244,8 @@ class TiledMapCollisionSystem : IntervalSystem() {
 
         if (cy in (k - b)..(k + b)) {
             val dx = a * sqrt(1f - ((cy - k) / b).pow(2))
-            val leftX = h - dx; val rightX = h + dx
+            val leftX = h - dx;
+            val rightX = h + dx
             val halfW = entityBounds.width * 0.5f
             if (abs(cx - rightX) < halfW) {
                 transform.offset(x = if (cx < rightX) rightX - entityBounds.right else rightX - entityBounds.left)

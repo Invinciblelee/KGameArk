@@ -3,6 +3,7 @@ package com.kgame.plugins.systems
 import androidx.compose.ui.geometry.Offset
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Transform
@@ -13,9 +14,11 @@ import com.kgame.plugins.components.integrate
  * The PhysicsSystem is responsible for updating all entities with rigid bodies.
  */
 class PhysicsSystem(
-    val gravity: Offset = Offset(0f, 980f)
+    val gravity: Offset = Offset(0f, 980f),
+    priority: SystemPriority = SystemPriorityAnchors.Physics
 ) : IteratingSystem(
-    family = family { all(Transform, RigidBody) }
+    family = family { all(Transform, RigidBody) },
+    priority = priority
 ) {
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {

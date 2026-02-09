@@ -61,14 +61,11 @@ import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
 import com.kgame.plugins.components.Elasticity
 import com.kgame.plugins.components.Hitbox
-import com.kgame.plugins.components.PolygonVisual
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.SpriteAnimation
-import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.Visual
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyImpulseFromSegment
 import com.kgame.plugins.components.applyKinematicMovement
@@ -82,6 +79,9 @@ import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.systems.SteeringSystem
 import com.kgame.plugins.systems.TiledMapCollisionSystem
 import com.kgame.plugins.systems.TiledMapRenderSystem
+import com.kgame.plugins.visuals.Visual
+import com.kgame.plugins.visuals.images.SpriteVisual
+import com.kgame.plugins.visuals.shapes.PolygonVisual
 import kotlin.math.hypot
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime

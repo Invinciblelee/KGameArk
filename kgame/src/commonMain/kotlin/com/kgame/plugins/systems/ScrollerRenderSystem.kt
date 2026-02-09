@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ScaleFactor
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.engine.graphics.drawscope.withLocalTransform
 import com.kgame.plugins.components.Axis
@@ -24,8 +25,11 @@ import kotlin.math.floor
  * The entire rendering process is allocation-free (0-GC) within the main loop to ensure
  * optimal performance.
  */
-class ScrollerRenderSystem :
-    IteratingSystem(family { all(Renderable, Transform, Scroller) }) {
+class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Render) :
+    IteratingSystem(
+        family = family { all(Scroller, Renderable, Transform) },
+        priority = priority
+    ) {
 
     /**
      * A reusable [Transform] object to avoid allocations within the render loop (0-GC).

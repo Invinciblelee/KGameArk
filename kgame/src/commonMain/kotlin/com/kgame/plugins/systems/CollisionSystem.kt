@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import com.kgame.ecs.IntervalSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.engine.geometry.set
 import com.kgame.plugins.components.Hitbox
@@ -15,7 +16,7 @@ import kotlin.math.abs
 /**
  * The CollisionSystem is responsible for handling rigid body collisions.
  */
-class CollisionSystem: IntervalSystem() {
+class CollisionSystem(priority: SystemPriority = SystemPriorityAnchors.Physics): IntervalSystem(priority = priority) {
 
     private val family = family { all(RigidBody, Transform, Hitbox) }
 
@@ -28,6 +29,9 @@ class CollisionSystem: IntervalSystem() {
 
     override fun onTick(deltaTime: Float) {
         val n = family.entitySize
+
+        if (n == 0) return
+
         ensureCapacity(n)
         count = 0
 

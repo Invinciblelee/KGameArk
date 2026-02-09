@@ -32,6 +32,7 @@ data class Fixed(val step: Float) : Interval
 abstract class IntervalSystem(
     val interval: Interval = EachFrame,
     enabled: Boolean = true,
+    val priority: SystemPriority = SystemPriority.Default,
     /**
      * Returns the [world][World] to which this system belongs.
      */
@@ -158,8 +159,9 @@ abstract class IteratingSystem(
     protected val sortingType: SortingType = Automatic,
     interval: Interval = EachFrame,
     enabled: Boolean = true,
-    world: World
-) : IntervalSystem(interval, enabled, world) {
+    priority: SystemPriority = SystemPriority.Default,
+    world: World,
+) : IntervalSystem(interval, enabled, priority, world) {
 
     constructor(
         family: Family,
@@ -167,12 +169,14 @@ abstract class IteratingSystem(
         sortingType: SortingType = Automatic,
         interval: Interval = EachFrame,
         enabled: Boolean = true,
+        priority: SystemPriority = SystemPriority.Default,
     ) : this(
         family,
         comparator,
         sortingType,
         interval,
         enabled,
+        priority,
         World.requireCurrentWorld()
     )
 

@@ -79,3 +79,15 @@ data object HazardZoneTag : EntityTag()
  * A transient tag added by the AnimationSystem when a non-looping animation finishes.
  */
 data object AnimationFinishedTag : EntityTag()
+
+/**
+ * A tag indicating the entity is currently invincible and should ignore damage-dealing collisions.
+ *
+ * @property duration The remaining time in seconds for the invincibility effect.
+ * If null, the entity is permanently invincible until the tag is removed manually.
+ */
+data class InvincibleTag(var duration: Float? = null) : Component<InvincibleTag> {
+    override fun type() = InvincibleTag
+
+    companion object : ComponentType<InvincibleTag>()
+}

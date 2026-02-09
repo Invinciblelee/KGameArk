@@ -1,6 +1,7 @@
 package com.kgame.plugins.services // Or a new `animation` package
 
 import androidx.collection.SimpleArrayMap
+import androidx.collection.SparseArrayCompat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathMeasure
@@ -10,7 +11,7 @@ import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.TiledMapAnimationFrame
 import com.kgame.engine.math.degrees
 import com.kgame.plugins.components.Animation
-import com.kgame.plugins.components.Identifiable
+import com.kgame.ecs.Identifiable
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PathAnimation
 import com.kgame.plugins.components.Spring
@@ -30,29 +31,29 @@ import kotlin.math.sqrt
  */
 class AnimationService {
 
-
     /** Holds the generic runtime state for any time-based animation. */
     private data class RuntimeState(
         var elapsedTime: Float = 0f,
         var frameIndex: Int = 0,
         var pathLength: Float = -1f,
-        var status: Status = Status.Playing
+        var clip: String? = null,
+        var status: Status,
     ) {
-
         enum class Status {
             Playing, Paused, Stopped
         }
-
     }
 
-    private val states = SimpleArrayMap<Int, RuntimeState>()
-
+    private val states = SparseArrayCompat<RuntimeState>()
     private val sharedMeasure = PathMeasure()
 
+    /** Creates a composite key using entity ID and animation name. */
+    private fun getCombinedId(id: Int, name: String): Int = id * 31 + name.hashCode()
 
     internal fun update(deltaTime: Float) {
         var index = 0
-        while (index < states.size()) {
+        val size = states.size()
+        while (index < size) {
             val state = states.valueAt(index++)
             if (state.status == RuntimeState.Status.Playing) {
                 state.elapsedTime += deltaTime
@@ -60,13 +61,30 @@ class AnimationService {
         }
     }
 
+    /** * Handles state retrieval and detects if the animation name has changed.
+     * If the name is different, it resets progress to ensure synchronized playback.
+     */
+    private fun getOrCreateState(id: Int, name: String? = null, clip: String? = null, autoPlay: Boolean = false): RuntimeState {
+        val combinedId = name?.let { getCombinedId(id, it) } ?: id
+        var state = states[combinedId]
+        if (state == null) {
+            state = RuntimeState(clip = clip, status = if (autoPlay) RuntimeState.Status.Playing else RuntimeState.Status.Stopped)
+            states.put(combinedId, state)
+        } else if (clip != null && state.clip != clip) {
+            /** Reset state if the animation name in this specific slot changes. */
+            state.clip = clip
+            state.elapsedTime = 0f
+            state.frameIndex = 0
+            state.pathLength = -1f
+            state.status = RuntimeState.Status.Playing
+        }
+        return state
+    }
+
     internal fun getProgress(animation: Animation<*, *>): Float {
-        // Step 1: Get or create the runtime state for this animation.
-        val state = getOrCreateState(animation.id)
+        val state = getOrCreateState(animation.id, animation.name, autoPlay = animation.autoPlay)
         val duration = animation.duration
 
-        // Step 2: Determine the total boundary of the animation.
-        // For InfiniteRepeatable, use (duration * iterations). For others, use duration.
         val totalLimit = if (animation.spec is InfiniteRepeatable) {
             if (animation.spec.iterations == Int.MAX_VALUE) {
                 Float.POSITIVE_INFINITY
@@ -77,98 +95,69 @@ class AnimationService {
             duration
         }
 
-        // Step 3: Handle cases where the animation is not currently playing.
         if (state.status != RuntimeState.Status.Playing) {
-            // If it stopped because it completed, its progress should be locked at 100%.
             if (state.elapsedTime >= totalLimit) {
                 return if (animation.isInfinite) 0f else 1f
             }
-            // If it was stopped manually (e.g., via `stop(id)`), its progress should be 0%.
             if (state.elapsedTime == 0f) return 0f
         }
 
         val elapsedTime = state.elapsedTime
-
         if (elapsedTime >= totalLimit) {
-            // Mark its state as stopped when it exceeds the total calculated limit.
             state.status = RuntimeState.Status.Stopped
         }
 
-        // Step 4: Calculate the final progress value based on the animation's specification.
         return when (val spec = animation.spec) {
-            // Case A: A 'Tween' (in-between) animation.
             is Tween -> {
-                // a. First, calculate the linear time fraction (0.0 to 1.0).
                 val fraction = (elapsedTime / duration).coerceIn(0f, 1f)
-                // b. Then, transform this linear fraction into a non-linear progress
-                //    value using the specified Easing curve.
                 spec.easing.transform(fraction)
             }
-            // Case B: An infinitely repeating animation.
             is InfiniteRepeatable -> {
-                // a. Calculate the linear time fraction within the current repetition cycle.
                 val fraction = (elapsedTime / duration) % 1.0f
                 when (spec.repeatMode) {
-                    // b. Restart mode: The animation simply plays from the beginning.
                     RepeatMode.Restart -> spec.animation.easing.transform(fraction)
-                    // c. Reverse mode: The animation plays forwards, then backwards.
                     RepeatMode.Reverse -> {
-                        // This maps the linear time [0, 1] to a "ping-pong" effect of [0, 1, 0].
                         val mirrored = if (fraction <= 0.5f) fraction * 2f else (1f - fraction) * 2f
                         spec.animation.easing.transform(mirrored)
                     }
                 }
             }
-            // Case C: A 'Spring' physics-based animation.
             is Spring -> {
-                // Delegate to a separate physics simulator to calculate the current value
-                // based on spring parameters and elapsed time. The "progress" of a spring
-                // is the result of its physical simulation.
                 SpringRatioSimulation.getFraction(elapsedTime, spec)
             }
         }
     }
 
     internal fun getCurrentFrame(animation: SpriteAnimation, atlas: ImageAtlas): AtlasAnimatedFrame {
-        // Step 1: Retrieve the runtime state for this animation. The state is managed by this service.
-        val state = getOrCreateState(animation.id)
+        val state = getOrCreateState(animation.id, animation.name, autoPlay = animation.autoPlay)
 
-        // Step 2: Retrieve the current animation frames.
-        val frames = atlas.getAnimatedFrames(animation.name)
+        if (animation.clip != state.clip && !state.clip.isNullOrBlank()) {
+            animation.clip = state.clip.orEmpty()
+        }
 
-        // Step 3: If the animation is not playing, simply return the last known frame.
+        val frames = atlas.getAnimatedFrames(animation.clip)
+
         if (state.status != RuntimeState.Status.Playing) {
             val safeIndex = state.frameIndex.coerceIn(0, frames.lastIndex)
             return frames[safeIndex]
         }
 
-        // Step 4: Determine the current time within the animation cycle.
         val cycleTime = (state.elapsedTime * animation.speed) % frames.duration
-
-        // Step 5: Use a single loop to find the correct frame for the calculated `cycleTime`.
         val currentFrameIndex = frames.getFrameIndexAtTime(cycleTime)
-
         state.frameIndex = currentFrameIndex
 
-        // Step 6: Handle the end of a non-looping animation.
         if (!animation.loop && state.elapsedTime * animation.speed >= frames.duration) {
             state.status = RuntimeState.Status.Stopped
         }
 
-        // Step 7: Return the name of the new current frame.
         return frames[state.frameIndex]
     }
 
     internal fun getCurrentFrame(tile: AnimatedTiledMapTile): TiledMapAnimationFrame {
-        val state = getOrCreateState(tile.id)
-
+        /** Tiled Map Tile uses its own ID as key (usually one animation per tile). */
+        val state = getOrCreateState(tile.id, autoPlay = true)
         val totalDurationSeconds = tile.duration / 1000f
-
-        val elapsedTime = if (totalDurationSeconds > 0f) {
-            state.elapsedTime % totalDurationSeconds
-        } else {
-            0f
-        }
+        val elapsedTime = if (totalDurationSeconds > 0f) state.elapsedTime % totalDurationSeconds else 0f
 
         var currentFrame = tile.frames.last()
         var accumulatedTime = 0f
@@ -181,103 +170,67 @@ class AnimationService {
                 break
             }
         }
-
         return currentFrame
     }
 
-    /**
-     * [Get Path Position]
-     * Calculates the current world position along the path for a [PathAnimation].
-     * It automatically handles path length caching within the service's internal state.
-     */
     internal fun getPathPosition(animation: PathAnimation): Offset {
-        val state = getOrCreateState(animation.id)
-
-        // Step 1: Initialize path length if it hasn't been cached yet.
+        val state = getOrCreateState(animation.id, animation.name, autoPlay = animation.autoPlay)
         if (state.pathLength < 0f) {
             sharedMeasure.setPath(animation.path, false)
             state.pathLength = sharedMeasure.length
         }
-
-        // Step 2: Use the existing getProgress logic to get the eased fraction (0.0 - 1.0)
         val progress = getProgress(animation)
-
-        // Step 3: Sample the position
         sharedMeasure.setPath(animation.path, false)
-        val distance = progress * state.pathLength
-        return sharedMeasure.getPosition(distance)
+        return sharedMeasure.getPosition(progress * state.pathLength)
     }
 
-    /**
-     * If you need rotation as well, you can return a wrapper or use getTangent.
-     */
     internal fun getPathRotation(animation: PathAnimation): Float {
-        val state = getOrCreateState(animation.id)
+        val state = getOrCreateState(animation.id, animation.name, autoPlay = animation.autoPlay)
         val progress = getProgress(animation)
         sharedMeasure.setPath(animation.path, false)
-
         val tangent = sharedMeasure.getTangent(progress * state.pathLength)
-
-        // Safety check: only update rotation if the tangent is valid
         if (tangent.x == 0f && tangent.y == 0f) {
-            // Option: return the last known rotation from state if you add a 'lastRotation' field
             return 0f + animation.rotationOffset
         }
-
         val angle = atan2(tangent.y.toDouble(), tangent.x.toDouble())
         return degrees(angle).toFloat() + animation.rotationOffset
     }
 
-    fun play(id: Int) {
-        val state = getOrCreateState(id)
+    /** * Control functions requiring explicit name to target the correct composite key.
+     */
+    fun play(id: Int, name: String, clip: String? = null) {
+        val state = getOrCreateState(id, name, clip, autoPlay = true)
         if (state.status == RuntimeState.Status.Stopped) {
             state.elapsedTime = 0f
         }
         state.status = RuntimeState.Status.Playing
     }
 
-    fun pause(id: Int) {
-        states[id]?.status = RuntimeState.Status.Paused
+    fun pause(id: Int, name: String) {
+        states[getCombinedId(id, name)]?.status = RuntimeState.Status.Paused
     }
 
-    fun stop(id: Int) {
-        val state = states[id]
-        if (state != null) {
-            state.status = RuntimeState.Status.Stopped
-            state.elapsedTime = 0f
+    fun stop(id: Int, name: String) {
+        states[getCombinedId(id, name)]?.apply {
+            status = RuntimeState.Status.Stopped
+            elapsedTime = 0f
         }
     }
 
-    fun isPlaying(id: Int): Boolean {
-        val state = getOrCreateState(id)
-        return state.status == RuntimeState.Status.Playing
-    }
+    fun isPlaying(id: Int, name: String): Boolean =
+        states[getCombinedId(id, name)]?.status == RuntimeState.Status.Playing
 
-    fun isPaused(id: Int): Boolean {
-        val state = getOrCreateState(id)
-        return state.status == RuntimeState.Status.Paused
-    }
+    fun isPaused(id: Int, name: String): Boolean =
+        states[getCombinedId(id, name)]?.status == RuntimeState.Status.Paused
 
-    fun isStopped(id: Int): Boolean {
-        val state = getOrCreateState(id)
-        return state.status == RuntimeState.Status.Stopped
-    }
-
-    private fun getOrCreateState(key: Int): RuntimeState {
-        var state = states[key]
-        if (state == null) {
-            state = RuntimeState()
-            states.put(key, state)
-        }
-        return state
-    }
+    fun isStopped(id: Int, name: String): Boolean =
+        states[getCombinedId(id, name)]?.status == RuntimeState.Status.Stopped
 }
 
-fun AnimationService.play(identifiable: Identifiable) = play(identifiable.id)
-
-fun AnimationService.pause(identifiable: Identifiable) = pause(identifiable.id)
-
-fun AnimationService.stop(identifiable: Identifiable) = stop(identifiable.id)
+/** Convenience extensions for Identifiable objects. */
+fun AnimationService.play(identifiable: Identifiable, name: String, clip: String? = null) = play(identifiable.id, name, clip)
+fun AnimationService.pause(identifiable: Identifiable, name: String) = pause(identifiable.id, name)
+fun AnimationService.stop(identifiable: Identifiable, name: String) = stop(identifiable.id, name)
 
 private object SpringRatioSimulation {
     fun getFraction(elapsedTime: Float, spring: Spring): Float {

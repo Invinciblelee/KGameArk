@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.ScaleFactor
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
+import com.kgame.ecs.Identifiable
 
 sealed interface AnimationSpec
 
@@ -52,9 +53,11 @@ data class InfiniteRepeatable(
  * @param spec The `AnimationTiming` (e.g., `Tween`, `Spring`, `InfiniteRepeatable`) that defines the animation's behavior.
  */
 sealed class Animation<T, C>(
+    val name: String,
     val from: T,
     val to: T,
-    val spec: AnimationSpec
+    val spec: AnimationSpec,
+    val autoPlay: Boolean
 ): Component<C>, Identifiable {
 
     override val id: Int = Identifiable.nextId()
@@ -72,42 +75,52 @@ sealed class Animation<T, C>(
 }
 
 class TranslationAnimation(
+    name: String,
     from: Offset,
     to: Offset,
-    spec: AnimationSpec = Tween(1f)
-) : Animation<Offset, TranslationAnimation>(from, to, spec) {
+    spec: AnimationSpec = Tween(1f),
+    autoPlay: Boolean = false,
+) : Animation<Offset, TranslationAnimation>(name, from, to, spec, autoPlay) {
     override fun type() = TranslationAnimation
 
     companion object : ComponentType<TranslationAnimation>()
 }
 
 class RotationAnimation(
+    name: String,
     from: Float,
     to: Float,
     val pivot: TransformOrigin = TransformOrigin.Center,
-    spec: AnimationSpec = Tween(1f)
-) : Animation<Float, RotationAnimation>(from, to, spec) {
+    spec: AnimationSpec = Tween(1f),
+    autoPlay: Boolean = false,
+) : Animation<Float, RotationAnimation>(name, from, to, spec, autoPlay) {
     override fun type() = RotationAnimation
 
     companion object : ComponentType<RotationAnimation>()
 }
 
 class ScaleAnimation(
+    name: String,
     from: ScaleFactor,
     to: ScaleFactor,
     val pivot: TransformOrigin = TransformOrigin.Center,
-    spec: AnimationSpec = Tween(1f)
-) : Animation<ScaleFactor, ScaleAnimation>(from, to, spec) {
+    spec: AnimationSpec = Tween(1f),
+    autoPlay: Boolean = false,
+) : Animation<ScaleFactor, ScaleAnimation>(name, from, to, spec, autoPlay) {
     constructor(
+        name: String,
         from: Float,
         to: Float,
         pivot: TransformOrigin = TransformOrigin.Center,
-        spec: AnimationSpec = Tween(1f)
+        spec: AnimationSpec = Tween(1f),
+        autoPlay: Boolean = false,
     ) : this(
+        name = name,
         from = ScaleFactor(from, from),
         to = ScaleFactor(to, to),
         pivot = pivot,
-        spec = spec
+        spec = spec,
+        autoPlay = autoPlay
     )
 
     override fun type() = ScaleAnimation
@@ -116,10 +129,12 @@ class ScaleAnimation(
 }
 
 class AlphaAnimation(
+    name: String,
     from: Float,
     to: Float,
-    spec: AnimationSpec = Tween(1f)
-) : Animation<Float, AlphaAnimation>(from, to, spec) {
+    spec: AnimationSpec = Tween(1f),
+    autoPlay: Boolean = false,
+) : Animation<Float, AlphaAnimation>(name, from, to, spec, autoPlay) {
     override fun type() = AlphaAnimation
 
     companion object : ComponentType<AlphaAnimation>()
@@ -134,11 +149,13 @@ class AlphaAnimation(
  * @param rotationOffset Additional rotation offset in degrees.
  */
 class PathAnimation(
+    name: String,
     val path: Path,
     spec: AnimationSpec = Tween(1f),
     val orientToPath: Boolean = false,
-    val rotationOffset: Float = 0f
-) : Animation<Float, PathAnimation>(from = 0f, to = 1f, spec = spec) {
+    val rotationOffset: Float = 0f,
+    autoPlay: Boolean = false,
+) : Animation<Float, PathAnimation>(name, 0f, 1f, spec, autoPlay) {
 
     override fun type() = PathAnimation
 

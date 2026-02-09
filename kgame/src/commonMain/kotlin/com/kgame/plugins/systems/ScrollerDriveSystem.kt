@@ -3,6 +3,7 @@ package com.kgame.plugins.systems
 import androidx.compose.ui.geometry.Offset
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.plugins.components.Axis
 import com.kgame.plugins.components.Scroller
@@ -15,8 +16,9 @@ import com.kgame.plugins.components.Transform
  * Typical use: attach to a background/level segment and set axis = Y with negative speed
  * to create the classic "downward scroll" seen in vertical shoot-'em-ups.
  */
-class ScrollerDriveSystem : IteratingSystem(
-    family = family { all(Scroller, Transform) }
+class ScrollerDriveSystem(priority: SystemPriority = SystemPriorityAnchors.Logic) : IteratingSystem(
+    family = family { all(Scroller, Transform) },
+    priority = priority
 ) {
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val lock = entity[Scroller]

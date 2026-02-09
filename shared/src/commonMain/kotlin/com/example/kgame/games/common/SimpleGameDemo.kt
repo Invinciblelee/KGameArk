@@ -1,7 +1,6 @@
 package com.example.kgame.games.common
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -12,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -21,18 +19,13 @@ import androidx.compose.ui.unit.dp
 import com.example.kgame.games.shader.BlueSky
 import com.kgame.engine.core.KSimpleGame
 import com.kgame.engine.ui.ActiveRectangle
-import com.kgame.plugins.components.CircleVisual
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PathAnimation
-import com.kgame.plugins.components.RectangleVisual
 import com.kgame.plugins.components.Renderable
-import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.ScaleAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Tween
-import com.kgame.plugins.systems.AnimationSystem
-import com.kgame.plugins.systems.AnimationTickSystem
-import com.kgame.plugins.systems.RenderSystem
+import com.kgame.plugins.visuals.shapes.RectangleVisual
 
 @Composable
 fun SimpleGameDemo() {
@@ -61,6 +54,7 @@ fun SimpleGameDemo() {
 
                     // 2. Add the new PathAnimation
                     +PathAnimation(
+                        name = "orbit",
                         path = centerPath,
                         // 2 seconds per cycle, linear easing for constant speed
                         spec = InfiniteRepeatable(
@@ -73,6 +67,7 @@ fun SimpleGameDemo() {
 
                     // 3. Keep your existing scale animation to see them combined
                     +ScaleAnimation(
+                        name = "scale",
                         from = 1f,
                         to = 1.5f,
                         spec = InfiniteRepeatable(Tween(1f), RepeatMode.Reverse)

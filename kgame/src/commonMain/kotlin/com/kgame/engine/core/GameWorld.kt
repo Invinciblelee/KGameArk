@@ -10,9 +10,15 @@ import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.AnimationTickSystem
+import com.kgame.plugins.systems.BoundarySystem
 import com.kgame.plugins.systems.CameraSystem
+import com.kgame.plugins.systems.CleanupSystem
+import com.kgame.plugins.systems.CollisionSystem
+import com.kgame.plugins.systems.InvincibleSystem
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.RenderSystem
+import com.kgame.plugins.systems.ScrollerDriveSystem
+import com.kgame.plugins.systems.ScrollerRenderSystem
 import com.kgame.plugins.systems.SteeringSystem
 import com.kgame.plugins.systems.TiledMapCollisionSystem
 import com.kgame.plugins.systems.TiledMapRenderSystem
@@ -70,42 +76,57 @@ class GameWorldBuilder(
         this.initWorld = initWorld
     }
 
-    private fun configureDefaults(world: World) {
+    private fun configureDefaults(config: WorldConfiguration) {
         val scope = this@GameWorldBuilder.scope
         val useDefaultSystems = this@GameWorldBuilder.useDefaultSystems
-        WorldConfiguration(world).apply {
-            injectables {
-                +scope
-                +scope.input
-                +scope.audio
-                +scope.assets
-                +scope.resolution
-                +scope.textMeasurer
-                +CameraService(scope.resolution)
-                +AnimationService()
-            }
+        config.injectables {
+            +scope
+            +scope.input
+            +scope.audio
+            +scope.assets
+            +scope.resolution
+            +scope.textMeasurer
+            +CameraService(scope.resolution)
+            +AnimationService()
+        }
 
-            if (useDefaultSystems) {
-                systems {
-                    +SteeringSystem()
-                    +PhysicsSystem()
-                    +TiledMapCollisionSystem()
-                    +AnimationTickSystem()
-                    +AnimationSystem()
-                    +CameraSystem()
-                    +TiledMapRenderSystem()
-                    +RenderSystem()
-                }
+        if (useDefaultSystems) {
+            config.systems {
+                // --- Physics & Collision Stage ---
+                addIfAbsent(PhysicsSystem())
+                addIfAbsent(TiledMapCollisionSystem())
+                addIfAbsent(BoundarySystem())
+                addIfAbsent(CollisionSystem())
+
+                // --- Logic & AI Stage ---
+                addIfAbsent(SteeringSystem())
+                addIfAbsent(ScrollerDriveSystem())
+                addIfAbsent(InvincibleSystem())
+
+                // --- Animation Stage ---
+                addIfAbsent(AnimationTickSystem())
+                addIfAbsent(AnimationSystem())
+
+                // --- Camera Stage ---
+                addIfAbsent(CameraSystem())
+
+                // --- Rendering Stage ---
+                addIfAbsent(TiledMapRenderSystem())
+                addIfAbsent(ScrollerRenderSystem())
+                addIfAbsent(RenderSystem())
+
+                // --- Lifecycle Stage ---
+                addIfAbsent(CleanupSystem())
             }
-        }.configure()
+        }
     }
 
     internal fun build(): GameWorld {
         return GameWorld(
             entityCapacity = entityCapacity,
             configuration = {
-                this@GameWorldBuilder.configureDefaults(world)
                 this@GameWorldBuilder.configuration(this)
+                this@GameWorldBuilder.configureDefaults(this)
             },
             initWorld = initWorld
         )

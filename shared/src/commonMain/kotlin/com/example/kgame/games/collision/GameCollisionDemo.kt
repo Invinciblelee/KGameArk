@@ -16,19 +16,16 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
-import com.kgame.ecs.configureWorld
 import com.kgame.engine.core.KSimpleGame
 import com.kgame.engine.math.random
 import com.kgame.engine.math.randomOffset
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraTarget
-import com.kgame.plugins.components.CircleVisual
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.ScaleAnimation
 import com.kgame.plugins.components.Spring
-import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
@@ -36,6 +33,8 @@ import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.CollisionSystem
 import com.kgame.plugins.systems.RenderSystem
+import com.kgame.plugins.visuals.images.SpriteVisual
+import com.kgame.plugins.visuals.shapes.CircleVisual
 import kotlin.random.Random
 
 private class MovementSystem(
@@ -74,6 +73,7 @@ fun GameCollisionDemo() {
         modifier = Modifier.fillMaxSize(),
     ) {
         val anim = ScaleAnimation(
+            name = "alpha",
             from = 0f,
             to = 1f,
             spec = Spring(

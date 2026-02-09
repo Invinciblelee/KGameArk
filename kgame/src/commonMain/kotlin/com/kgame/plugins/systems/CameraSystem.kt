@@ -1,6 +1,7 @@
 package com.kgame.plugins.systems
 
 import com.kgame.ecs.IntervalSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.plugins.services.CameraService
@@ -10,8 +11,9 @@ import com.kgame.plugins.services.CameraService
  * handling smooth transitions, screen shake, and boundary constraints.
  */
 class CameraSystem(
-    private val cameraService: CameraService = inject()
-) : IntervalSystem() {
+    private val cameraService: CameraService = inject(),
+    priority: SystemPriority = SystemPriorityAnchors.Camera
+) : IntervalSystem(priority = priority) {
 
     override fun onTick(deltaTime: Float) {
         cameraService.director.update(deltaTime)

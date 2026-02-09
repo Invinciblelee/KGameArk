@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.ecs.collection.compareEntityBy
@@ -22,10 +23,12 @@ import com.kgame.plugins.components.Transform
 import com.kgame.plugins.services.CameraService
 
 class RenderSystem(
-    private val cameraService: CameraService = inject()
+    private val cameraService: CameraService = inject(),
+    priority: SystemPriority = SystemPriorityAnchors.Render
 ): IteratingSystem(
     family = family { all(Transform, Renderable); none(Scroller) },
-    comparator = compareEntityBy(Renderable)
+    comparator = compareEntityBy(Renderable),
+    priority = priority
 ) {
 
     companion object {

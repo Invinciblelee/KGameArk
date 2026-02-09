@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
@@ -24,6 +26,7 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.Fixed
 import com.kgame.ecs.IntervalSystem
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.asset.AssetsManager
@@ -31,6 +34,7 @@ import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.input.InputManager
+import com.kgame.engine.math.radians
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.applyJoypad
@@ -47,7 +51,6 @@ import com.kgame.plugins.components.CharacterStats
 import com.kgame.plugins.components.CleanupTag
 import com.kgame.plugins.components.EnemyBulletTag
 import com.kgame.plugins.components.EnemyTag
-import com.kgame.plugins.components.ImageVisual
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PlayerBulletTag
 import com.kgame.plugins.components.PlayerTag
@@ -55,24 +58,72 @@ import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.SpriteAnimation
-import com.kgame.plugins.components.SpriteVisual
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
-import com.kgame.plugins.systems.AnimationSystem
-import com.kgame.plugins.systems.AnimationTickSystem
-import com.kgame.plugins.systems.BoundarySystem
-import com.kgame.plugins.systems.CameraSystem
-import com.kgame.plugins.systems.CleanupSystem
+import com.kgame.plugins.services.play
 import com.kgame.plugins.systems.PhysicsSystem
-import com.kgame.plugins.systems.RenderSystem
-import com.kgame.plugins.systems.ScrollerDriveSystem
-import com.kgame.plugins.systems.ScrollerRenderSystem
+import com.kgame.plugins.systems.SystemPriorityAnchors
+import com.kgame.plugins.visuals.images.ImageVisual
+import com.kgame.plugins.visuals.images.SpriteVisual
+import com.kgame.plugins.visuals.particles.ParticleBuffer
+import com.kgame.plugins.visuals.particles.ParticlePattern
+import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
+
+/**
+ * A test pattern that mixes Quads and Triangles to simulate an explosion.
+ */
+class ExplosionPattern(private val origin: Offset) : ParticlePattern {
+    override fun onPopulate(count: Int, buffer: ParticleBuffer) {
+        // 使用传入的 origin 替代硬编码的 400f, 300f
+        val centerX = origin.x
+        val centerY = origin.y
+
+        repeat(count) { i ->
+            val angle = Random.nextFloat() * 360f
+            val speed = Random.nextFloat() * 8f + 2f
+
+            // 保持你原汁原味的数学写法，不乱改
+            val vx = cos(radians(angle.toDouble())).toFloat() * speed
+            val vy = sin(radians(angle.toDouble())).toFloat() * speed
+
+            val velocity = Offset(vx, vy)
+            val life = Random.nextFloat() * 1.5f + 0.5f
+
+            if (i % 5 == 0) {
+                // Every 5th particle is a "Core" Quad
+                buffer.putQuad(
+                    position = Offset(centerX, centerY),
+                    velocity = velocity,
+                    life = life,
+                    width = 12f,
+                    height = 12f,
+                    friction = 0.96f, // Air resistance
+                    gravity = 0.1f,   // Slight gravity pull
+                    color = Color.Yellow
+                )
+            } else {
+                // The rest are "Spark" Triangles
+                val p = Offset(centerX, centerY)
+                buffer.putTriangle(
+                    p1 = p,
+                    p2 = p + Offset(-4f, 8f),
+                    p3 = p + Offset(4f, 8f),
+                    velocity = velocity * 1.2f, // Sparks fly faster
+                    life = life * 0.7f,
+                    friction = 0.98f,
+                    color = Color.Red
+                )
+            }
+        }
+    }
+}
 
 private data class WeaponComponent(
     val cooldown: Float = 0.3f,
@@ -87,8 +138,12 @@ private data class WeaponComponent(
 private class AircraftControlSystem(
     val cameraService: CameraService = inject(),
     val input: InputManager = inject(),
-    val assets: AssetsManager = inject()
-) : IteratingSystem(family = family { all(PlayerTag, Transform, Renderable, WeaponComponent) }) {
+    val assets: AssetsManager = inject(),
+    priority: SystemPriority
+) : IteratingSystem(
+    family = family { all(PlayerTag, Transform, Renderable, WeaponComponent) },
+    priority = priority
+) {
     val texture = assets[GameAssets.Atlas.Texture]
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
@@ -126,9 +181,11 @@ private class AircraftControlSystem(
 }
 
 private class EnemyWeaponSystem(
-    assets: AssetsManager = inject()
+    assets: AssetsManager = inject(),
+    priority: SystemPriority
 ) : IteratingSystem(
-    family = family { all(EnemyTag, Transform, WeaponComponent) }
+    family = family { all(EnemyTag, Transform, WeaponComponent) },
+    priority = priority
 ) {
     val texture = assets[GameAssets.Atlas.Texture]
 
@@ -153,8 +210,9 @@ private class EnemyWeaponSystem(
 }
 
 private class EnemySpawnSystem(
-    assets: AssetsManager = inject()
-) : IntervalSystem(interval = Fixed(0.5f)) { // 每 0.5 秒生成一波敌人
+    assets: AssetsManager = inject(),
+    priority: SystemPriority,
+) : IntervalSystem(interval = Fixed(0.5f), priority = priority) { // 每 0.5 秒生成一波敌人
 
     val texture = assets[GameAssets.Atlas.Texture]
 
@@ -190,12 +248,13 @@ private class EnemySpawnSystem(
     }
 }
 
-private class CollisionSystem(
+private class AircraftCollisionSystem(
     val cameraService: CameraService = inject(),
     val animationService: AnimationService = inject(),
-    val audio: AudioManager = inject(),
-    val assets: AssetsManager = inject()
-) : IntervalSystem() {
+    audio: AudioManager = inject(),
+    assets: AssetsManager = inject(),
+    priority: SystemPriority
+) : IntervalSystem(priority = priority) {
     private val playerBulletFamily = family { all(PlayerBulletTag, Transform); none(EnemyTag) }
     private val enemyFamily = family { all(EnemyTag, Transform, CharacterStats) }
     private val playerFamily = family { all(PlayerTag, Transform, CharacterStats) }
@@ -221,7 +280,13 @@ private class CollisionSystem(
                             +Transform(position = ePos)
                             +SpriteAnimation(name = "boom", loop = false)
                             +AutoCleanupTag
-                            +Renderable(SpriteVisual(atlas = texture, name = "stormplane_boom_1.png", size = Size(60f, 60f)))
+                            +Renderable(
+                                SpriteVisual(
+                                    atlas = texture,
+                                    name = "stormplane_boom_1.png",
+                                    size = Size(60f, 60f)
+                                )
+                            )
                         }
                     }
                 }
@@ -239,13 +304,8 @@ private class CollisionSystem(
                 if ((pPos - ePos).getDistanceSquared() < (eRadius + pRadius).pow(2)) {
                     val stats = player[CharacterStats]
 //                    stats.hp -= 100f // 敌机撞到玩家，直接扣大量血
-                    player.configure {
-                        addIfAbsent(AlphaAnimation) {
-                            AlphaAnimation(1.0f, to = 0.0f, spec = InfiniteRepeatable(repeatMode = RepeatMode.Restart, iterations = 4))
-                        }
-                    }
 
-                    animationService.play(player.id)
+                    animationService.play(player, "flash")
 
                     cameraService.director.shake(0.5f)
                     enemy.configure { +CleanupTag }
@@ -287,31 +347,19 @@ fun GameAircraftWarDemo() {
 
         scene<Battle> {
             world {
+                useDefaultSystems()
+
                 configure {
                     systems {
-                        // 1. 先收集玩家输入
-                        +AircraftControlSystem()
-
-                        // 2. 物理/边界结算（真正改变 Transform）
                         +PhysicsSystem(gravity = Offset.Zero)
-                        +BoundarySystem()
 
-                        // 3. 游戏逻辑
-                        +EnemySpawnSystem()
-                        +EnemyWeaponSystem()
-                        +CollisionSystem()
-                        +CleanupSystem()
+                        +AircraftControlSystem(priority = SystemPriorityAnchors.Input)
 
-                        // 4. 摄像机必须在“所有位移”完成之后
-                        +CameraSystem()
+                        +AircraftCollisionSystem(priority = SystemPriorityAnchors.Physics after 1)
 
-                        +AnimationTickSystem()
-                        +AnimationSystem()
-                        +ScrollerDriveSystem()
-                        +ScrollerRenderSystem()
+                        +EnemySpawnSystem(priority = SystemPriorityAnchors.Logic)
 
-                        // 5. 最后才画
-                        +RenderSystem()
+                        +EnemyWeaponSystem(priority = SystemPriorityAnchors.Logic after 1)
                     }
                 }
 
@@ -332,9 +380,16 @@ fun GameAircraftWarDemo() {
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)
                         +SpriteAnimation(name = "hero")
+                        +AlphaAnimation(name = "flash", 1.0f, to = 0.0f, spec = InfiniteRepeatable(repeatMode = RepeatMode.Restart, iterations = 4))
                         +WorldBounds(worldBounds)
                         +Boundary(margin = 0f, strategy = BoundaryStrategy.Clamp)
-                        +Renderable(SpriteVisual(atlas = assets[GameAssets.Atlas.Texture], name = "stormplane_hero1.png", size = Size(80f, 80f)))
+                        +Renderable(
+                            SpriteVisual(
+                                atlas = assets[GameAssets.Atlas.Texture],
+                                name = "stormplane_hero1.png",
+                                size = Size(80f, 80f)
+                            )
+                        )
                     }
 
                     entity {

@@ -2,6 +2,7 @@ package com.kgame.plugins.systems
 
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
+import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.plugins.components.* // Import all components
 
@@ -9,12 +10,13 @@ import com.kgame.plugins.components.* // Import all components
  * The SteeringSystem is responsible for applying forces to entities to create
  * autonomous movement behaviors like arriving, following, or wandering.
  */
-class SteeringSystem : IteratingSystem(
+class SteeringSystem(priority: SystemPriority = SystemPriorityAnchors.Logic) : IteratingSystem(
     family = family {
         all(Transform, RigidBody)
         // An entity can have any of these behaviors
         any(Wander, Arriver, Elasticity, ArriveTarget, FollowTarget)
-    }
+    },
+    priority = priority
 ) {
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]

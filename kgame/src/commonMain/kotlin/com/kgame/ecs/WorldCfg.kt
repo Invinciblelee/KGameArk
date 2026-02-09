@@ -70,42 +70,14 @@ class SystemConfiguration(
     }
 
     /**
-     * Adds the [system] to the [world][World] and places it before the [target] system.
-     * If the [target] system is not found, the [system] will be added to the end.
+     * Adds the [system][T] to the [world][World] if it is not already added.
+     * The order in which systems are added is the order in which they will be executed when calling [World.update].
      *
      * @see add
-     * @throws [FleksSystemAlreadyAddedException] if the [system] was already added before.
      */
-    fun <T : IntervalSystem> addBefore(target: KClass<out IntervalSystem>, system: T) {
-        if (systems.any { it::class == system::class }) {
-            throw FleksSystemAlreadyAddedException(system::class)
-        }
-
-        val index = systems.indexOfFirst { it::class == target }
-        if (index != -1) {
-            systems.add(index, system)
-        } else {
-            systems.add(0, system)
-        }
-    }
-
-    /**
-     * Adds the [system] to the [world][World] and places it after the [target] system.
-     * If the [target] system is not found, the [system] will be added to the end.
-     *
-     * @see add
-     * @throws [FleksSystemAlreadyAddedException] if the [system] was already added before.
-     */
-    fun <T : IntervalSystem> addAfter(target: KClass<out IntervalSystem>, system: T) {
-        if (systems.any { it::class == system::class }) {
-            throw FleksSystemAlreadyAddedException(system::class)
-        }
-
-        val index = systems.indexOfFirst { it::class == target }
-        if (index != -1) {
-            systems.add(index + 1, system)
-        } else {
-            systems.add(system)
+    internal fun <T : IntervalSystem> SystemConfiguration.addIfAbsent(system: T) {
+        if (systems.none { it::class == system::class }) {
+            add(system)
         }
     }
 
@@ -164,20 +136,20 @@ class FamilyConfiguration(
 @WorldCfgMarker
 class WorldConfiguration(@PublishedApi internal val world: World) {
 
-    private var injectableCfg: (InjectableConfiguration.() -> Unit)? = null
-    private var familyCfg: (FamilyConfiguration.() -> Unit)? = null
-    private var systemCfg: (SystemConfiguration.() -> Unit)? = null
+    private val injectableCfgs = mutableListOf<InjectableConfiguration.() -> Unit>()
+    private val familyCfgs = mutableListOf<FamilyConfiguration.() -> Unit>()
+    private val systemCfgs = mutableListOf<SystemConfiguration.() -> Unit>()
 
     fun injectables(cfg: InjectableConfiguration.() -> Unit) {
-        injectableCfg = cfg
+        injectableCfgs.add(cfg)
     }
 
     fun families(cfg: FamilyConfiguration.() -> Unit) {
-        familyCfg = cfg
+        familyCfgs.add(cfg)
     }
 
     fun systems(cfg: SystemConfiguration.() -> Unit) {
-        systemCfg = cfg
+        systemCfgs.add(cfg)
     }
 
     /**
@@ -215,10 +187,15 @@ class WorldConfiguration(@PublishedApi internal val world: World) {
      * The order is important to correctly trigger [FamilyHook]s and [EntityHook]s.
      */
     fun configure() {
-        injectableCfg?.invoke(InjectableConfiguration(world))
-        familyCfg?.invoke(FamilyConfiguration(world))
-        SystemConfiguration(world.mutableSystems).also {
-            systemCfg?.invoke(it)
+        val injectableConfig = InjectableConfiguration(world)
+        injectableCfgs.forEach { it.invoke(injectableConfig) }
+
+        val familyConfig = FamilyConfiguration(world)
+        familyCfgs.forEach { it.invoke(familyConfig) }
+
+        SystemConfiguration(world.mutableSystems).also { systemConfig ->
+            systemCfgs.forEach { it.invoke(systemConfig) }
+            world.mutableSystems.sortBy { system -> system.priority }
         }
 
         if (world.entitySize > 0) {

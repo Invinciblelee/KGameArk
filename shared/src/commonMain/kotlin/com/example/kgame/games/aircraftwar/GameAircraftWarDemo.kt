@@ -80,7 +80,7 @@ import kotlin.time.ExperimentalTime
 fun ParticleNodeScope.explosion(origin: Offset) {
 
     layer("explosion_core") {
-        count = 1600
+        count = 600
         duration = 1.2f
         position = vec2(origin.x, origin.y)
 
@@ -90,11 +90,11 @@ fun ParticleNodeScope.explosion(origin: Offset) {
 
         // 核心层也加入随机摩擦力，产生乱序分布
         friction = random(0.96f, 0.99f)
-        gravity = scalar(0.04f)
+        gravity = scalar(0.08f)
 
         size = random(1.0f, 4.0f)
         // 增加中间色阶，使用暖橙色作为过渡
-        color = selectByRatio(0.4f, color(1f, 1f, 1f), color(1f, 0.8f, 0.3f))
+        color = select(Ratio(0.4f), color(1f, 1f, 1f), color(1f, 0.8f, 0.3f))
         alpha = scalar(1.0f) - progress
     }
 
@@ -111,10 +111,10 @@ fun ParticleNodeScope.explosion(origin: Offset) {
         // 冲击力的关键：起步快，减速狠
         // 让摩擦力的下限更低(0.82)，产生那种“炸开即定格”的烟尘感
         friction = random(0.82f, 0.96f)
-        gravity = scalar(0.06f)
+        gravity = scalar(0.12f)
 
         size = random(0.4f, 2.5f)
-        color = selectByRatio(0.5f, color(1f, 0.5f, 0.1f), color(0.4f, 0.1f, 0.05f))
+        color = select(Ratio(0.5f), color(1f, 0.5f, 0.1f), color(0.4f, 0.1f, 0.05f))
 
         alpha = (scalar(1.0f) - progress) * scalar(0.8f)
     }
@@ -371,7 +371,7 @@ private class AircraftCollisionSystem(
                     if (stats.hp <= 0) {
                         bullet.configure { +CleanupTag }
 
-                        particleService.emit(true) {
+                        particleService.emit(false) {
                             explosion(ePos)
                         }
 //                        world.entity {

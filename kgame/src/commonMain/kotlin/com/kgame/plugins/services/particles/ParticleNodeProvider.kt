@@ -13,14 +13,8 @@ interface ParticleNodeProvider {
     fun random(min: Float, max: Float, exp: Float = 1.0f): ParticleNode = 
         ParticleNode.RandomRange(min, max, exp)
 
-    fun selectByRatio(ratio: Float, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
-        ParticleNode.Select(SelectCondition.Ratio(ratio), onTrue, onFalse)
-
-    fun selectByThreshold(threshold: Int, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
-        ParticleNode.Select(SelectCondition.Threshold(threshold), onTrue, onFalse)
-
-    fun selectByMod(divisor: Int, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
-        ParticleNode.Select(SelectCondition.Modulo(divisor), onTrue, onFalse)
+    fun select(condition: SelectCondition, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
+        ParticleNode.Select(condition, onTrue, onFalse)
 
     fun color(argb: Int): ParticleNode = ParticleNode.Color(argb)
 
@@ -35,6 +29,10 @@ interface ParticleNodeProvider {
         val argb = (a shl 24) or (r shl 16) or (g shl 8) or b
         return ParticleNode.Color(argb)
     }
+
+    fun Ratio(value: Float) = SelectCondition.Ratio(value)
+    fun Threshold(value: Int) = SelectCondition.Threshold(value)
+    fun Modulo(value: Int) = SelectCondition.Modulo(value)
 
     val time: ParticleNode get() = ParticleNode.Time
     val index: ParticleNode get() = ParticleNode.Index

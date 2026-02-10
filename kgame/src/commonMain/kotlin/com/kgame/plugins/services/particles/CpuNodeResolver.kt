@@ -21,8 +21,8 @@ object CpuNodeResolver {
         is ParticleNode.Index -> args.getInt(ParticleArgs.INDEX).toFloat()
 
         is ParticleNode.RandomRange -> {
-            val t = kotlin.random.Random.nextFloat()
-
+            val id = args.getInt(ParticleArgs.INDEX)
+            val t = iHash(id xor node.hashCode())
             val weight = if (node.exp == 1.0f) t else t.pow(node.exp)
             node.min + (node.max - node.min) * weight
         }
@@ -119,8 +119,15 @@ object CpuNodeResolver {
         }
     }
 
-    private fun iHash(id: Int): Float {
-        val x = sin(id.toFloat() * 12.9898f) * 43758.547f
-        return x - floor(x)
+    private fun iHash(x: Int): Float {
+        var h = x
+        h = h xor (h ushr 16)
+        h *= 0x85ebca6b.toInt()
+        h = h xor (h ushr 13)
+        h *= 0xc2b2ae35.toInt()
+        h = h xor (h ushr 16)
+
+        // 映射到 0.0 ~ 1.0
+        return (h and 0x7FFFFFFF).toFloat() / 0x7FFFFFFF.toFloat()
     }
 }

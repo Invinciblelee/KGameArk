@@ -1,5 +1,7 @@
 package com.kgame.plugins.services.particles
 
+import kotlin.jvm.JvmInline
+
 /**
  * Unified node tree for particle logic.
  * These nodes are the "Single Source of Truth" for both CPU and GPU.
@@ -27,8 +29,11 @@ sealed class ParticleNode {
     operator fun minus(other: ParticleNode) = Add(this, Multiply(other, Scalar(-1f)))
 }
 
-sealed class SelectCondition {
-    data class Ratio(val value: Float) : SelectCondition()
-    data class Threshold(val value: Int) : SelectCondition()
-    data class Modulo(val divisor: Int) : SelectCondition()
+sealed interface SelectCondition {
+    @JvmInline
+    value class Ratio(val value: Float) : SelectCondition
+    @JvmInline
+    value class Threshold(val value: Int) : SelectCondition
+    @JvmInline
+    value class Modulo(val divisor: Int) : SelectCondition
 }

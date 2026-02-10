@@ -10,7 +10,12 @@ sealed class ParticleNode {
     data class Multiply(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
     data class Add(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
     data class RandomRange(val min: Float, val max: Float, val exp: Float = 1.0f) : ParticleNode()
-    data class IndexMod(val divisor: Int, val onTrue: ParticleNode, val onFalse: ParticleNode) : ParticleNode()
+    data class Select(
+        val condition: SelectCondition,
+        val onTrue: ParticleNode,
+        val onFalse: ParticleNode
+    ) : ParticleNode()
+
     data class Color(val argb: Int) : ParticleNode()
 
     object Time : ParticleNode()
@@ -19,4 +24,11 @@ sealed class ParticleNode {
 
     operator fun plus(other: ParticleNode) = Add(this, other)
     operator fun times(other: ParticleNode) = Multiply(this, other)
+    operator fun minus(other: ParticleNode) = Add(this, Multiply(other, Scalar(-1f)))
+}
+
+sealed class SelectCondition {
+    data class Ratio(val value: Float) : SelectCondition()
+    data class Threshold(val value: Int) : SelectCondition()
+    data class Modulo(val divisor: Int) : SelectCondition()
 }

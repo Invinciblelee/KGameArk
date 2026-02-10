@@ -6,145 +6,91 @@ import com.kgame.engine.graphics.shader.ShaderEffect
 object ParticleShaderParser : ParticleParser<Shader> {
 
     override fun translate(scope: ParticleNodeScope): Shader {
-        val resolver = GpuNodeResolver()
         val layers = scope.layers
+        val layerCount = layers.size
 
         val skslCode = buildString {
             // --- Global Uniforms ---
             appendLine("uniform float uTime;")
-            appendLine("uniform vec2 uResolution;")
 
-            // Dynamic layer durations from DSL
-            layers.forEachIndexed { i, _ ->
-                appendLine("uniform float uLayerDuration$i;")
+            var index = 0
+            while (index < layerCount) {
+                appendLine("uniform float uLayerDuration$index;")
+                index++
             }
 
-            // --- Vertex Attributes (Varying) ---
-            appendLine("varying vec2 pPosition;")
-            appendLine("varying vec2 pVelocity;")
-            appendLine("varying float pLayerIndex;")
+            // --- Varyings ---
+            appendLine("varying vec2 position;")
+            appendLine("varying vec2 velocity;")
+            appendLine("varying float layerIndex;")
             appendLine("varying float i;")
-            appendLine("varying vec4 pColor;") // Initial color from CPU
+            appendLine("varying vec4 color;")
 
-            // Helper for random-like variations if needed
-            appendLine("float iHash(int id) { return fract(sin(float(id) * 43758.5453)); }")
+            // --- Helpers ---
+            appendLine("float iHash(float id) { return fract(sin(id * 43758.5453)); }")
 
             // --- Logic Resolver ---
-            // Returns: x=size, y=red, z=green, w=blue
-            appendLine("vec4 computeLayer(int lIdx, int pIdx, out float outAlpha) {")
+            appendLine("float resolveLayer(int lIdx, out vec4 outColor, out float outFric, out float outGrav) {")
             appendLine("    float size = 0.0;")
-            appendLine("    float alpha = 0.0;")
-            appendLine("    vec3 rgb = vec3(0.0);")
-            appendLine("    outAlpha = 0.0;")
+            appendLine("    float duration = 1.0;")
+            appendLine("    outColor = vec4(1.0);")
+            appendLine("    outFric = 1.0;")
+            appendLine("    outGrav = 0.0;")
 
-            layers.forEachIndexed { idx, layer ->
-                appendLine("    if (lIdx == $idx) {")
-                appendLine("        float layerDuration = uLayerDuration$idx;")
-                appendLine("        float progress = clamp(uTime / layerDuration, 0.0, 1.0);")
-                appendLine("        float fadeOut = 1.0 - smoothstep(0.9, 1.0, progress);")
+            index = 0
+            while (index < layerCount) {
+                val layer = layers[index]
+                appendLine("    if (lIdx == $index) {")
+                appendLine("        duration = uLayerDuration$index;")
+                // progress calculation moved INSIDE resolveLayer
+                appendLine("        float progress = clamp(uTime / duration, 0.0, 1.0);")
 
-                // Resolve DSL nodes into SkSL expressions
-                appendLine("        size = ${resolver.resolve(layer.size)};")
-                appendLine("        alpha = ${resolver.resolve(layer.alpha)} * fadeOut;")
-
-                // Resolve color node - Resolver must convert ParticleNode.Color to vec4/vec3
-                appendLine("        vec4 dynamicColor = ${resolver.resolve(layer.color)};")
-                appendLine("        rgb = dynamicColor.rgb;")
-                appendLine("        outAlpha = alpha;")
+                // Now GpuNodeResolver can safely use the 'progress' local variable
+                appendLine("        size = ${GpuNodeResolver.resolve(layer.size)};")
+                appendLine("        outColor = ${GpuNodeResolver.resolve(layer.color)};")
+                appendLine("        outColor.a *= ${GpuNodeResolver.resolve(layer.alpha)};")
+                appendLine("        outFric = ${GpuNodeResolver.resolve(layer.friction)};")
+                appendLine("        outGrav = ${GpuNodeResolver.resolve(layer.gravity)};")
                 appendLine("    }")
+                index++
             }
-            appendLine("    return vec4(size, rgb);")
+            appendLine("    return size;")
             appendLine("}")
 
             // --- Fragment Entry Point ---
             appendLine("""
                 vec4 main(vec2 fragCoord) {
-                    float finalAlpha;
-                    // Fetch size and dynamic RGB
-                    vec4 data = computeLayer(int(pLayerIndex), int(i), finalAlpha);
+                    vec4 dynamicColor;
+                    float fric, grav;
                     
-                    float finalSize = data.x;
-                    vec3 finalRGB = data.yzw;
+                    // All logic (including progress) is handled here
+                    float finalSize = resolveLayer(int(layerIndex), dynamicColor, fric, grav);
                     
-                    // Optimization: Discard pixels for dead or invisible particles
-                    if (finalAlpha <= 0.0) discard;
+                    float t = uTime;
+                    vec2 currentPos;
+                    if (fric >= 1.0) {
+                        currentPos = position + velocity * t + 0.5 * vec2(0.0, grav) * t * t;
+                    } else {
+                        currentPos = position + velocity * ((1.0 - pow(fric, t)) / -log(fric)) + 0.5 * vec2(0.0, grav) * t * t;
+                    }
                     
-                    // Physics: p_t = p0 + v0 * t (consistent with VertexEffect)
-                    // Note: Gravity/Friction are currently handled CPU-side during emission for GPU path,
-                    // or can be added here as: pPosition + pVelocity * uTime + 0.5 * gravity * uTime * uTime
-                    vec2 currentPos = pPosition + pVelocity * uTime;
-                    
-                    // Distance-based circle rendering
                     float dist = length(fragCoord - currentPos);
-                    
-                    // Antialiased mask for the particle shape
                     float mask = smoothstep(finalSize, finalSize - 1.0, dist);
                     
-                    // Combine dynamic RGB with initial vertex alpha and resolved node alpha
-                    return vec4(finalRGB, mask * finalAlpha * pColor.a);
+                    return vec4(dynamicColor.rgb, mask * dynamicColor.a * color.a);
                 }
             """.trimIndent())
         }
 
         return object : Shader {
             override val sksl: String = skslCode
-
-            /**
-             * Aggregated update method.
-             * Encapsulates all uniform synchronization logic.
-             */
             override fun ShaderEffect.applyUniforms() {
-                // Synchronize all layer durations to their respective 'u' uniforms
-                layers.forEachIndexed { index, layer ->
-                    uniform("uLayerDuration$index", layer.duration)
+                var i = 0
+                while (i < layerCount) {
+                    uniform("uLayerDuration$i", layers[i].duration)
+                    i++
                 }
             }
         }
-    }
-}
-
-/**
- * Transpiles the ParticleNode tree into a Shader-compatible string.
- */
-private class GpuNodeResolver {
-    /**
-     * Recursively builds the math expression as a String for the GPU.
-     */
-    fun resolve(node: ParticleNode): String = when (node) {
-        is ParticleNode.Scalar -> "${node.value}"
-
-        is ParticleNode.Vector2 -> "vec2(${node.x}, ${node.y})"
-
-        is ParticleNode.RandomRange -> {
-            // iHash is a pseudo-random function implemented in the Shader source
-            "mix(${node.min}, ${node.max}, pow(iHash(i), ${node.exp}))"
-        }
-
-        is ParticleNode.IndexMod -> {
-            // Standard GLSL/SkSL ternary operator
-            "(mod(float(i), ${node.divisor}.0) == 0.0 ? ${resolve(node.onTrue)} : ${resolve(node.onFalse)})"
-        }
-
-        is ParticleNode.Add -> "(${resolve(node.left)} + ${resolve(node.right)})"
-
-        is ParticleNode.Multiply -> "(${resolve(node.left)} * ${resolve(node.right)})"
-
-        is ParticleNode.Color -> {
-            val argb = node.argb
-            val a = ((argb shr 24) and 0xFF) / 255f
-            val r = ((argb shr 16) and 0xFF) / 255f
-            val g = ((argb shr 8) and 0xFF) / 255f
-            val b = (argb and 0xFF) / 255f
-            // Formats as vec4(r, g, b, a) for SkSL/GLSL
-            "vec4($r, $g, $b, $a)"
-        }
-
-        // --- Contextual Mappings ---
-        ParticleNode.Index -> "float(i)"
-
-        // uTime represents the elapsedTime passed to the shader
-        ParticleNode.Time -> "uTime"
-
-        ParticleNode.Progress -> "progress"
     }
 }

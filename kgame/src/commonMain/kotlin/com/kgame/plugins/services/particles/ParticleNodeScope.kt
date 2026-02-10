@@ -17,12 +17,6 @@ class ParticleNodeScope : ParticleNodeProvider {
         val layer = ParticleLayer(name).apply(block)
         layers.add(layer)
     }
-
-    // --- Node Provider Implementation ---
-    override fun scalar(value: Float) = ParticleNode.Scalar(value)
-    override fun random(min: Float, max: Float, exp: Float) = ParticleNode.RandomRange(min, max, exp)
-    override fun vec2(x: Float, y: Float) = ParticleNode.Vector2(x, y)
-    override fun select(div: Int, t: ParticleNode, f: ParticleNode) = ParticleNode.IndexMod(div, t, f)
 }
 
 /**
@@ -38,6 +32,7 @@ class ParticleLayer(val name: String) : ParticleNodeProvider {
     var velocity: ParticleNode = scalar(0f)
     var angle: ParticleNode = scalar(0f)
     var friction: ParticleNode = scalar(1.0f)
+    var gravity: ParticleNode = scalar(1.0f)
 
     // Aesthetic nodes (GPU driven)
     var size: ParticleNode = scalar(1f)

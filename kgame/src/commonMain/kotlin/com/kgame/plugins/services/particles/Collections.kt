@@ -58,7 +58,7 @@ internal class ColorArrayList(capacity: Int) : SizedList<Color>(capacity) {
     private var internalCapacity = 512
 
     override fun get(index: Int): Color {
-        return Color(data[index])
+        return Color(getArgb(index))
     }
 
     fun set(index: Int, argb: Int) {
@@ -76,5 +76,7 @@ internal class ColorArrayList(capacity: Int) : SizedList<Color>(capacity) {
         internalCapacity = newCap
     }
 
-    fun getArgb(index: Int): Int = data[index]
+    fun getArgb(index: Int): Int {
+        return data[index]
+    }
 }

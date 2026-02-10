@@ -1,21 +1,14 @@
 package com.kgame.plugins.services.particles
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.VertexMode
-import androidx.compose.ui.graphics.Vertices
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import com.kgame.engine.graphics.shader.Shader
 import com.kgame.engine.graphics.shader.ShaderEffect
 
 class ParticleService(val capacity: Int = 64) {
-    private val pool = Array(capacity) { VertexEffect() }
     private val vertexEffects = ArrayList<EffectWrapper<VertexEffect>>(capacity)
     private val paint = Paint().apply { isAntiAlias = false }
-
     private val shaderEffects = ArrayList<EffectWrapper<ShaderEffect>>(capacity)
 
     private class EffectWrapper<T>(
@@ -50,18 +43,11 @@ class ParticleService(val capacity: Int = 64) {
         if (vertexEffects.size < capacity) {
             val scope = ParticleNodeScope().apply(block)
             val pattern = ParticlePatternParser.translate(scope)
-            emit(pattern, duration(scope))
+            val effect = VertexEffect(pattern)
+            vertexEffects.add(EffectWrapper(effect, duration = duration(scope)))
         }
     }
 
-    fun emit(pattern: ParticlePattern, duration: Float = 1f) {
-        if (vertexEffects.size >= capacity) return
-
-        val effect = pool[vertexEffects.size]
-        effect.reset()
-        pattern.onPopulate(effect.buffer)
-        vertexEffects.add(EffectWrapper(effect, duration = duration))
-    }
 
     internal fun update(dt: Float) {
         updateVertexes(dt)
@@ -102,6 +88,7 @@ class ParticleService(val capacity: Int = 64) {
             var i = vertexEffects.size - 1
             while (i >= 0) {
                 val wrapper = vertexEffects[i]
+                wrapper.effect.setResolution(scope.size)
                 canvas.drawVertices(
                     vertices = wrapper.effect.obtain(),
                     blendMode = BlendMode.Dst,

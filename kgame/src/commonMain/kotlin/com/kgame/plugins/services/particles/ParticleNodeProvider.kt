@@ -12,9 +12,15 @@ interface ParticleNodeProvider {
     // Randomness & Logic
     fun random(min: Float, max: Float, exp: Float = 1.0f): ParticleNode = 
         ParticleNode.RandomRange(min, max, exp)
-        
-    fun select(div: Int, t: ParticleNode, f: ParticleNode): ParticleNode = 
-        ParticleNode.IndexMod(div, t, f)
+
+    fun selectByRatio(ratio: Float, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
+        ParticleNode.Select(SelectCondition.Ratio(ratio), onTrue, onFalse)
+
+    fun selectByThreshold(threshold: Int, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
+        ParticleNode.Select(SelectCondition.Threshold(threshold), onTrue, onFalse)
+
+    fun selectByMod(divisor: Int, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
+        ParticleNode.Select(SelectCondition.Modulo(divisor), onTrue, onFalse)
 
     fun color(argb: Int): ParticleNode = ParticleNode.Color(argb)
 

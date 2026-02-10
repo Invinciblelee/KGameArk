@@ -5,9 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -15,14 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.toSize
 import com.kgame.engine.graphics.shader.Shader
 import com.kgame.engine.graphics.shader.ShaderEffect
-import com.kgame.engine.math.round
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.yield
 
 @Composable
 fun ShaderCanvas(
@@ -33,7 +27,7 @@ fun ShaderCanvas(
     val shaderEffect = remember(shader) { ShaderEffect(shader) }
 
     Canvas(modifier.onSizeChanged {
-        shaderEffect.updateResolution(it.toSize())
+        shaderEffect.setResolution(it.toSize())
     }) {
         if (shaderEffect.ready) {
             onDraw(shaderEffect.obtain())
@@ -67,7 +61,7 @@ fun ActiveShaderCanvas(
                     val dt = (frameTimeMillis - lastFrameMillis) / 1000f
                     val safeDt = dt.coerceIn(0f, 0.033f) * speed * shader.speedModifier
 
-                    shaderEffect.updateTime(safeDt)
+                    shaderEffect.update(safeDt)
 
                     lastFrameMillis = frameTimeMillis
                 }
@@ -77,7 +71,7 @@ fun ActiveShaderCanvas(
     }
 
     Canvas(modifier.onSizeChanged {
-        shaderEffect.updateResolution(it.toSize())
+        shaderEffect.setResolution(it.toSize())
     }) {
         shaderState.signal()
 

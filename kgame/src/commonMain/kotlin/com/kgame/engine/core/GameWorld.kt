@@ -8,6 +8,7 @@ import com.kgame.ecs.configureWorld
 import com.kgame.engine.dsl.GameDslMarker
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
+import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.AnimationTickSystem
 import com.kgame.plugins.systems.BoundarySystem
@@ -15,6 +16,7 @@ import com.kgame.plugins.systems.CameraSystem
 import com.kgame.plugins.systems.CleanupSystem
 import com.kgame.plugins.systems.CollisionSystem
 import com.kgame.plugins.systems.InvincibleSystem
+import com.kgame.plugins.systems.ParticleSystem
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.systems.ScrollerDriveSystem
@@ -88,6 +90,7 @@ class GameWorldBuilder(
             +scope.textMeasurer
             +CameraService(scope.resolution)
             +AnimationService()
+            +ParticleService()
         }
 
         if (useDefaultSystems) {
@@ -114,6 +117,7 @@ class GameWorldBuilder(
                 addIfAbsent(TiledMapRenderSystem())
                 addIfAbsent(ScrollerRenderSystem())
                 addIfAbsent(RenderSystem())
+                addIfAbsent(ParticleSystem())
 
                 // --- Lifecycle Stage ---
                 addIfAbsent(CleanupSystem())

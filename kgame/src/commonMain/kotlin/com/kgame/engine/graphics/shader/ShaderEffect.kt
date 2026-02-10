@@ -24,7 +24,8 @@ abstract class ShaderEffect {
     private var isDirty: Boolean = true
     private var size: Size = Size.Unspecified
 
-    private var totalTime: Float = 0f
+    var elapsedTime: Float = 0f
+        private set
 
     private val colorBufferCache = mutableMapOf<String, FloatArray>()
 
@@ -89,16 +90,16 @@ abstract class ShaderEffect {
     }
 
     /** Updates the resolution uniform.*/
-    fun updateResolution(size: Size) {
+    fun setResolution(size: Size) {
         if (this.size == size || size.isEmpty()) return
         this.size = size
         uniform(RESOLUTION, size.width, size.height, size.width / size.height)
     }
 
     /** Updates the time uniform. */
-    fun updateTime(deltaTime: Float) {
-        totalTime += deltaTime
-        uniform(TIME, totalTime)
+    fun update(deltaTime: Float) {
+        elapsedTime += deltaTime
+        uniform(TIME, elapsedTime)
         if (shader.sksl.contains(DELTA_TIME)) {
             uniform(DELTA_TIME, deltaTime)
         }

@@ -1,5 +1,7 @@
 package com.kgame.engine.graphics.shader
 
+import kotlin.time.Duration
+
 data class ShaderMetadata(
     /** The name for this shader. */
     val name: String,
@@ -29,7 +31,7 @@ interface Shader {
     companion object {
         const val RESOLUTION = "uResolution"
         const val TIME = "uTime"
-
+        const val DURATION = "uDuration"
         const val DELTA_TIME = "uDeltaTime"
 
         const val COLOR = "uColor"

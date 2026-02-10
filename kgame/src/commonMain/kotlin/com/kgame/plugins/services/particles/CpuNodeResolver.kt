@@ -49,7 +49,7 @@ object CpuNodeResolver {
             resolveScalar(node.left, args) * resolveScalar(node.right, args)
         }
 
-        is ParticleNode.Vector2 -> node.x
+        is ParticleNode.Vector2 -> resolveScalar(node.x, args)
         is ParticleNode.Color -> ((node.argb ushr 24) and 0xFF) / 255f
     }
 
@@ -62,7 +62,10 @@ object CpuNodeResolver {
         args: ParticleArgs
     ): Offset = when (node) {
         // Direct vector node
-        is ParticleNode.Vector2 -> Offset(node.x, node.y)
+        is ParticleNode.Vector2 -> Offset(
+            resolveScalar(node.x, args),
+            resolveScalar(node.y, args)
+        )
 
         // Add support: Useful for "origin + randomOffset"
         is ParticleNode.Add -> {

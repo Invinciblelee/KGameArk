@@ -7,7 +7,7 @@ object GpuNodeResolver {
 
     fun resolve(node: ParticleNode): String = when (node) {
         is ParticleNode.Scalar -> "${node.value}"
-        is ParticleNode.Vector2 -> "vec2(${node.x}, ${node.y})"
+        is ParticleNode.Vector2 -> "vec2(${resolve(node.x)}, ${resolve(node.y)})"
         is ParticleNode.Time -> "uTime"
         is ParticleNode.Progress -> "progress"
         is ParticleNode.Index -> "i"

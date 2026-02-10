@@ -7,8 +7,11 @@ package com.kgame.plugins.services.particles
 interface ParticleNodeProvider {
     // Basic Constants
     fun scalar(value: Float): ParticleNode = ParticleNode.Scalar(value)
-    fun vec2(x: Float, y: Float): ParticleNode = ParticleNode.Vector2(x, y)
-    
+    fun vec2(x: ParticleNode, y: ParticleNode): ParticleNode = ParticleNode.Vector2(x, y)
+    fun vec2(x: ParticleNode, y: Float): ParticleNode = ParticleNode.Vector2(x, scalar(y))
+    fun vec2(x: Float, y: ParticleNode): ParticleNode = ParticleNode.Vector2(scalar(x), y)
+    fun vec2(x: Float, y: Float): ParticleNode = ParticleNode.Vector2(scalar(x), scalar(y))
+
     // Randomness & Logic
     fun random(min: Float, max: Float, exp: Float = 1.0f): ParticleNode = 
         ParticleNode.RandomRange(min, max, exp)
@@ -30,11 +33,22 @@ interface ParticleNodeProvider {
         return ParticleNode.Color(argb)
     }
 
-    fun Ratio(value: Float) = SelectCondition.Ratio(value)
-    fun Threshold(value: Int) = SelectCondition.Threshold(value)
-    fun Modulo(value: Int) = SelectCondition.Modulo(value)
+    fun sin(node: ParticleNode): ParticleNode = ParticleNode.Sin(node)
+    fun sin(value: Float): ParticleNode = ParticleNode.Sin(scalar(value))
+
+    fun cos(node: ParticleNode): ParticleNode = ParticleNode.Cos(node)
+    fun cos(value: Float): ParticleNode = ParticleNode.Cos(scalar(value))
+
+    fun pow(base: ParticleNode, exponent: ParticleNode): ParticleNode = ParticleNode.Pow(base, exponent)
+    fun pow(base: ParticleNode, exponent: Float): ParticleNode = ParticleNode.Pow(base, scalar(exponent))
+    fun pow(base: Float, exponent: ParticleNode): ParticleNode = ParticleNode.Pow(scalar(base), exponent)
+    fun pow(base: Float, exponent: Float): ParticleNode = ParticleNode.Pow(scalar(base), scalar(base))
 
     val time: ParticleNode get() = ParticleNode.Time
     val index: ParticleNode get() = ParticleNode.Index
     val progress: ParticleNode get() = ParticleNode.Progress
+
+    fun Ratio(value: Float) = SelectCondition.Ratio(value)
+    fun Threshold(value: Int) = SelectCondition.Threshold(value)
+    fun Modulo(value: Int) = SelectCondition.Modulo(value)
 }

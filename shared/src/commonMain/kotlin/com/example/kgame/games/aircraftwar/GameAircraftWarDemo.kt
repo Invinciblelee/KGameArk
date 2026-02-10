@@ -120,6 +120,74 @@ fun ParticleNodeScope.explosion(origin: Offset) {
     }
 }
 
+fun ParticleNodeScope.sandFlow(origin: Offset) {
+
+    // --- 图层 1：流动的极光带 (测试横向场) ---
+    layer("aurora_stream") {
+        count = 1000
+        duration = 4.0f // 寿命长，表现流动感
+
+        // 初始位置：在 X 轴上随机分布，形成一个宽度
+        position = vec2(random(-200f, 200f) + origin.x, origin.y)
+
+        // 速度：主轴向右 (100+)，纵轴微弱波动
+        velocity = vec2(random(80f, 150f), random(-10f, 10f))
+
+        // 阻力极小，让它保持匀速滑动
+        friction = scalar(0.995f)
+        gravity = scalar(0.01f) // 几乎无重力
+
+        // 颜色测试：利用 Index 产生冷色调交替
+        color = select(
+            condition = Modulo(3),
+            onTrue = color(0.2f, 1.0f, 0.6f, 0.8f), // 翡翠绿
+            onFalse = color(0.1f, 0.4f, 1.0f, 0.6f) // 宝石蓝
+        )
+
+        // 长度感：让粒子在 X 轴拉长（如果你的 size 支持宽深比，这里效果更佳）
+        size = random(2.0f, 5.0f)
+
+        // 呼吸效果：从透明到半透明再到透明
+        alpha = select(
+            condition = Ratio(0.5f),
+            onTrue = progress,
+            onFalse = scalar(1.0f) - progress
+        )
+    }
+
+    // --- 图层 2：坠落的星尘 (测试垂直场) ---
+    layer("glitter_dust") {
+        count = 2000
+        duration = 3.0f
+
+        // 从上方随机飘落
+        position = vec2(random(-300f, 300f) + origin.x, origin.y - 100f)
+
+        // 向下掉落的速度，带一点横向漂移
+        velocity = vec2(random(-20f, 20f), random(30f, 60f))
+
+        // 阻力稍大，模拟空气浮力
+        friction = random(0.94f, 0.98f)
+        gravity = scalar(0.08f)
+
+        // 逻辑测试：10% 的粒子是极亮的白光，其余是微弱的星光
+        color = select(
+            condition = Ratio(0.1f),
+            onTrue = color(1f, 1f, 1f, 1f),    // 亮白
+            onFalse = color(1f, 0.8f, 0.4f, 0.5f) // 暖金
+        )
+
+        size = random(0.5f, 1.2f)
+
+        // 闪烁感：高频 Mod 切换
+        alpha = select(
+            condition = Modulo(4),
+            onTrue = scalar(1.0f) - progress,
+            onFalse = scalar(0.2f)
+        )
+    }
+}
+
 fun ParticleNodeScope.testCollision(origin: Offset) {
     // Particle 1: Moving Right (0 degrees)
     layer("to_right") {
@@ -372,7 +440,7 @@ private class AircraftCollisionSystem(
                         bullet.configure { +CleanupTag }
 
                         particleService.emit(false) {
-                            explosion(ePos)
+                            arcanePortal(ePos)
                         }
 //                        world.entity {
 //                            +Transform(position = ePos)

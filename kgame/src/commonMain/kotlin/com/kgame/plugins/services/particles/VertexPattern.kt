@@ -5,13 +5,12 @@ import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
 import com.kgame.engine.geometry.Vector2
 
-class ParticlePattern(
-    private val scope: ParticleNodeScope
+class VertexPattern(
+    private val layer: ParticleLayer,
+    private val context: ParticleContext
 ) {
     // One-time capacity calculation
-    private val capacity = scope.layers.sumOf { it.spawnCount * 6 }
-
-    private val context = scope.context
+    private val capacity = layer.count * 6
 
     // --- Rendering Buffers ---
     internal val positionList = OffsetArrayList(capacity)
@@ -24,41 +23,32 @@ class ParticlePattern(
     private var elapsedTime: Float = 0f
 
     init {
-        populateAll()
+        populate()
     }
 
-    private fun populateAll() {
-        val layers = scope.layers
-        val layerSize = layers.size
-        var layerIdx = 0
-        var vertexIdx = 0
+    private fun populate() {
+        val count = layer.count
+        val duration = layer.duration
 
-        while (layerIdx < layerSize) {
-            val layer = layers[layerIdx]
-            val count = layer.spawnCount
-            val duration = layer.duration
+        context.setInt(ParticleContext.COUNT, count)
+        context.setFloat(ParticleContext.TIME, 0f)
+        context.setFloat(ParticleContext.PROGRESS, 0f)
+        context.setVector2(ParticleContext.RESOLUTION, Vector2(layer.frame.size.packedValue))
 
-            context.setInt(ParticleContext.COUNT, count)
-            context.setFloat(ParticleContext.TIME, 0f)
-            context.setFloat(ParticleContext.PROGRESS, 0f)
+        var pIdx = 0
+        while (pIdx < count) {
+            val vBase = pIdx * 6
+            context.setInt(ParticleContext.INDEX, pIdx)
 
-            var pIdx = 0
-            while (pIdx < count) {
-                val vBase = vertexIdx + (pIdx * 6)
-                context.setInt(ParticleContext.INDEX, pIdx)
+            // Resolve birth state
+            val pos = CpuNodeResolver.resolveVector2(layer.position, context)
+            val argb = CpuNodeResolver.resolveColor(layer.color, context)
+            val size = CpuNodeResolver.resolveScalar(layer.size, context)
 
-                // Resolve birth state
-                val pos = CpuNodeResolver.resolveVector2(layer.position, context)
-                val argb = CpuNodeResolver.resolveColor(layer.color, context)
-                val size = CpuNodeResolver.resolveScalar(layer.size, context)
+            // Use the new private method for clean initialization
+            writeQuad(vBase, pos.x, pos.y, pos.x + size, pos.y + size, duration, argb)
 
-                // Use the new private method for clean initialization
-                writeQuad(vBase, pos.x, pos.y, pos.x + size, pos.y + size, duration, argb)
-
-                pIdx++
-            }
-            vertexIdx += count * 6
-            layerIdx++
+            pIdx++
         }
     }
 
@@ -68,53 +58,38 @@ class ParticlePattern(
 
     fun update(dt: Float) {
         elapsedTime += dt
+
+        val count = layer.count
+        val duration = layer.duration
+
+        // Fast culling
+        if (elapsedTime > duration) {
+            return
+        }
+
         context.setFloat(ParticleContext.TIME, elapsedTime)
         context.setFloat(ParticleContext.DELTA_TIME, dt)
+        context.setInt(ParticleContext.COUNT, count)
+        context.setFloat(ParticleContext.PROGRESS, elapsedTime / duration)
+        context.setVector2(ParticleContext.RESOLUTION, Vector2(layer.frame.size.packedValue))
 
-        val layers = scope.layers
-        val layerSize = layers.size
-        var layerIdx = 0
-        var vertexIdx = 0
+        var pIdx = 0
+        while (pIdx < count) {
+            val vBase = pIdx * 6
 
-        while (layerIdx < layerSize) {
-            val layer = layers[layerIdx]
-            val count = layer.spawnCount
-            val duration = layer.duration
+            if (lifes[vBase] > 0f) {
+                context.setInt(ParticleContext.INDEX, pIdx)
 
-            // Fast culling
-            if (elapsedTime > duration) {
-                vertexIdx += count * 6
-                layerIdx++
-                continue
+                // Resolve current frame from DSL
+                val resPos = CpuNodeResolver.resolveVector2(layer.position, context)
+                val resSize = CpuNodeResolver.resolveScalar(layer.size, context)
+                val resColor = CpuNodeResolver.resolveColor(layer.color, context)
+                val nextLife = lifes[vBase] - dt
+
+                // Clean update call
+                writeQuad(vBase, resPos.x, resPos.y, resPos.x + resSize, resPos.y + resSize, nextLife, resColor)
             }
-
-            context.setInt(ParticleContext.COUNT, count)
-            context.setFloat(ParticleContext.PROGRESS, elapsedTime / duration)
-
-            var pIdx = 0
-            while (pIdx < count) {
-                val vBase = vertexIdx + (pIdx * 6)
-
-                if (lifes[vBase] > 0f) {
-                    context.setInt(ParticleContext.INDEX, pIdx)
-
-                    // Resolve current frame from DSL
-                    val resPos = CpuNodeResolver.resolveVector2(layer.position, context)
-                    val resSize = CpuNodeResolver.resolveScalar(layer.size, context)
-                    val resColor = CpuNodeResolver.resolveColor(layer.color, context)
-                    val resAlpha = CpuNodeResolver.resolveScalar(layer.alpha, context)
-
-                    val alphaInt = (resAlpha.coerceIn(0f, 1f) * 255f).toInt()
-                    val colorInt = (resColor and 0x00FFFFFF) or (alphaInt shl 24)
-                    val nextLife = lifes[vBase] - dt
-
-                    // Clean update call
-                    writeQuad(vBase, resPos.x, resPos.y, resPos.x + resSize, resPos.y + resSize, nextLife, colorInt)
-                }
-                pIdx++
-            }
-            vertexIdx += count * 6
-            layerIdx++
+            pIdx++
         }
     }
 
@@ -150,7 +125,7 @@ class ParticlePattern(
 /**
  * Create Vertices directly from the Pattern's buffers.
  */
-fun Vertices(pattern: ParticlePattern): Vertices {
+fun Vertices(pattern: VertexPattern): Vertices {
     return Vertices(
         vertexMode = VertexMode.Triangles,
         positions = pattern.positionList,

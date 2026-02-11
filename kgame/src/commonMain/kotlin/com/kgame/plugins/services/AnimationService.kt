@@ -1,6 +1,5 @@
 package com.kgame.plugins.services // Or a new `animation` package
 
-import androidx.collection.SimpleArrayMap
 import androidx.collection.SparseArrayCompat
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.ui.geometry.Offset

@@ -38,20 +38,15 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.kgame.engine.geometry.roundToIntOffset
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import kotlin.uuid.Uuid
 
 val LocalWindowManager = staticCompositionLocalOf<WindowManager> {

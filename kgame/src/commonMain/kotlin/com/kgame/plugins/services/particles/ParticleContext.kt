@@ -12,14 +12,14 @@ import kotlinx.atomicfu.locks.synchronized
  * It uses bit-packing for complex types (Offset, Size, Color) and delegates to
  * a 64-bit primitive container to avoid object boxing.
  */
-class ParticleSlot(val capacity: Int = 8) {
+class ParticleContext(val capacity: Int = 8) {
     // Shared primitive container
     private val data = ArraySlotMap(capacity)
 
     // Lock for cross-thread synchronization between UI and Render threads
     private val lock = SynchronizedObject()
 
-    companion object {
+    companion object Companion {
         // --- Internal Reserved Keys (High range for safety) ---
         private const val INTERNAL_BASE = 0x10000
         internal const val INDEX = INTERNAL_BASE + 0
@@ -32,10 +32,10 @@ class ParticleSlot(val capacity: Int = 8) {
         const val ORIGIN = 0
         const val RESOLUTION = 1
 
-        val Default: ParticleSlot = ParticleSlot()
+        val Default: ParticleContext = ParticleContext()
     }
 
-    fun setVector2(key: Int, vec2: Vector2): ParticleSlot = synchronized(lock) {
+    fun setVector2(key: Int, vec2: Vector2): ParticleContext = synchronized(lock) {
         data.setLong(key, packFloats(vec2.x, vec2.y))
         this
     }
@@ -46,7 +46,7 @@ class ParticleSlot(val capacity: Int = 8) {
     }
 
     // --- Double Ops ---
-    fun setDouble(key: Int, value: Double): ParticleSlot = synchronized(lock) {
+    fun setDouble(key: Int, value: Double): ParticleContext = synchronized(lock) {
         data.setDouble(key, value)
         this
     }
@@ -56,7 +56,7 @@ class ParticleSlot(val capacity: Int = 8) {
     }
 
     // --- Long Ops ---
-    fun setLong(key: Int, value: Long): ParticleSlot = synchronized(lock) {
+    fun setLong(key: Int, value: Long): ParticleContext = synchronized(lock) {
         data.setLong(key, value)
         this
     }
@@ -65,7 +65,7 @@ class ParticleSlot(val capacity: Int = 8) {
     }
 
     // --- Float Ops ---
-    fun setFloat(key: Int, value: Float): ParticleSlot = synchronized(lock) {
+    fun setFloat(key: Int, value: Float): ParticleContext = synchronized(lock) {
         data.setFloat(key, value)
         this
     }
@@ -74,7 +74,7 @@ class ParticleSlot(val capacity: Int = 8) {
     }
 
     // --- Int Ops ---
-    fun setInt(key: Int, value: Int): ParticleSlot = synchronized(lock) {
+    fun setInt(key: Int, value: Int): ParticleContext = synchronized(lock) {
         data.setInt(key, value)
         this
     }
@@ -83,7 +83,7 @@ class ParticleSlot(val capacity: Int = 8) {
     }
 
     // --- Boolean Ops ---
-    fun setBoolean(key: Int, value: Boolean): ParticleSlot = synchronized(lock) {
+    fun setBoolean(key: Int, value: Boolean): ParticleContext = synchronized(lock) {
         data.setInt(key, if (value) 1 else 0)
         this
     }
@@ -91,29 +91,28 @@ class ParticleSlot(val capacity: Int = 8) {
         data.getInt(key) == 1
     }
 
-    fun getAsFloat(key: Int, strategy: SlotStrategy): Float {
+    fun getFloat(key: Int, mapping: AttributeMapping): Float {
         val value = getLong(key)
-        return when (strategy) {
-            SlotStrategy.HighFloat -> unpackFloat2(value)
-            SlotStrategy.LowFloat  -> unpackFloat1(value)
-            SlotStrategy.FullDouble -> Double.fromBits(value).toFloat()
-            else -> error("SlotStrategy $strategy cannot be resolved as Float")
+        return when (mapping) {
+            AttributeMapping.HighFloat -> unpackFloat2(value)
+            AttributeMapping.LowFloat  -> unpackFloat1(value)
+            AttributeMapping.Double -> Double.fromBits(value).toFloat()
+            else -> error("SlotStrategy $mapping cannot be resolved as Float")
         }
     }
 
-    fun getAsInt(key: Int, strategy: SlotStrategy): Int {
+    fun getInt(key: Int, mapping: AttributeMapping): Int {
         val value = getLong(key)
-        return when (strategy) {
-            SlotStrategy.ARGB, SlotStrategy.RawInt -> (value and 0xFFFFFFFFL).toInt()
-            else -> error("SlotStrategy $strategy cannot be resolved as Int")
+        return when (mapping) {
+            AttributeMapping.Int -> (value and 0xFFFFFFFFL).toInt()
+            else -> error("SlotStrategy $mapping cannot be resolved as Int")
         }
     }
 }
 
-enum class SlotStrategy {
+enum class AttributeMapping {
     HighFloat,
     LowFloat,
-    FullDouble,
-    ARGB,
-    RawInt
+    Double,
+    Int
 }

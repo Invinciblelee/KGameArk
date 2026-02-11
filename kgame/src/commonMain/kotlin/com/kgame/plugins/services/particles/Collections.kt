@@ -98,7 +98,6 @@ internal class ColorArrayList(capacity: Int) : SizedList<Color>(capacity) {
     }
 }
 
-
 internal class ArraySlotMap(var capacity: Int = 16) {
     private var keys = IntArray(capacity)
     private var values = LongArray(capacity) // Store everything as 64-bit bits
@@ -117,7 +116,7 @@ internal class ArraySlotMap(var capacity: Int = 16) {
     fun getLong(key: Int): Long = getRaw(key)
 
     // --- Int Ops ---
-    fun setInt(key: Int, value: Int) = setRaw(key, value.toLong())
+    fun setInt(key: Int, value: Int) = setRaw(key, value.toLong() and 0xFFFFFFFFL)
     fun getInt(key: Int): Int = getRaw(key).toInt()
 
     private fun setRaw(key: Int, rawBits: Long) {

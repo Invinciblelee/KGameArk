@@ -15,14 +15,22 @@ sealed interface ParticleNode {
     data class Add(val left: ParticleNode, val right: ParticleNode) : ParticleNode
     data class Subtract(val left: ParticleNode, val right: ParticleNode) : ParticleNode
     data class Divide(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+
+    data class Dot(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+    data class Length(val node: ParticleNode) : ParticleNode
+    data class Normalize(val node: ParticleNode) : ParticleNode
+    data class Distance(val p1: ParticleNode, val p2: ParticleNode) : ParticleNode
+
     data class Sin(val node: ParticleNode) : ParticleNode
     data class Cos(val node: ParticleNode) : ParticleNode
     data class Tan(val node: ParticleNode) : ParticleNode
-    data class Pow(val base: ParticleNode, val exponent: ParticleNode) : ParticleNode
+    data class Atan(val node: ParticleNode) : ParticleNode
+    data class Atan2(val y: ParticleNode, val x: ParticleNode) : ParticleNode
 
     data class Abs(val node: ParticleNode) : ParticleNode
     data class Sqrt(val node: ParticleNode) : ParticleNode
     data class Exp(val node: ParticleNode) : ParticleNode
+    data class Pow(val base: ParticleNode, val exponent: ParticleNode) : ParticleNode
 
     data class Mix(val start: ParticleNode, val end: ParticleNode, val t: ParticleNode) : ParticleNode
     data class Step(val edge: ParticleNode, val v: ParticleNode) : ParticleNode
@@ -46,6 +54,12 @@ sealed interface ParticleNode {
         val op: ComparisonOp
     ) : ParticleNode
 
+    data class Combine(
+        val left: ParticleNode,
+        val right: ParticleNode,
+        val op: CombineOp
+    ) : ParticleNode
+
     data class Select(
         val condition: SelectCondition,
         val onTrue: ParticleNode,
@@ -65,13 +79,9 @@ sealed interface ParticleNode {
     data object Count : ParticleNode
     data object Progress : ParticleNode
 
-    data object Origin : Vector2(
-        x = SlotNode(ParticleContext.ORIGIN, SlotNode.Part.First),
-        y = SlotNode(ParticleContext.ORIGIN, SlotNode.Part.Second)
-    )
     data object Resolution : Vector2(
-        x = SlotNode(ParticleContext.RESOLUTION, SlotNode.Part.First),
-        y = SlotNode(ParticleContext.RESOLUTION, SlotNode.Part.Second)
+        x = SlotNode(ParticleContext.RESOLUTION, AttributeMapping.LowFloat),
+        y = SlotNode(ParticleContext.RESOLUTION, AttributeMapping.HighFloat)
     )
 
     operator fun plus(other: ParticleNode): ParticleNode = Add(this, other)
@@ -89,22 +99,25 @@ sealed interface ParticleNode {
     infix fun ge(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.GreaterEqual)
     infix fun le(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.LessEqual)
     infix fun eq(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.Equal)
+    infix fun ne(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.NotEqual)
 
     infix fun gt(other: Float): ParticleNode = gt(Scalar(other))
     infix fun lt(other: Float): ParticleNode = lt(Scalar(other))
     infix fun ge(other: Float): ParticleNode = ge(Scalar(other))
     infix fun le(other: Float): ParticleNode = le(Scalar(other))
     infix fun eq(other: Float): ParticleNode = eq(Scalar(other))
+    infix fun ne(other: Float): ParticleNode = ne(Scalar(other))
+
+    infix fun and(other: ParticleNode): ParticleNode = Combine(this, other, CombineOp.And)
+    infix fun or(other: ParticleNode): ParticleNode = Combine(this, other, CombineOp.Or)
 }
 
 @JvmInline
 internal value class SlotNode private constructor(val data: Int) : ParticleNode {
-    constructor(key: Int, part: Part) : this((key shl 2) or part.ordinal)
+    constructor(key: Int, strategy: AttributeMapping) : this((key shl 2) or strategy.ordinal)
 
     val key: Int get() = data shr 2
-    val part: Part get() = Part.entries[data and 0x3]
-
-    enum class Part { Single, First, Second }
+    val mapping: AttributeMapping get() = AttributeMapping.entries[data and 0x3]
 }
 
 sealed interface SelectCondition {
@@ -123,4 +136,9 @@ enum class ComparisonOp(val symbol: String) {
     GreaterEqual(">="),
     LessThan("<"),
     LessEqual("<=")
+}
+
+enum class CombineOp(val symbol: String) {
+    And("&&"),
+    Or("||")
 }

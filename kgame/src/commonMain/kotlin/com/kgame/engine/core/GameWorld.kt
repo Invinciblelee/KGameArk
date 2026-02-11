@@ -5,7 +5,6 @@ import com.kgame.ecs.World
 import com.kgame.ecs.WorldCfgMarker
 import com.kgame.ecs.WorldConfiguration
 import com.kgame.ecs.configureWorld
-import com.kgame.engine.dsl.GameDslMarker
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.services.particles.ParticleService

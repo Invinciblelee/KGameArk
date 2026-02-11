@@ -1,10 +1,9 @@
 package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
 
-class VertexEffect(val pattern: ParticlePattern) {
+class VertexEffect(val pattern: VertexPattern) {
     var elapsedTime: Float = 0f
         private set
 
@@ -30,6 +29,7 @@ class VertexEffect(val pattern: ParticlePattern) {
     fun setResolution(size: Size) {
         if (this.size == size || size.isEmpty()) return
         this.size = size
+        pattern.setResolution(size)
         isDirty = true
     }
 

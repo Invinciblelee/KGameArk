@@ -11,7 +11,18 @@ object GpuNodeResolver {
      * Standardized grouping for better SDK maintainability.
      */
     fun resolve(node: ParticleNode): String = when (node) {
-        // --- Core Constants and Containers ---
+        // --- System Inputs (Uniforms) ---
+        is ParticleNode.Time -> "uTime"
+        is ParticleNode.DeltaTime -> "uDeltaTime"
+
+        is ParticleNode.Resolution -> "uResolution"
+
+        // --- Context Attributes (Scoped Locals) ---
+        is ParticleNode.Count -> "pCount"
+        is ParticleNode.Progress -> "pProgress"
+        is ParticleNode.Index -> "pIndex"
+
+        // --- Core Containers ---
         is ParticleNode.Scalar -> {
             val s = node.value.toString()
             // If the string representation doesn't contain a dot, append .0
@@ -20,26 +31,24 @@ object GpuNodeResolver {
         is ParticleNode.Vector2 -> "vec2(${resolve(node.x)}, ${resolve(node.y)})"
         is ParticleNode.Color -> "vec4(${resolve(node.red)}, ${resolve(node.green)}, ${resolve(node.blue)}, ${resolve(node.alpha)})"
 
-        // --- System Inputs (Uniforms) ---
-        is ParticleNode.Time -> "uTime"
-        is ParticleNode.DeltaTime -> "uDeltaTime"
-        is ParticleNode.Origin -> "uOrigin"
-
-        // --- Context Attributes (Scoped Locals) ---
-        is ParticleNode.Count -> "pLayerCount"
-        is ParticleNode.Progress -> "pProgress"
-        is ParticleNode.Index -> "pIndex"
-
         // --- Arithmetic Operations ---
         is ParticleNode.Add -> "(${resolve(node.left)} + ${resolve(node.right)})"
         is ParticleNode.Subtract -> "(${resolve(node.left)} - ${resolve(node.right)})"
         is ParticleNode.Multiply -> "(${resolve(node.left)} * ${resolve(node.right)})"
         is ParticleNode.Divide -> "(${resolve(node.left)} / ${resolve(node.right)})"
 
+        // --- Vector Functions ---
+        is ParticleNode.Dot -> "dot(${resolve(node.left)}, ${resolve(node.right)})"
+        is ParticleNode.Length -> "length(${resolve(node.node)})"
+        is ParticleNode.Distance -> "distance(${resolve(node.p1)}, ${resolve(node.p2)})"
+        is ParticleNode.Normalize -> "normalize(${resolve(node.node)})"
+
         // --- Trigonometric Functions ---
         is ParticleNode.Sin -> "sin(${resolve(node.node)})"
         is ParticleNode.Cos -> "cos(${resolve(node.node)})"
         is ParticleNode.Tan -> "tan(${resolve(node.node)})"
+        is ParticleNode.Atan -> "atan(${resolve(node.node)})"
+        is ParticleNode.Atan2 -> "atan(${resolve(node.y)}, ${resolve(node.x)})"
 
         // --- Exponential and Power Functions ---
         is ParticleNode.Pow -> "pow(${resolve(node.base)}, ${resolve(node.exponent)})"
@@ -69,6 +78,8 @@ object GpuNodeResolver {
             "((${resolve(node.left)}) ${node.op.symbol} (${resolve(node.right)}) ? 1.0 : 0.0)"
         }
 
+        is ParticleNode.Combine -> "(((${resolve(node.left)} > 0.5) ${node.op.symbol} (${resolve(node.right)} > 0.5)) ? 1.0 : 0.0)"
+
         is ParticleNode.RandomRange -> {
             // SkSL FIX: Replace XOR (^) with Addition and use float salt
             val salt = (node.hashCode() % 100000).let { if (it < 0) -it else it }.toFloat()
@@ -87,6 +98,23 @@ object GpuNodeResolver {
                 is SelectCondition.Modulo -> "(mod(pIndex, ${cond.divisor.toFloat()}) == 0.0)"
             }
             "($conditionStr ? ${resolve(node.onTrue)} : ${resolve(node.onFalse)})"
+        }
+
+        is SlotNode -> {
+            val baseName = when (node.key) {
+                ParticleContext.ORIGIN -> "uOrigin"
+                ParticleContext.RESOLUTION -> "uResolution"
+                ParticleContext.TIME -> "uTime"
+                ParticleContext.PROGRESS -> "pProgress"
+                ParticleContext.INDEX -> "pIndex"
+                else -> error("Unsupported GPU slot: ${node.key}")
+            }
+
+            when (node.mapping) {
+                AttributeMapping.LowFloat -> "$baseName.x"
+                AttributeMapping.HighFloat -> "$baseName.y"
+                else -> baseName
+            }
         }
     }
 }

@@ -3,7 +3,6 @@ package com.kgame.engine.dsl
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.kgame.ecs.WorldCfgMarker
 import com.kgame.engine.core.AssetsScope
 import com.kgame.engine.core.GameEngine
 import com.kgame.engine.core.GameScene

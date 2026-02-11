@@ -1,7 +1,5 @@
 package com.kgame.ecs
 
-import kotlin.reflect.KClass
-
 /**
  * DSL marker for the [WorldConfiguration].
  */

@@ -2,7 +2,6 @@ package com.kgame.engine.graphics.shader
 
 import android.graphics.RuntimeShader
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color

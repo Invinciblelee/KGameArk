@@ -1,10 +1,14 @@
 package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.layout.ScaleFactor
+import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.kgame.engine.maps.TiledMapShape.Point.size
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -134,4 +138,28 @@ fun Offset.roundToIntOffset(): IntOffset {
  */
 fun IntOffset.takeOrElse(block: () -> IntOffset): IntOffset {
     return if (this == IntOffset.Zero) block() else this
+}
+
+/**
+ * Creates a Rect with this Offset as its center.
+ */
+fun Offset.expandToRect(width: Float, height: Float): Rect {
+    val halfWidth = width / 2f
+    val halfHeight = height / 2f
+    return Rect(
+        left = x - halfWidth,
+        top = y - halfHeight,
+        right = x + halfWidth,
+        bottom = y + halfHeight
+    )
+}
+
+fun Offset.expandToRect(size: Float): Rect {
+    val radius = size / 2f
+    return Rect(
+        left = x - radius,
+        top = y - radius,
+        right = x + radius,
+        bottom = y + radius
+    )
 }

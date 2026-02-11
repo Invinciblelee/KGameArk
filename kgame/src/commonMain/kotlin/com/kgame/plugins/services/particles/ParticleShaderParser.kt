@@ -3,108 +3,75 @@ package com.kgame.plugins.services.particles
 import com.kgame.engine.graphics.shader.Shader
 import com.kgame.engine.graphics.shader.ShaderEffect
 
-object ParticleShaderParser : ParticleParser<Shader> {
+object ParticleShaderParser : ParticleParser<List<ShaderEffect>> {
 
-    override fun translate(scope: ParticleNodeScope): Shader {
-        val layers = scope.layers
-        val layerCount = layers.size
+    override fun translate(scope: ParticleNodeScope): List<ShaderEffect> {
+        return scope.layers.map { layer ->
+            val skslCode = buildString {
+                // --- Uniforms ---
+                appendLine("uniform float uTime;")
+                appendLine("uniform vec2 uResolution;")
 
-        val skslCode = buildString {
-            // --- 1. Global Uniforms (Updated Externally) ---
-            appendLine("uniform float uTime;")
-            appendLine("uniform float uDeltaTime;")
-            appendLine("uniform vec2 uResolution;") // x:w, y:h
+                // --- Common Math Helpers ---
+                appendLine("""
+                // Precision constants
+                const float PI = 3.14159265359;
+                const float TWO_PI = 6.28318530718;
 
-            // --- 2. Context & Layer Uniforms ---
-            appendLine("uniform vec2 uOrigin;")     // Interaction origin
-
-            var i = 0
-            while (i < layerCount) {
-                appendLine("uniform float uLayerDuration$i;")
-                appendLine("uniform float uLayerParticleCount$i;")
-                i++
-            }
-
-            // --- 3. SkSL Helpers & Resolver ---
-            appendLine("""
-                float iHash(float x) {
-                    return fract(sin(x * 12.9898) * 43758.5453123);
+                float iHash(float x) { 
+                    return fract(sin(x * 12.9898) * 43758.5453123); 
                 }
             """.trimIndent())
 
-            appendLine("void resolveLayer(int lIdx, float pIndexParam, out vec2 outPos, out float outSize, out vec4 outColor) {")
-            appendLine("    outPos = uOrigin;")
-            appendLine("    outSize = 1.0;")
-            appendLine("    outColor = vec4(1.0);")
+                appendLine("vec4 main(vec2 fragCoord) {")
+                // Re-center coordinates: (0,0) is the center of the effect
+                appendLine("    vec2 p = fragCoord - uResolution * 0.5;")
+                appendLine("    float pCount = ${layer.count}.0;")
+                appendLine("    float pProgress = clamp(uTime / ${layer.duration}, 0.0, 1.0);")
+                appendLine("    vec4 finalColor = vec4(0.0);")
 
-            i = 0
-            while (i < layerCount) {
-                val layer = layers[i]
-                appendLine("    if (lIdx == $i) {")
-                appendLine("        float pProgress = clamp(uTime / uLayerDuration$i, 0.0, 1.0);")
-                appendLine("        float pLayerCount = uLayerParticleCount$i;")
-                appendLine("        float pIndex = pIndexParam;")
+                // --- Spatial Index Prediction ---
+                // Instead of looping through all particles, we predict which
+                // particles might overlap the current pixel based on polar coordinates.
+                appendLine("    float angle = atan(p.y, p.x);")
+                appendLine("    if (angle < 0.0) angle += TWO_PI;")
 
-                appendLine("        outPos = ${GpuNodeResolver.resolve(layer.position)};")
-                appendLine("        outSize = ${GpuNodeResolver.resolve(layer.size)};")
-                appendLine("        outColor = ${GpuNodeResolver.resolve(layer.color)};")
-                appendLine("        outColor.a *= ${GpuNodeResolver.resolve(layer.alpha)};")
-                appendLine("    }")
-                i++
-            }
-            appendLine("}")
+                // Map the angle to a "sector" (segment) of the particle circle
+                appendLine("    float sector = angle / (TWO_PI / pCount);")
 
-            // --- 4. Main Fragment Shader ---
-            appendLine("""
-                vec4 main(vec2 fragCoord) {
-                    vec4 finalColor = vec4(0.0);
-                    for (int l = 0; l < $layerCount; l++) {
-                        float maxCount = 0.0;
-            """)
+                // Check current, previous, and next sectors to prevent clipping
+                // when particles have a large 'pSize'.
+                appendLine("    for (float iOffset = -1.0; iOffset <= 1.0; iOffset++) {")
+                appendLine("        float pIndex = mod(floor(sector + iOffset), pCount);")
 
-            i = 0
-            while (i < layerCount) {
-                appendLine("        if (l == $i) maxCount = uLayerParticleCount$i;")
-                i++
-            }
+                // --- DSL Expression Injection ---
+                // Resolve the position, size, and color nodes into pure SkSL code
+                appendLine("        vec2 pPos = ${GpuNodeResolver.resolve(layer.position)};")
+                appendLine("        float pSize = ${GpuNodeResolver.resolve(layer.size)};")
+                appendLine("        vec4 pCol = ${GpuNodeResolver.resolve(layer.color)};")
 
-            appendLine("""
-                        for (int i = 0; i < 400; i++) { 
-                            if (float(i) >= maxCount) break;
-
-                            float pIndexValue = float(i);
-                            vec2 pPos; float pSize; vec4 pCol;
-                            
-                            resolveLayer(l, pIndexValue, pPos, pSize, pCol);
-                            
-                            float dist = length(fragCoord - pPos);
-                            float mask = smoothstep(pSize, pSize - 1.0, dist);
-                            
-                            vec4 particle = vec4(pCol.rgb, mask * pCol.a);
-                            finalColor = finalColor + particle * (1.0 - finalColor.a);
-                        }
-                    }
-                    return finalColor;
-                }
-            """.trimIndent())
+                // --- Distance Field Rendering ---
+                appendLine("""
+                float dist = length(p - pPos);
+                // Sharp edge for particles using smoothstep
+                float mask = smoothstep(pSize, pSize - 1.0, dist);
+                vec4 particle = vec4(pCol.rgb, mask * pCol.a);
+                
+                // Use max blending to prevent white-out (over-saturation)
+                finalColor = max(finalColor, particle);
+            } // End of sector loop
+            
+            return finalColor;
         }
+            """.trimIndent())
+            }
 
-        return object : Shader {
-            override val sksl: String = skslCode
-
-            override fun ShaderEffect.applyUniforms() {
-                // Only sync context-specific and layer-specific data
-                val origin = scope.context.getOffset(ParticleContext.ORIGIN)
-                uniform("uOrigin", origin.x, origin.y)
-
-                var i = 0
-                while (i < layerCount) {
-                    val layer = layers[i]
-                    uniform("uLayerDuration$i", layer.duration)
-                    uniform("uLayerParticleCount$i", layer.spawnCount.toFloat())
-                    i++
-                }
+            val shader = Shader(skslCode)
+            ShaderEffect(shader).also { effect ->
+                effect.setResolution(layer.frame.size)
             }
         }
     }
+
+
 }

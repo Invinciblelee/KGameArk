@@ -31,6 +31,7 @@ import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
+import com.kgame.engine.geometry.expandToRect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
@@ -60,7 +61,6 @@ import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.services.particles.ParticleNodeScope
-import com.kgame.plugins.services.particles.ParticlePattern
 import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.services.play
 import com.kgame.plugins.systems.PhysicsSystem
@@ -71,9 +71,11 @@ import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
 
-fun ParticleNodeScope.explosion(origin: Offset) {
+fun ParticleNodeScope.explosion(center: Offset) {
+    val frame = center.expandToRect(200f)
+
     // 1. Explosion Core: The hot, dense center
-    layer("explosion_core", 800) {
+    layer("explosion_core", 800, frame) {
         duration = 1.0f
 
         val angle = random(0f, 360f)
@@ -85,27 +87,25 @@ fun ParticleNodeScope.explosion(origin: Offset) {
         // Physics: Exponential decay to simulate air resistance (Fluid Drag)
         // Position = origin + velocity * (1.0 - exp(-k * t)) / k
         val dragK = 3.0f
-        val resistance = (1.0f - math.exp(time * -dragK)) / dragK
+        val resistance = (1.0f - math.exp(env.time * -dragK)) / dragK
 
         position = vec2(
-            origin.x + math.cos(rad) * speed * resistance,
-            origin.y + math.sin(rad) * speed * resistance + (40f * time * time) // Gravity
+            math.cos(rad) * speed * resistance,
+            math.sin(rad) * speed * resistance + (40f * env.time * env.time) // Gravity
         )
 
         // Visuals: Glowing particles that shrink over time
-        size = random(2.0f, 5.0f) * (1.0f - math.smoothstep(0.6f, 1.0f, progress))
+        size = random(2.0f, 5.0f) * (1.0f - math.smoothstep(0.6f, 1.0f, env.progress))
 
         // Color: Transitions from White-Hot to Orange
-        val hotColor = color(1.0f, 1.0f, 1.0f)
-        val fireColor = color(1.0f, 0.8f, 0.2f)
-        color = math.mix(hotColor, fireColor, progress)
-
-        // Alpha: Quick fade-in, slow fade-out using smoothstep
-        alpha = math.smoothstep(0.0f, 0.1f, progress) * (1.0f - math.smoothstep(0.7f, 1.0f, progress))
+        val alpha = math.smoothstep(0.0f, 0.1f, env.progress) * (1.0f - math.smoothstep(0.7f, 1.0f, env.progress))
+        val hotColor = color(1.0f, 1.0f, 1.0f, alpha = alpha)
+        val fireColor = color(1.0f, 0.8f, 0.2f, alpha = alpha)
+        color = math.mix(hotColor, fireColor, env.progress)
     }
 
     // 2. Explosion Blast: High-velocity sparks and debris
-    layer("explosion_blast", 2500) {
+    layer("explosion_blast", 2500, frame) {
         duration = 1.5f
 
         val angle = random(0f, 360f)
@@ -116,104 +116,51 @@ fun ParticleNodeScope.explosion(origin: Offset) {
 
         // Physics: Different drag for lighter debris
         val dragK = 1.5f
-        val resistance = (1.0f - math.exp(time * -dragK)) / dragK
+        val resistance = (1.0f - math.exp(env.time * -dragK)) / dragK
 
         position = vec2(
-            origin.x + math.cos(rad) * speed * resistance,
-            origin.y + math.sin(rad) * speed * resistance + (60f * time * time)
+            math.cos(rad) * speed * resistance,
+            math.sin(rad) * speed * resistance + (60f * env.time * env.time)
         )
 
         // Visuals: Elongated "sparks" effect by making size small
         size = random(0.5f, 2.5f)
 
-        // Color: Deep red/embers using a select for variety
-        val ashColor = color(0.2f, 0.1f, 0.05f)
-        val emberColor = color(1.0f, 0.3f, 0.1f)
-        color = select(Ratio(0.4f), emberColor, ashColor)
+        val alpha = (1.0f - env.progress) * 0.9f
 
-        // Alpha: Linear fade out
-        alpha = (1.0f - progress) * 0.9f
+        // Color: Deep red/embers using a select for variety
+        val ashColor = color(0.2f, 0.1f, 0.05f, alpha = alpha)
+        val emberColor = color(1.0f, 0.3f, 0.1f, alpha = alpha)
+        color = select(Ratio(0.4f), emberColor, ashColor)
     }
 
     // 3. Shockwave: A subtle, fast-expanding ring
-    layer("shockwave", 100) {
+    layer("shockwave", 100, frame) {
         duration = 0.4f
 
-        val angle = (index / count) * 360f
+        val angle = (env.index / env.count) * 360f
         val rad = math.toRadians(angle)
 
         // Speed: Very fast expansion with high drag
         val speed = 500.0f
-        val expansion = speed * (1.0f - math.exp(time * -8.0f))
+        val expansion = speed * (1.0f - math.exp(env.time * -8.0f))
 
         position = vec2(
-            origin.x + math.cos(rad) * expansion,
-            origin.y + math.sin(rad) * expansion
+            math.cos(rad) * expansion,
+            math.sin(rad) * expansion
         )
 
-        size = 2.0f + progress * 10.0f // Expanding ring dots
-        color = color(1f, 1f, 1f)
-        alpha = (1.0f - math.smoothstep(0.0f, 1.0f, progress)) * 0.5f
+        size = 2.0f + env.progress * 10.0f // Expanding ring dots
+        color = color(1f, 1f, 1f, alpha = (1.0f - math.smoothstep(0.0f, 1.0f, env.progress)) * 0.5f)
     }
 }
 
-fun ParticleNodeScope.compactLollipop(origin: Offset) {
-    layer("lollipop", 6000) {
-        duration = 8.0f
-
-        // Calculate birth offset using index and count
-        val emissionTime = 4.0f
-        val birthDelay = (index / count) * emissionTime
-        val age = math.max(0.0f, time - birthDelay)
-        val isAlive = age gt 0.0f
-
-        // Archimedean Spiral: position depends on 'age'
-        val rotationSpeed = 450.0f
-        val expansionSpeed = 30.0f
-        val angleRad = math.toRadians(age * rotationSpeed)
-        val radius = age * expansionSpeed
-
-        position = vec2(
-            scalar(origin.x) + math.cos(angleRad) * radius,
-            scalar(origin.y) + math.sin(angleRad) * radius
-        ) * isAlive
-
-        // Creamy texture width
-        size = (scalar(12.0f) + age * 2.0f) * isAlive
-
-        // Candy stripes using index/count
-        val stripe = math.sin(index / count * 100.0f)
-        color = color(
-            scalar(0.9f) + stripe * 0.1f,
-            scalar(0.4f) + (index / count) * 0.5f,
-            scalar(0.7f)
-        )
-
-        val fade = math.clamp(1.0f - (age / 6.0f), 0.0f, 1.0f)
-        alpha = scalar(0.3f) * fade * isAlive
-    }
-}
-
-fun ParticleNodeScope.simpleTest(origin: Offset) {
-    layer("test_layer", 100) {
+fun ParticleNodeScope.simpleTest(center: Offset) {
+    layer("test_layer", 1, center.expandToRect(400f)) { // 先只画 1 个，排除叠加干扰
         duration = 5.0f
 
-        // 1. math 只有 sin, cos, toRadians 等数学函数
-        // 2. scalar, vec2, color 是直接调用的构建方法
-        // 3. time 是直接访问的属性
-        // 4. 运算符 (+, *) 是重载过的
-        val angle = math.toRadians(time * 360.0f)
-        val radius = 100.0f
-
-        // 5. 坐标计算：直接使用 origin 的值
-        position = vec2(
-            origin.x + math.cos(angle) * radius,
-            origin.y + math.sin(angle) * radius
-        )
-
-        size = scalar(20.0f)
-        color = color(1.0f, 0.0f, 0.0f)
-        alpha = scalar(1.0f)
+        size = scalar(40.0f) // 矩形的“边长”
+        color = color(1.0f, 0.0f, 0.0f) // 红色
     }
 }
 
@@ -434,7 +381,7 @@ private class AircraftCollisionSystem(
                     if (stats.hp <= 0) {
                         bullet.configure { +CleanupTag }
 
-                        particleService.emit() {
+                        particleService.emit(true) {
                             explosion(ePos)
                         }
 //                        world.entity {
@@ -480,14 +427,16 @@ private class AircraftCollisionSystem(
 
 // --- 4. 场景结构 (Scenes) ---
 
-private data object Menu
-private data object Battle
+private sealed interface Scenes {
+    data object Menu: Scenes
+    data object Battle: Scenes
+}
 
 @Composable
 fun GameAircraftWarDemo() {
-    val sceneStack = rememberGameSceneStack<Any>(Menu)
+    val sceneStack = rememberGameSceneStack<Any>(Scenes.Menu)
     KGame(sceneStack = sceneStack) {
-        scene<Menu> {
+        scene<Scenes.Menu> {
             onStart {
                 println("Enter")
             }
@@ -499,14 +448,14 @@ fun GameAircraftWarDemo() {
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     Text("=== 飞机大战 Demo ===", style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = { sceneStack.push(Battle) }) {
+                    Button(onClick = { sceneStack.push(Scenes.Battle) }) {
                         Text("开始战斗")
                     }
                 }
             }
         }
 
-        scene<Battle> {
+        scene<Scenes.Battle> {
             world {
                 useDefaultSystems()
 

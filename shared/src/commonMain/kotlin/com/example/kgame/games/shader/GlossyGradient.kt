@@ -20,12 +20,12 @@ object GlossyGradient : Shader {
     @Language("AGSL")
     override val sksl = """
         uniform float uTime;
-        uniform vec3 uResolution;
+        uniform vec2 uResolution;
         
         vec4 main( vec2 fragCoord )
         {
             float mr = min(uResolution.x, uResolution.y);
-            vec2 uv = (fragCoord * 2.0 - uResolution.xy) / mr;
+            vec2 uv = (fragCoord * 2.0 - uResolution) / mr;
         
             float d = -uTime * 0.5;
             float a = 0.0;

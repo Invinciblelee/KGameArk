@@ -55,3 +55,7 @@ interface Shader {
     fun ShaderEffect.applyUniforms() = Unit
 
 }
+
+private class SimpleShader(override val sksl: String): Shader
+
+fun Shader(sksl: String): Shader = SimpleShader(sksl)

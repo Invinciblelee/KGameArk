@@ -1,7 +1,6 @@
 package com.kgame.ecs
 
 import com.kgame.ecs.collection.Bag
-import kotlinx.atomicfu.atomic
 import kotlinx.serialization.Serializable
 import kotlin.math.max
 import kotlin.native.concurrent.ThreadLocal

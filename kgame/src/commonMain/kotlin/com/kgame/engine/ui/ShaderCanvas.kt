@@ -22,7 +22,7 @@ import kotlinx.coroutines.isActive
 fun ShaderCanvas(
     shader: Shader,
     modifier: Modifier = Modifier,
-    onDraw: DrawScope.(Brush) -> Unit,
+    onDraw: DrawScope.(Brush) -> Unit = { drawRect(it) },
 ) {
     val shaderEffect = remember(shader) { ShaderEffect(shader) }
 
@@ -41,7 +41,7 @@ fun ActiveShaderCanvas(
     speed: Float = 1f,
     modifier: Modifier = Modifier,
     onUpdate: ShaderEffect.() -> Unit = {},
-    onDraw: DrawScope.(Brush) -> Unit,
+    onDraw: DrawScope.(Brush) -> Unit = { drawRect(it) },
 ) {
     val shaderEffect = remember(shader) { ShaderEffect(shader) }
 

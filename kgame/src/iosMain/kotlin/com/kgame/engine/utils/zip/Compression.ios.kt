@@ -11,10 +11,7 @@ import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.pin
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.refTo
 import kotlinx.cinterop.reinterpret
-import kotlinx.cinterop.sizeOf
-import platform.zlib.ZLIB_VERSION
 import platform.zlib.Z_DEFAULT_COMPRESSION
 import platform.zlib.Z_DEFAULT_STRATEGY
 import platform.zlib.Z_DEFLATED

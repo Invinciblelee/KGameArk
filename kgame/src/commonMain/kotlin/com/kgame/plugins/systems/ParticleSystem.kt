@@ -33,9 +33,7 @@ class ParticleSystem(
                particleService.render(this)
             }
         } else {
-            drawScope.withCenteredTransform {
-                particleService.render(this)
-            }
+            particleService.render(drawScope)
         }
     }
 

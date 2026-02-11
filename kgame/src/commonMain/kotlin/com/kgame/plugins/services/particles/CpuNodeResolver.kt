@@ -1,7 +1,6 @@
 package com.kgame.plugins.services.particles
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.toArgb
+import com.kgame.engine.geometry.Vector2
 import kotlin.math.*
 
 object CpuNodeResolver {
@@ -21,13 +20,8 @@ object CpuNodeResolver {
         is ParticleNode.Index -> context.getInt(ParticleContext.INDEX).toFloat()
         is ParticleNode.Count -> context.getInt(ParticleContext.COUNT).toFloat()
 
-        is ParticleNode.Origin -> {
-            val origin = context.getOffset(ParticleContext.ORIGIN)
-            origin.x
-        }
-
         is ParticleNode.Resolution -> {
-            val resolution = context.getOffset(ParticleContext.RESOLUTION)
+            val resolution = context.getVector2(ParticleContext.RESOLUTION)
             resolution.x
         }
 
@@ -45,6 +39,8 @@ object CpuNodeResolver {
         is ParticleNode.Sin -> sin(resolveScalar(node.node, context))
         is ParticleNode.Cos -> cos(resolveScalar(node.node, context))
         is ParticleNode.Tan -> tan(resolveScalar(node.node, context))
+        is ParticleNode.Atan -> atan(resolveScalar(node.node, context))
+        is ParticleNode.Atan2 -> atan2(resolveScalar(node.y, context), resolveScalar(node.x, context))
 
         // --- Exponential and Power Functions ---
         is ParticleNode.Pow -> resolveScalar(node.base, context).pow(resolveScalar(node.exponent, context))
@@ -121,18 +117,46 @@ object CpuNodeResolver {
             }
             if (res) 1.0f else 0.0f
         }
+        is ParticleNode.Combine -> {
+            val l = resolveScalar(node.left, context) > 0.5f
+            val r = resolveScalar(node.right, context) > 0.5f
+            val res = when (node.op) {
+                CombineOp.And -> l && r
+                CombineOp.Or -> l || r
+            }
+            if (res) 1.0f else 0.0f
+        }
         is ParticleNode.Select -> {
             if (evalCondition(node.condition, context)) resolveScalar(node.onTrue, context)
             else resolveScalar(node.onFalse, context)
         }
 
+        // --- Vector-to-Scalar Operations ---
+        is ParticleNode.Dot -> {
+            val l = resolveVector2(node.left, context)
+            val r = resolveVector2(node.right, context)
+            l.x * r.x + l.y * r.y
+        }
+        is ParticleNode.Length -> {
+            val v = resolveVector2(node.node, context)
+            sqrt(v.x * v.x + v.y * v.y)
+        }
+        is ParticleNode.Distance -> {
+            val p1 = resolveVector2(node.p1, context)
+            val p2 = resolveVector2(node.p2, context)
+            val dx = p1.x - p2.x
+            val dy = p1.y - p2.y
+            sqrt(dx * dx + dy * dy)
+        }
+        is ParticleNode.Normalize -> {
+            val v = resolveVector2(node.node, context)
+            v.x
+        }
+
         // --- Type Promotion Fallbacks ---
         is ParticleNode.Vector2 -> resolveScalar(node.x, context)
         is ParticleNode.Color -> resolveScalar(node.alpha, context)
-        is SlotNode -> {
-            val raw = context.getLong(node.key)
-            node.extract(raw)
-        }
+        is SlotNode -> context.getFloat(node.key, node.mapping)
     }
 
     /**
@@ -141,46 +165,63 @@ object CpuNodeResolver {
     fun resolveVector2(
         node: ParticleNode,
         context: ParticleContext
-    ): Offset = when (node) {
-        is ParticleNode.Origin -> context.getOffset(ParticleContext.ORIGIN)
+    ): Vector2 = when (node) {
+        is ParticleNode.Resolution -> context.getVector2(ParticleContext.RESOLUTION)
 
-        is ParticleNode.Resolution -> context.getOffset(ParticleContext.RESOLUTION)
+        is ParticleNode.Scalar -> {
+            val v = node.value
+            Vector2(v, v)
+        }
 
-        is ParticleNode.Vector2 -> Offset(
+        is ParticleNode.Vector2 -> Vector2(
             resolveScalar(node.x, context),
             resolveScalar(node.y, context)
         )
         is ParticleNode.Add -> {
             val l = resolveVector2(node.left, context)
             val r = resolveVector2(node.right, context)
-            Offset(l.x + r.x, l.y + r.y)
+            Vector2(l.x + r.x, l.y + r.y)
         }
         is ParticleNode.Subtract -> {
             val l = resolveVector2(node.left, context)
             val r = resolveVector2(node.right, context)
-            Offset(l.x - r.x, l.y - r.y)
+            Vector2(l.x - r.x, l.y - r.y)
         }
         is ParticleNode.Multiply -> {
             val l = resolveVector2(node.left, context)
             val r = resolveVector2(node.right, context)
-            Offset(l.x * r.x, l.y * r.y)
+            Vector2(l.x * r.x, l.y * r.y)
         }
         is ParticleNode.Divide -> {
             val l = resolveVector2(node.left, context)
             val r = resolveVector2(node.right, context)
-            Offset(l.x / r.x, l.y / r.y)
+            Vector2(
+                if (r.x != 0f) l.x / r.x else 0f,
+                if (r.y != 0f) l.y / r.y else 0f
+            )
         }
         is ParticleNode.Mix -> {
             val s = resolveVector2(node.start, context)
             val e = resolveVector2(node.end, context)
             val t = resolveScalar(node.t, context)
-            Offset(s.x * (1f - t) + e.x * t, s.y * (1f - t) + e.y * t)
+            Vector2(s.x * (1f - t) + e.x * t, s.y * (1f - t) + e.y * t)
         }
         is ParticleNode.Select -> {
             if (evalCondition(node.condition, context)) resolveVector2(node.onTrue, context)
             else resolveVector2(node.onFalse, context)
         }
-        else -> error("Unsupported node type: $node")
+
+        // --- Vector-to-Vector Operations ---
+        is ParticleNode.Normalize -> {
+            val v = resolveVector2(node.node, context)
+            val len = sqrt(v.x * v.x + v.y * v.y)
+            if (len > 0f) Vector2(v.x / len, v.y / len) else Vector2(0f, 0f)
+        }
+
+        else -> {
+            val v = resolveScalar(node, context)
+            Vector2(v, v)
+        }
     }
 
     /**
@@ -197,14 +238,36 @@ object CpuNodeResolver {
             val a = (resolveScalar(node.alpha, context).coerceIn(0f, 1f) * 255).toInt()
             (a shl 24) or (r shl 16) or (g shl 8) or b
         }
+        is ParticleNode.Mix -> {
+            val c1 = resolveColor(node.start, context)
+            val c2 = resolveColor(node.end, context)
+            val t = resolveScalar(node.t, context).coerceIn(0f, 1f)
+
+            if (t <= 0f) c1
+            else if (t >= 1f) c2
+            else {
+                val a1 = (c1 ushr 24); val a2 = (c2 ushr 24)
+                val r1 = (c1 ushr 16) and 0xFF; val r2 = (c2 ushr 16) and 0xFF
+                val g1 = (c1 ushr 8) and 0xFF; val g2 = (c2 ushr 8) and 0xFF
+                val b1 = c1 and 0xFF; val b2 = c2 and 0xFF
+
+                val a = (a1 + (a2 - a1) * t).toInt()
+                val r = (r1 + (r2 - r1) * t).toInt()
+                val g = (g1 + (g2 - g1) * t).toInt()
+                val b = (b1 + (b2 - b1) * t).toInt()
+
+                (a shl 24) or (r shl 16) or (g shl 8) or b
+            }
+        }
         is ParticleNode.Select -> {
             if (evalCondition(node.condition, context)) resolveColor(node.onTrue, context)
             else resolveColor(node.onFalse, context)
         }
-        is SlotNode -> {
-            context.getColor(node.key).toArgb()
+        is SlotNode -> context.getInt(node.key, node.mapping)
+        else -> {
+            val v = (resolveScalar(node, context).coerceIn(0f, 1f) * 255f).toInt()
+            (0xFF shl 24) or (v shl 16) or (v shl 8) or v
         }
-        else -> error("Unsupported node type: $node")
     }
 
     private fun evalCondition(cond: SelectCondition, args: ParticleContext): Boolean {

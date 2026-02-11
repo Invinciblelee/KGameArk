@@ -47,28 +47,33 @@ interface ParticleNodeProvider {
         alpha: Float
     ): ParticleNode = ParticleNode.Color(red, green, blue, scalar(alpha))
 
+    fun color(red: Float, green: Float, blue: Float, alpha: ParticleNode): ParticleNode =
+        color(scalar(red), scalar(green), scalar(blue), alpha)
+
     fun color(red: Float, green: Float, blue: Float, alpha: Float = 1f): ParticleNode =
         color(scalar(red), scalar(green), scalar(blue), scalar(alpha))
-
-    val time: ParticleNode get() = ParticleNode.Time
-    val deltaTime: ParticleNode get() = ParticleNode.DeltaTime
-    val index: ParticleNode get() = ParticleNode.Index
-    val progress: ParticleNode get() = ParticleNode.Progress
-    val count: ParticleNode get() = ParticleNode.Count
-
-    val origin: ParticleNode get() = ParticleNode.Origin
-    val resolution: ParticleNode get() = ParticleNode.Resolution
 
     fun Ratio(value: Float) = SelectCondition.Ratio(value)
     fun Threshold(value: Int) = SelectCondition.Threshold(value)
     fun Modulo(value: Int) = SelectCondition.Modulo(value)
 
     val math: ParticleNodeMath get() = ParticleNodeMath
+    val env: ParticleEnvironment get() = ParticleEnvironment
 
     operator fun Float.minus(node: ParticleNode): ParticleNode = scalar(this) - node
     operator fun Float.plus(node: ParticleNode): ParticleNode = scalar(this) + node
     operator fun Float.times(node: ParticleNode): ParticleNode = scalar(this) * node
     operator fun Float.div(node: ParticleNode): ParticleNode = scalar(this) / node
+}
+
+object ParticleEnvironment {
+    val time: ParticleNode get() = ParticleNode.Time
+    val deltaTime: ParticleNode get() = ParticleNode.DeltaTime
+    val index: ParticleNode get() = ParticleNode.Index
+    val progress: ParticleNode get() = ParticleNode.Progress
+    val count: ParticleNode get() = ParticleNode.Count
+
+    val resolution: ParticleNode.Resolution get() = ParticleNode.Resolution
 }
 
 object ParticleNodeMath {
@@ -80,6 +85,21 @@ object ParticleNodeMath {
 
     fun toDegrees(radians: ParticleNode): ParticleNode = (Scalar(180.0f) / PI) * radians
     fun toDegrees(radians: Float): ParticleNode = (Scalar(180.0f) / PI) * radians
+
+    // --- Vector Math Operators ---
+    fun dot(left: ParticleNode, right: ParticleNode): ParticleNode = ParticleNode.Dot(left, right)
+    fun dot(left: ParticleNode, right: Float): ParticleNode = ParticleNode.Dot(left, Scalar(right))
+    fun dot(left: Float, right: ParticleNode): ParticleNode = ParticleNode.Dot(Scalar(left), right)
+
+    fun length(node: ParticleNode): ParticleNode = ParticleNode.Length(node)
+    fun length(value: Float): ParticleNode = ParticleNode.Length(Scalar(value))
+
+    fun distance(p1: ParticleNode, p2: ParticleNode): ParticleNode = ParticleNode.Distance(p1, p2)
+    fun distance(p1: ParticleNode, p2: Float): ParticleNode = ParticleNode.Distance(p1, Scalar(p2))
+    fun distance(p1: Float, p2: ParticleNode): ParticleNode = ParticleNode.Distance(Scalar(p1), p2)
+
+    fun normalize(node: ParticleNode): ParticleNode = ParticleNode.Normalize(node)
+    fun normalize(value: Float): ParticleNode = ParticleNode.Normalize(Scalar(value))
 
     // -- Compare --
     fun min(first: ParticleNode, second: ParticleNode): ParticleNode = ParticleNode.Min(first, second)
@@ -113,6 +133,14 @@ object ParticleNodeMath {
     // --- Trig ---
     fun tan(node: ParticleNode): ParticleNode = ParticleNode.Tan(node)
     fun tan(value: Float): ParticleNode = ParticleNode.Tan(Scalar(value))
+
+    // --- Atan ---
+    fun atan(node: ParticleNode): ParticleNode = ParticleNode.Atan(node)
+    fun atan(value: Float): ParticleNode = ParticleNode.Atan(Scalar(value))
+    fun atan2(y: ParticleNode, x: ParticleNode): ParticleNode = ParticleNode.Atan2(y, x)
+    fun atan2(y: ParticleNode, x: Float): ParticleNode = ParticleNode.Atan2(y, Scalar(x))
+    fun atan2(y: Float, x: ParticleNode): ParticleNode = ParticleNode.Atan2(Scalar(y), x)
+    fun atan2(y: Float, x: Float): ParticleNode = ParticleNode.Atan2(Scalar(y), Scalar(x))
 
     // --- Power ---
     fun pow(base: ParticleNode, exp: ParticleNode): ParticleNode = ParticleNode.Pow(base, exp)

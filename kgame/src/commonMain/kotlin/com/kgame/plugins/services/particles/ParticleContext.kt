@@ -1,8 +1,9 @@
 package com.kgame.plugins.services.particles
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.util.packFloats
+import androidx.compose.ui.util.unpackFloat1
+import androidx.compose.ui.util.unpackFloat2
+import com.kgame.engine.geometry.Vector2
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
@@ -11,7 +12,7 @@ import kotlinx.atomicfu.locks.synchronized
  * It uses bit-packing for complex types (Offset, Size, Color) and delegates to
  * a 64-bit primitive container to avoid object boxing.
  */
-class ParticleContext(val capacity: Int = 8) {
+class ParticleSlot(val capacity: Int = 8) {
     // Shared primitive container
     private val data = ArraySlotMap(capacity)
 
@@ -30,60 +31,32 @@ class ParticleContext(val capacity: Int = 8) {
         // --- User-defined Slots (Low range) ---
         const val ORIGIN = 0
         const val RESOLUTION = 1
+
+        val Default: ParticleSlot = ParticleSlot()
     }
 
-    // --- Offset Ops (Packed: 2 x Float32 -> Long64) ---
-    fun setOffset(key: Int, offset: Offset): ParticleContext = synchronized(lock) {
-        val packed = (offset.x.toRawBits().toLong() shl 32) or (offset.y.toRawBits().toLong() and 0xFFFFFFFFL)
-        data.setLong(key, packed)
+    fun setVector2(key: Int, vec2: Vector2): ParticleSlot = synchronized(lock) {
+        data.setLong(key, packFloats(vec2.x, vec2.y))
         this
     }
 
-    fun getOffset(key: Int): Offset = synchronized(lock) {
+    fun getVector2(key: Int): Vector2 = synchronized(lock) {
         val raw = data.getLong(key)
-        val x = Float.fromBits((raw shr 32).toInt())
-        val y = Float.fromBits((raw and 0xFFFFFFFFL).toInt())
-        Offset(x, y)
-    }
-
-    // --- Size Ops (Packed: 2 x Float32 -> Long64) ---
-    fun setSize(key: Int, size: Size): ParticleContext = synchronized(lock) {
-        val packed = (size.width.toRawBits().toLong() shl 32) or (size.height.toRawBits().toLong() and 0xFFFFFFFFL)
-        data.setLong(key, packed)
-        this
-    }
-
-    fun getSize(key: Int): Size = synchronized(lock) {
-        val raw = data.getLong(key)
-        val w = Float.fromBits((raw shr 32).toInt())
-        val h = Float.fromBits((raw and 0xFFFFFFFFL).toInt())
-        Size(w, h)
-    }
-
-    // --- Rect Ops (Occupies 2 consecutive slots) ---
-    fun setRect(key: Int, rect: Rect): ParticleContext = synchronized(lock) {
-        setOffset(key, Offset(rect.left, rect.top))
-        setOffset(key + 1, Offset(rect.right, rect.bottom))
-        this
-    }
-
-    fun getRect(key: Int): Rect = synchronized(lock) {
-        val topLeft = getOffset(key)
-        val bottomRight = getOffset(key + 1)
-        Rect(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y)
+        Vector2(raw)
     }
 
     // --- Double Ops ---
-    fun setDouble(key: Int, value: Double): ParticleContext = synchronized(lock) {
+    fun setDouble(key: Int, value: Double): ParticleSlot = synchronized(lock) {
         data.setDouble(key, value)
         this
     }
+
     fun getDouble(key: Int): Double = synchronized(lock) {
         data.getDouble(key)
     }
 
     // --- Long Ops ---
-    fun setLong(key: Int, value: Long): ParticleContext = synchronized(lock) {
+    fun setLong(key: Int, value: Long): ParticleSlot = synchronized(lock) {
         data.setLong(key, value)
         this
     }
@@ -92,7 +65,7 @@ class ParticleContext(val capacity: Int = 8) {
     }
 
     // --- Float Ops ---
-    fun setFloat(key: Int, value: Float): ParticleContext = synchronized(lock) {
+    fun setFloat(key: Int, value: Float): ParticleSlot = synchronized(lock) {
         data.setFloat(key, value)
         this
     }
@@ -101,7 +74,7 @@ class ParticleContext(val capacity: Int = 8) {
     }
 
     // --- Int Ops ---
-    fun setInt(key: Int, value: Int): ParticleContext = synchronized(lock) {
+    fun setInt(key: Int, value: Int): ParticleSlot = synchronized(lock) {
         data.setInt(key, value)
         this
     }
@@ -110,20 +83,37 @@ class ParticleContext(val capacity: Int = 8) {
     }
 
     // --- Boolean Ops ---
-    fun setBoolean(key: Int, value: Boolean): ParticleContext = synchronized(lock) {
+    fun setBoolean(key: Int, value: Boolean): ParticleSlot = synchronized(lock) {
         data.setInt(key, if (value) 1 else 0)
         this
     }
     fun getBoolean(key: Int): Boolean = synchronized(lock) {
         data.getInt(key) == 1
     }
+
+    fun getAsFloat(key: Int, strategy: SlotStrategy): Float {
+        val value = getLong(key)
+        return when (strategy) {
+            SlotStrategy.HighFloat -> unpackFloat2(value)
+            SlotStrategy.LowFloat  -> unpackFloat1(value)
+            SlotStrategy.FullDouble -> Double.fromBits(value).toFloat()
+            else -> error("SlotStrategy $strategy cannot be resolved as Float")
+        }
+    }
+
+    fun getAsInt(key: Int, strategy: SlotStrategy): Int {
+        val value = getLong(key)
+        return when (strategy) {
+            SlotStrategy.ARGB, SlotStrategy.RawInt -> (value and 0xFFFFFFFFL).toInt()
+            else -> error("SlotStrategy $strategy cannot be resolved as Int")
+        }
+    }
 }
 
 enum class SlotStrategy {
     HighFloat,
     LowFloat,
-    FullDouble, 
-    ColorR, ColorG, ColorB, ColorA,
+    FullDouble,
     ARGB,
     RawInt
 }

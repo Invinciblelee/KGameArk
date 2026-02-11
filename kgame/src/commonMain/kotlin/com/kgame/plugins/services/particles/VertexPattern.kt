@@ -1,7 +1,9 @@
 package com.kgame.plugins.services.particles
 
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
+import com.kgame.engine.geometry.Vector2
 
 class ParticlePattern(
     private val scope: ParticleNodeScope
@@ -58,6 +60,10 @@ class ParticlePattern(
             vertexIdx += count * 6
             layerIdx++
         }
+    }
+
+    fun setResolution(size: Size) {
+        context.setVector2(ParticleContext.RESOLUTION, Vector2(size.packedValue))
     }
 
     fun update(dt: Float) {

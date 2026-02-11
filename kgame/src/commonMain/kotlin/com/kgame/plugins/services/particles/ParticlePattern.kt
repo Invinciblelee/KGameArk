@@ -2,81 +2,56 @@ package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.Vertices
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.random.Random
-import kotlin.time.Clock
 
 class ParticlePattern(
     private val scope: ParticleNodeScope
 ) {
-    // Exact count based on scope: no need for capacity or activeCount tracking
-    internal val requiredCount = scope.layers.sumOf { it.count } * 6
+    // One-time capacity calculation
+    private val capacity = scope.layers.sumOf { it.spawnCount * 6 }
+
+    private val context = scope.context
 
     // --- Rendering Buffers ---
-    internal val positionList = OffsetArrayList(requiredCount)
-    internal val colorList = ColorArrayList(requiredCount)
-    internal val dummyTextureCoordinates = OffsetArrayList(requiredCount)
+    internal val positionList = OffsetArrayList(capacity)
+    internal val colorList = ColorArrayList(capacity)
+    internal val dummyTextureCoordinates = OffsetArrayList(capacity)
 
-    // --- Physical State Buffers ---
-    private val life = FloatArray(requiredCount)
-    private val velocityX = FloatArray(requiredCount)
-    private val velocityY = FloatArray(requiredCount)
-    private val friction = FloatArray(requiredCount)
-    private val gravity = FloatArray(requiredCount)
-
-    // --- Gene Buffers (Captured at birth) ---
-    private val baseSizes = FloatArray(requiredCount)
-    private val baseColors = IntArray(requiredCount)
-    private val fullLife = FloatArray(requiredCount)
+    // --- State Buffer ---
+    private val lifes = FloatArray(capacity)
 
     private var elapsedTime: Float = 0f
-    private val args = ParticleArgs()
 
     init {
-        // Encapsulated data population during construction
         populateAll()
     }
 
-    /**
-     * Stage 1: Population (Private)
-     * Mirrors the 'writeRaw' logic but resolves everything from the DSL scope.
-     */
     private fun populateAll() {
         val layers = scope.layers
         val layerSize = layers.size
         var layerIdx = 0
         var vertexIdx = 0
 
-        val random = Random(Clock.System.now().toEpochMilliseconds())
-
         while (layerIdx < layerSize) {
             val layer = layers[layerIdx]
-            val count = layer.count
-            args.setInt(ParticleArgs.COUNT, count)
+            val count = layer.spawnCount
+            val duration = layer.duration
+
+            context.setInt(ParticleContext.COUNT, count)
+            context.setFloat(ParticleContext.TIME, 0f)
+            context.setFloat(ParticleContext.PROGRESS, 0f)
 
             var pIdx = 0
             while (pIdx < count) {
                 val vBase = vertexIdx + (pIdx * 6)
-                args.setInt(ParticleArgs.INDEX, pIdx)
-                args.setFloat(ParticleArgs.TIME, 0f)
-                args.setFloat(ParticleArgs.PROGRESS, 0f)
+                context.setInt(ParticleContext.INDEX, pIdx)
 
-                // Resolve birth-state traits
-                val speed = CpuNodeResolver.resolveScalar(layer.velocity, args)
-                val angle = CpuNodeResolver.resolveScalar(layer.angle, args)
+                // Resolve birth state
+                val pos = CpuNodeResolver.resolveVector2(layer.position, context)
+                val argb = CpuNodeResolver.resolveColor(layer.color, context)
+                val size = CpuNodeResolver.resolveScalar(layer.size, context)
 
-                val pos = CpuNodeResolver.resolveVector2(layer.position, args)
-                val argb = CpuNodeResolver.resolveColor(layer.color, args)
-                val fric = CpuNodeResolver.resolveScalar(layer.friction, args)
-                val grav = CpuNodeResolver.resolveScalar(layer.gravity, args)
-                val initialSize = CpuNodeResolver.resolveScalar(layer.size, args)
-
-                val vx = cos(angle) * speed
-                val vy = sin(angle) * speed
-
-                // Populate the 6-vertex block
-                fillVertexBlock(vBase, pos.x, pos.y, vx, vy, layer.duration, fric, grav, argb, initialSize)
+                // Use the new private method for clean initialization
+                writeQuad(vBase, pos.x, pos.y, pos.x + size, pos.y + size, duration, argb)
 
                 pIdx++
             }
@@ -85,13 +60,10 @@ class ParticlePattern(
         }
     }
 
-    /**
-     * Stage 2: Evolution (Public)
-     * Stateless 0GC update using the same logic as your VertexEffect.
-     */
     fun update(dt: Float) {
         elapsedTime += dt
-        args.setFloat(ParticleArgs.TIME, elapsedTime)
+        context.setFloat(ParticleContext.TIME, elapsedTime)
+        context.setFloat(ParticleContext.DELTA_TIME, dt)
 
         val layers = scope.layers
         val layerSize = layers.size
@@ -100,29 +72,38 @@ class ParticlePattern(
 
         while (layerIdx < layerSize) {
             val layer = layers[layerIdx]
-            val progress = if (layer.duration > 0f) (elapsedTime / layer.duration).coerceIn(0f, 1f) else 1f
-            val count = layer.count
+            val count = layer.spawnCount
+            val duration = layer.duration
 
-            args.setInt(ParticleArgs.COUNT, count)
-            args.setFloat(ParticleArgs.PROGRESS, progress)
+            // Fast culling
+            if (elapsedTime > duration) {
+                vertexIdx += count * 6
+                layerIdx++
+                continue
+            }
+
+            context.setInt(ParticleContext.COUNT, count)
+            context.setFloat(ParticleContext.PROGRESS, elapsedTime / duration)
 
             var pIdx = 0
             while (pIdx < count) {
                 val vBase = vertexIdx + (pIdx * 6)
 
-                if (life[vBase] > 0f) {
-                    args.setInt(ParticleArgs.INDEX, pIdx)
+                if (lifes[vBase] > 0f) {
+                    context.setInt(ParticleContext.INDEX, pIdx)
 
-                    // Resolve per-frame evolving properties
-                    val alpha = CpuNodeResolver.resolveScalar(layer.alpha, args)
-                    val nodeColor = CpuNodeResolver.resolveColor(layer.color, args)
-                    val currentSize = CpuNodeResolver.resolveScalar(layer.size, args)
+                    // Resolve current frame from DSL
+                    val resPos = CpuNodeResolver.resolveVector2(layer.position, context)
+                    val resSize = CpuNodeResolver.resolveScalar(layer.size, context)
+                    val resColor = CpuNodeResolver.resolveColor(layer.color, context)
+                    val resAlpha = CpuNodeResolver.resolveScalar(layer.alpha, context)
 
-                    val alphaInt = (alpha.coerceIn(0f, 1f) * 255f).toInt()
-                    val color = (nodeColor and 0x00FFFFFF) or (alphaInt shl 24)
+                    val alphaInt = (resAlpha.coerceIn(0f, 1f) * 255f).toInt()
+                    val colorInt = (resColor and 0x00FFFFFF) or (alphaInt shl 24)
+                    val nextLife = lifes[vBase] - dt
 
-                    // Physics and Quad Remapping
-                    evolveParticle(dt, vBase, currentSize, color)
+                    // Clean update call
+                    writeQuad(vBase, resPos.x, resPos.y, resPos.x + resSize, resPos.y + resSize, nextLife, colorInt)
                 }
                 pIdx++
             }
@@ -131,65 +112,32 @@ class ParticlePattern(
         }
     }
 
-    private fun evolveParticle(dt: Float, vBase: Int, size: Float, color: Int) {
-        // 1. Physics: Velocity evolution
-        val f = friction[vBase]
-        val g = gravity[vBase]
+    /**
+     * Helper to write a 6-vertex quad (2 triangles) into primitive buffers.
+     * Triangle 1: TL, TR, BL | Triangle 2: TR, BR, BL
+     */
+    private fun writeQuad(vBase: Int, left: Float, top: Float, right: Float, bottom: Float, life: Float, color: Int) {
+        // Vertex 0: Top-Left
+        writeVertex(vBase, left, top, life, color)
+        // Vertex 1: Top-Right
+        writeVertex(vBase + 1, right, top, life, color)
+        // Vertex 2: Bottom-Left
+        writeVertex(vBase + 2, left, bottom, life, color)
 
-        val vx = velocityX[vBase] * f
-        val vy = velocityY[vBase] * f + g
-
-        velocityX[vBase] = vx
-        velocityY[vBase] = vy
-
-        // 2. Displacement: Move anchor (Vertex 0)
-        val nextX = positionList.getX(vBase) + vx * dt
-        val nextY = positionList.getY(vBase) + vy * dt
-        val nextLife = life[vBase] - dt
-
-        // 3. Quad Sync: TL, TR, BL, TR, BR, BL
-        val r = nextX + size
-        val b = nextY + size
-
-
-        syncQuad(vBase, nextX, nextY, r, b, nextLife, color)
-    }
-
-    private fun syncQuad(vBase: Int, x: Float, y: Float, r: Float, b: Float, lf: Float, c: Int) {
-        writeVertex(vBase,     x, y, lf, c)
-        writeVertex(vBase + 1, r, y, lf, c)
-        writeVertex(vBase + 2, x, b, lf, c)
-        writeVertex(vBase + 3, r, y, lf, c)
-        writeVertex(vBase + 4, r, b, lf, c)
-        writeVertex(vBase + 5, x, b, lf, c)
+        // Vertex 3: Top-Right (Same as 1)
+        writeVertex(vBase + 3, right, top, life, color)
+        // Vertex 4: Bottom-Right
+        writeVertex(vBase + 4, right, bottom, life, color)
+        // Vertex 5: Bottom-Left (Same as 2)
+        writeVertex(vBase + 5, left, bottom, life, color)
     }
 
     private fun writeVertex(idx: Int, x: Float, y: Float, lf: Float, c: Int) {
         positionList.set(idx, x, y)
-        life[idx] = lf
+        lifes[idx] = lf
         colorList.set(idx, c)
-    }
-
-    private fun fillVertexBlock(
-        vBase: Int, x: Float, y: Float, vx: Float, vy: Float,
-        lf: Float, fric: Float, grav: Float, argb: Int, sz: Float
-    ) {
-        var i = 0
-        while (i < 6) {
-            val idx = vBase + i
-            positionList.set(idx, x, y)
-            velocityX[idx] = vx
-            velocityY[idx] = vy
-            life[idx] = lf
-            friction[idx] = fric
-            gravity[idx] = grav
-            colorList.set(idx, argb)
-            fullLife[idx] = lf
-            baseColors[idx] = argb
-            baseSizes[idx] = sz
-            dummyTextureCoordinates.set(idx, 0f, 0f)
-            i++
-        }
+        // Ensure dummy coords are initialized at least once in populateAll or here
+        dummyTextureCoordinates.set(idx, 0f, 0f)
     }
 }
 
@@ -199,9 +147,9 @@ class ParticlePattern(
 fun Vertices(pattern: ParticlePattern): Vertices {
     return Vertices(
         vertexMode = VertexMode.Triangles,
-        positions = pattern.positionList.limit(pattern.requiredCount),
-        colors = pattern.colorList.limit(pattern.requiredCount),
-        textureCoordinates = pattern.dummyTextureCoordinates.limit(pattern.requiredCount),
+        positions = pattern.positionList,
+        colors = pattern.colorList,
+        textureCoordinates = pattern.dummyTextureCoordinates,
         indices = emptyList()
     )
 }

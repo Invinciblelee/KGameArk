@@ -15,8 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
@@ -61,164 +59,161 @@ import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
+import com.kgame.plugins.services.particles.ParticleNodeScope
+import com.kgame.plugins.services.particles.ParticlePattern
+import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.services.play
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.SystemPriorityAnchors
 import com.kgame.plugins.visuals.images.ImageVisual
 import com.kgame.plugins.visuals.images.SpriteVisual
-import com.kgame.plugins.services.particles.ParticleNodeScope
-import com.kgame.plugins.services.particles.ParticlePattern
-import com.kgame.plugins.services.particles.ParticleService
-import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.pow
-import kotlin.math.sin
 import kotlin.random.Random
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 fun ParticleNodeScope.explosion(origin: Offset) {
+    // 1. Explosion Core: The hot, dense center
+    layer("explosion_core", 800) {
+        duration = 1.0f
 
-    layer("explosion_core") {
-        count = 600
-        duration = 1.2f
-        position = vec2(origin.x, origin.y)
+        val angle = random(0f, 360f)
+        val rad = math.toRadians(angle)
 
-        // 核心层：速度上限拉高到 60，主动向外层靠拢
-        velocity = random(0.0f, 60.0f)
-        angle = random(0f, 360f)
+        // Distribution: Use pow(random, 2.0) to cluster more particles near the center
+        val speed = math.pow(random(0.0f, 1.0f), 2.0f) * 180.0f
 
-        // 核心层也加入随机摩擦力，产生乱序分布
-        friction = random(0.96f, 0.99f)
-        gravity = scalar(0.08f)
+        // Physics: Exponential decay to simulate air resistance (Fluid Drag)
+        // Position = origin + velocity * (1.0 - exp(-k * t)) / k
+        val dragK = 3.0f
+        val resistance = (1.0f - math.exp(time * -dragK)) / dragK
 
-        size = random(1.0f, 4.0f)
-        // 增加中间色阶，使用暖橙色作为过渡
-        color = select(Ratio(0.4f), color(1f, 1f, 1f), color(1f, 0.8f, 0.3f))
-        alpha = scalar(1.0f) - progress
+        position = vec2(
+            origin.x + math.cos(rad) * speed * resistance,
+            origin.y + math.sin(rad) * speed * resistance + (40f * time * time) // Gravity
+        )
+
+        // Visuals: Glowing particles that shrink over time
+        size = random(2.0f, 5.0f) * (1.0f - math.smoothstep(0.6f, 1.0f, progress))
+
+        // Color: Transitions from White-Hot to Orange
+        val hotColor = color(1.0f, 1.0f, 1.0f)
+        val fireColor = color(1.0f, 0.8f, 0.2f)
+        color = math.mix(hotColor, fireColor, progress)
+
+        // Alpha: Quick fade-in, slow fade-out using smoothstep
+        alpha = math.smoothstep(0.0f, 0.1f, progress) * (1.0f - math.smoothstep(0.7f, 1.0f, progress))
     }
 
-    layer("explosion_blast") {
-        count = 2400
+    // 2. Explosion Blast: High-velocity sparks and debris
+    layer("explosion_blast", 2500) {
         duration = 1.5f
-        position = vec2(origin.x, origin.y)
 
-        // 爆发层：速度下限降到 20，主动向核心层渗透
-        // 此时 20~60 这个区间是两层共有的，断层消失
-        velocity = random(20.0f, 250.0f)
-        angle = random(0f, 360f)
+        val angle = random(0f, 360f)
+        val rad = math.toRadians(angle)
 
-        // 冲击力的关键：起步快，减速狠
-        // 让摩擦力的下限更低(0.82)，产生那种“炸开即定格”的烟尘感
-        friction = random(0.82f, 0.96f)
-        gravity = scalar(0.12f)
+        // Distribution: Sqrt makes particles favor the outer edge
+        val speed = math.sqrt(random(0.0f, 1.0f)) * 350.0f
 
-        size = random(0.4f, 2.5f)
-        color = select(Ratio(0.5f), color(1f, 0.5f, 0.1f), color(0.4f, 0.1f, 0.05f))
+        // Physics: Different drag for lighter debris
+        val dragK = 1.5f
+        val resistance = (1.0f - math.exp(time * -dragK)) / dragK
 
-        alpha = (scalar(1.0f) - progress) * scalar(0.8f)
+        position = vec2(
+            origin.x + math.cos(rad) * speed * resistance,
+            origin.y + math.sin(rad) * speed * resistance + (60f * time * time)
+        )
+
+        // Visuals: Elongated "sparks" effect by making size small
+        size = random(0.5f, 2.5f)
+
+        // Color: Deep red/embers using a select for variety
+        val ashColor = color(0.2f, 0.1f, 0.05f)
+        val emberColor = color(1.0f, 0.3f, 0.1f)
+        color = select(Ratio(0.4f), emberColor, ashColor)
+
+        // Alpha: Linear fade out
+        alpha = (1.0f - progress) * 0.9f
+    }
+
+    // 3. Shockwave: A subtle, fast-expanding ring
+    layer("shockwave", 100) {
+        duration = 0.4f
+
+        val angle = (index / count) * 360f
+        val rad = math.toRadians(angle)
+
+        // Speed: Very fast expansion with high drag
+        val speed = 500.0f
+        val expansion = speed * (1.0f - math.exp(time * -8.0f))
+
+        position = vec2(
+            origin.x + math.cos(rad) * expansion,
+            origin.y + math.sin(rad) * expansion
+        )
+
+        size = 2.0f + progress * 10.0f // Expanding ring dots
+        color = color(1f, 1f, 1f)
+        alpha = (1.0f - math.smoothstep(0.0f, 1.0f, progress)) * 0.5f
     }
 }
 
-fun ParticleNodeScope.sandFlow(origin: Offset) {
+fun ParticleNodeScope.compactLollipop(origin: Offset) {
+    layer("lollipop", 6000) {
+        duration = 8.0f
 
-    // --- 图层 1：流动的极光带 (测试横向场) ---
-    layer("aurora_stream") {
-        count = 1000
-        duration = 4.0f // 寿命长，表现流动感
+        // Calculate birth offset using index and count
+        val emissionTime = 4.0f
+        val birthDelay = (index / count) * emissionTime
+        val age = math.max(0.0f, time - birthDelay)
+        val isAlive = age gt 0.0f
 
-        // 初始位置：在 X 轴上随机分布，形成一个宽度
-        position = vec2(random(-200f, 200f) + origin.x, origin.y)
+        // Archimedean Spiral: position depends on 'age'
+        val rotationSpeed = 450.0f
+        val expansionSpeed = 30.0f
+        val angleRad = math.toRadians(age * rotationSpeed)
+        val radius = age * expansionSpeed
 
-        // 速度：主轴向右 (100+)，纵轴微弱波动
-        velocity = vec2(random(80f, 150f), random(-10f, 10f))
+        position = vec2(
+            scalar(origin.x) + math.cos(angleRad) * radius,
+            scalar(origin.y) + math.sin(angleRad) * radius
+        ) * isAlive
 
-        // 阻力极小，让它保持匀速滑动
-        friction = scalar(0.995f)
-        gravity = scalar(0.01f) // 几乎无重力
+        // Creamy texture width
+        size = (scalar(12.0f) + age * 2.0f) * isAlive
 
-        // 颜色测试：利用 Index 产生冷色调交替
-        color = select(
-            condition = Modulo(3),
-            onTrue = color(0.2f, 1.0f, 0.6f, 0.8f), // 翡翠绿
-            onFalse = color(0.1f, 0.4f, 1.0f, 0.6f) // 宝石蓝
+        // Candy stripes using index/count
+        val stripe = math.sin(index / count * 100.0f)
+        color = color(
+            scalar(0.9f) + stripe * 0.1f,
+            scalar(0.4f) + (index / count) * 0.5f,
+            scalar(0.7f)
         )
 
-        // 长度感：让粒子在 X 轴拉长（如果你的 size 支持宽深比，这里效果更佳）
-        size = random(2.0f, 5.0f)
-
-        // 呼吸效果：从透明到半透明再到透明
-        alpha = select(
-            condition = Ratio(0.5f),
-            onTrue = progress,
-            onFalse = scalar(1.0f) - progress
-        )
-    }
-
-    // --- 图层 2：坠落的星尘 (测试垂直场) ---
-    layer("glitter_dust") {
-        count = 2000
-        duration = 3.0f
-
-        // 从上方随机飘落
-        position = vec2(random(-300f, 300f) + origin.x, origin.y - 100f)
-
-        // 向下掉落的速度，带一点横向漂移
-        velocity = vec2(random(-20f, 20f), random(30f, 60f))
-
-        // 阻力稍大，模拟空气浮力
-        friction = random(0.94f, 0.98f)
-        gravity = scalar(0.08f)
-
-        // 逻辑测试：10% 的粒子是极亮的白光，其余是微弱的星光
-        color = select(
-            condition = Ratio(0.1f),
-            onTrue = color(1f, 1f, 1f, 1f),    // 亮白
-            onFalse = color(1f, 0.8f, 0.4f, 0.5f) // 暖金
-        )
-
-        size = random(0.5f, 1.2f)
-
-        // 闪烁感：高频 Mod 切换
-        alpha = select(
-            condition = Modulo(4),
-            onTrue = scalar(1.0f) - progress,
-            onFalse = scalar(0.2f)
-        )
+        val fade = math.clamp(1.0f - (age / 6.0f), 0.0f, 1.0f)
+        alpha = scalar(0.3f) * fade * isAlive
     }
 }
 
-fun ParticleNodeScope.testCollision(origin: Offset) {
-    // Particle 1: Moving Right (0 degrees)
-    layer("to_right") {
-        count = 1
-        duration = 1.0f
-        position = vec2(origin.x, origin.y)
-        velocity = scalar(100f)
-        angle = scalar(0f)
-        friction = scalar(0.95f)
-        gravity = scalar(0f)
-        size = scalar(10f)
-        color = color(0xFFFF0000) // Red
+fun ParticleNodeScope.simpleTest(origin: Offset) {
+    layer("test_layer", 100) {
+        duration = 5.0f
 
-        // Fades from 1.0 to 0.0 over 5 seconds
-        alpha = scalar(1.0f) - progress
-    }
+        // 1. math 只有 sin, cos, toRadians 等数学函数
+        // 2. scalar, vec2, color 是直接调用的构建方法
+        // 3. time 是直接访问的属性
+        // 4. 运算符 (+, *) 是重载过的
+        val angle = math.toRadians(time * 360.0f)
+        val radius = 100.0f
 
-    // Particle 2: Moving Left (180 degrees)
-    layer("to_left") {
-        count = 1
-        duration = 1.0f
-        position = vec2(origin.x, origin.y)
-        velocity = scalar(100f)
-        angle = scalar(180f)
-        friction = scalar(0.95f)
-        gravity = scalar(0f)
-        size = scalar(10f)
-        color = color(0xFF0000FF) // Blue
+        // 5. 坐标计算：直接使用 origin 的值
+        position = vec2(
+            origin.x + math.cos(angle) * radius,
+            origin.y + math.sin(angle) * radius
+        )
 
-        // Fades from 1.0 to 0.0 over 5 seconds
-        alpha = scalar(1.0f) - progress
+        size = scalar(20.0f)
+        color = color(1.0f, 0.0f, 0.0f)
+        alpha = scalar(1.0f)
     }
 }
 
@@ -439,8 +434,8 @@ private class AircraftCollisionSystem(
                     if (stats.hp <= 0) {
                         bullet.configure { +CleanupTag }
 
-                        particleService.emit(false) {
-                            arcanePortal(ePos)
+                        particleService.emit() {
+                            explosion(ePos)
                         }
 //                        world.entity {
 //                            +Transform(position = ePos)

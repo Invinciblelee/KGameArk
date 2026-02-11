@@ -10,84 +10,98 @@ object ParticleShaderParser : ParticleParser<Shader> {
         val layerCount = layers.size
 
         val skslCode = buildString {
-            // --- Global Uniforms ---
+            // --- 1. Global Uniforms (Updated Externally) ---
             appendLine("uniform float uTime;")
+            appendLine("uniform float uDeltaTime;")
+            appendLine("uniform vec2 uResolution;") // x:w, y:h
 
-            var index = 0
-            while (index < layerCount) {
-                appendLine("uniform float uLayerDuration$index;")
-                index++
+            // --- 2. Context & Layer Uniforms ---
+            appendLine("uniform vec2 uOrigin;")     // Interaction origin
+
+            var i = 0
+            while (i < layerCount) {
+                appendLine("uniform float uLayerDuration$i;")
+                appendLine("uniform float uLayerParticleCount$i;")
+                i++
             }
 
-            // --- Varyings ---
-            appendLine("varying vec2 position;")
-            appendLine("varying vec2 velocity;")
-            appendLine("varying float layerIndex;")
-            appendLine("varying float i;")
-            appendLine("varying vec4 color;")
+            // --- 3. SkSL Helpers & Resolver ---
+            appendLine("""
+                float iHash(float x) {
+                    return fract(sin(x * 12.9898) * 43758.5453123);
+                }
+            """.trimIndent())
 
-            // --- Helpers ---
-            appendLine("float iHash(float id) { return fract(sin(id * 43758.5453)); }")
-
-            // --- Logic Resolver ---
-            appendLine("float resolveLayer(int lIdx, out vec4 outColor, out float outFric, out float outGrav) {")
-            appendLine("    float size = 0.0;")
-            appendLine("    float duration = 1.0;")
+            appendLine("void resolveLayer(int lIdx, float pIndexParam, out vec2 outPos, out float outSize, out vec4 outColor) {")
+            appendLine("    outPos = uOrigin;")
+            appendLine("    outSize = 1.0;")
             appendLine("    outColor = vec4(1.0);")
-            appendLine("    outFric = 1.0;")
-            appendLine("    outGrav = 0.0;")
 
-            index = 0
-            while (index < layerCount) {
-                val layer = layers[index]
-                appendLine("    if (lIdx == $index) {")
-                appendLine("        duration = uLayerDuration$index;")
-                // progress calculation moved INSIDE resolveLayer
-                appendLine("        float progress = clamp(uTime / duration, 0.0, 1.0);")
+            i = 0
+            while (i < layerCount) {
+                val layer = layers[i]
+                appendLine("    if (lIdx == $i) {")
+                appendLine("        float pProgress = clamp(uTime / uLayerDuration$i, 0.0, 1.0);")
+                appendLine("        float pLayerCount = uLayerParticleCount$i;")
+                appendLine("        float pIndex = pIndexParam;")
 
-                // Now GpuNodeResolver can safely use the 'progress' local variable
-                appendLine("        size = ${GpuNodeResolver.resolve(layer.size)};")
+                appendLine("        outPos = ${GpuNodeResolver.resolve(layer.position)};")
+                appendLine("        outSize = ${GpuNodeResolver.resolve(layer.size)};")
                 appendLine("        outColor = ${GpuNodeResolver.resolve(layer.color)};")
                 appendLine("        outColor.a *= ${GpuNodeResolver.resolve(layer.alpha)};")
-                appendLine("        outFric = ${GpuNodeResolver.resolve(layer.friction)};")
-                appendLine("        outGrav = ${GpuNodeResolver.resolve(layer.gravity)};")
                 appendLine("    }")
-                index++
+                i++
             }
-            appendLine("    return size;")
             appendLine("}")
 
-            // --- Fragment Entry Point ---
+            // --- 4. Main Fragment Shader ---
             appendLine("""
                 vec4 main(vec2 fragCoord) {
-                    vec4 dynamicColor;
-                    float fric, grav;
-                    
-                    // All logic (including progress) is handled here
-                    float finalSize = resolveLayer(int(layerIndex), dynamicColor, fric, grav);
-                    
-                    float t = uTime;
-                    vec2 currentPos;
-                    if (fric >= 1.0) {
-                        currentPos = position + velocity * t + 0.5 * vec2(0.0, grav) * t * t;
-                    } else {
-                        currentPos = position + velocity * ((1.0 - pow(fric, t)) / -log(fric)) + 0.5 * vec2(0.0, grav) * t * t;
+                    vec4 finalColor = vec4(0.0);
+                    for (int l = 0; l < $layerCount; l++) {
+                        float maxCount = 0.0;
+            """)
+
+            i = 0
+            while (i < layerCount) {
+                appendLine("        if (l == $i) maxCount = uLayerParticleCount$i;")
+                i++
+            }
+
+            appendLine("""
+                        for (int i = 0; i < 400; i++) { 
+                            if (float(i) >= maxCount) break;
+
+                            float pIndexValue = float(i);
+                            vec2 pPos; float pSize; vec4 pCol;
+                            
+                            resolveLayer(l, pIndexValue, pPos, pSize, pCol);
+                            
+                            float dist = length(fragCoord - pPos);
+                            float mask = smoothstep(pSize, pSize - 1.0, dist);
+                            
+                            vec4 particle = vec4(pCol.rgb, mask * pCol.a);
+                            finalColor = finalColor + particle * (1.0 - finalColor.a);
+                        }
                     }
-                    
-                    float dist = length(fragCoord - currentPos);
-                    float mask = smoothstep(finalSize, finalSize - 1.0, dist);
-                    
-                    return vec4(dynamicColor.rgb, mask * dynamicColor.a * color.a);
+                    return finalColor;
                 }
             """.trimIndent())
         }
 
         return object : Shader {
             override val sksl: String = skslCode
+
             override fun ShaderEffect.applyUniforms() {
+                // Only sync context-specific and layer-specific data
+                val origin = scope.context.getOffset(ParticleContext.ORIGIN)
+                uniform("uOrigin", origin.x, origin.y)
+
                 var i = 0
                 while (i < layerCount) {
-                    uniform("uLayerDuration$i", layers[i].duration)
+                    val layer = layers[i]
+                    uniform("uLayerDuration$i", layer.duration)
+                    uniform("uLayerParticleCount$i", layer.spawnCount.toFloat())
                     i++
                 }
             }

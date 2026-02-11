@@ -13,38 +13,39 @@ class ParticleService(val capacity: Int = 64) {
 
     private class EffectWrapper<T>(
         val effect: T,
-        val duration: Float
+        val scope: ParticleNodeScope
     ) {
+        val duration: Float = scope.layers.maxOf { it.duration }
+
         val elapsedTime: Float
             get() = when(effect) {
                 is VertexEffect -> effect.elapsedTime
                 is ShaderEffect -> effect.elapsedTime
                 else -> 0f
             }
+
+        val isDead: Boolean
+            get() = elapsedTime >= duration + 0.5f
     }
 
     fun emit(useGpu: Boolean = true, block: ParticleNodeScope.() -> Unit) {
-        fun duration(scope: ParticleNodeScope): Float {
-            return scope.layers.maxOf { it.duration }
-        }
-
         if (useGpu) {
             if (shaderEffects.size >= capacity) return
 
-            val scope = ParticleNodeScope().apply(block)
+            val scope = particles(block)
             val shader = ParticleShaderParser.translate(scope)
             val effect = ShaderEffect(shader)
             if (effect.supported) {
-                shaderEffects.add(EffectWrapper(effect, duration(scope)))
+                shaderEffects.add(EffectWrapper(effect, scope = scope))
                 return
             }
         }
 
         if (vertexEffects.size < capacity) {
-            val scope = ParticleNodeScope().apply(block)
+            val scope = particles(block)
             val pattern = ParticlePatternParser.translate(scope)
             val effect = VertexEffect(pattern)
-            vertexEffects.add(EffectWrapper(effect, duration = duration(scope)))
+            vertexEffects.add(EffectWrapper(effect, scope = scope))
         }
     }
 
@@ -59,7 +60,7 @@ class ParticleService(val capacity: Int = 64) {
         while (i >= 0) {
             val wrapper = vertexEffects[i]
             wrapper.effect.update(dt)
-            if (wrapper.elapsedTime >= wrapper.duration + 0.5f) {
+            if (wrapper.isDead) {
                 vertexEffects.removeAt(i)
             }
             i--
@@ -71,8 +72,8 @@ class ParticleService(val capacity: Int = 64) {
         while (i >= 0) {
             val wrapper = shaderEffects[i]
             wrapper.effect.update(dt)
-            if (wrapper.elapsedTime >= wrapper.duration + 0.5f) {
-                vertexEffects.removeAt(i)
+            if (wrapper.isDead) {
+                shaderEffects.removeAt(i)
             }
             i--
         }

@@ -6,44 +6,105 @@ import kotlin.jvm.JvmInline
  * Unified node tree for particle logic.
  * These nodes are the "Single Source of Truth" for both CPU and GPU.
  */
-sealed class ParticleNode {
-    data class Scalar(val value: Float) : ParticleNode()
-    data class Vector2(val x: ParticleNode, val y: ParticleNode) : ParticleNode()
-    data class Multiply(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
-    data class Add(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
-    data class Subtract(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
-    data class Divide(val left: ParticleNode, val right: ParticleNode) : ParticleNode()
-    data class Sin(val node: ParticleNode) : ParticleNode()
-    data class Cos(val node: ParticleNode) : ParticleNode()
-    data class Pow(val base: ParticleNode, val exponent: ParticleNode) : ParticleNode()
-    data class RandomRange(val min: Float, val max: Float, val exp: Float = 1.0f) : ParticleNode()
+sealed interface ParticleNode {
+    @JvmInline
+    value class Scalar(val value: Float) : ParticleNode
+    open class Vector2(val x: ParticleNode, val y: ParticleNode) : ParticleNode
+
+    data class Multiply(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+    data class Add(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+    data class Subtract(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+    data class Divide(val left: ParticleNode, val right: ParticleNode) : ParticleNode
+    data class Sin(val node: ParticleNode) : ParticleNode
+    data class Cos(val node: ParticleNode) : ParticleNode
+    data class Tan(val node: ParticleNode) : ParticleNode
+    data class Pow(val base: ParticleNode, val exponent: ParticleNode) : ParticleNode
+
+    data class Abs(val node: ParticleNode) : ParticleNode
+    data class Sqrt(val node: ParticleNode) : ParticleNode
+    data class Exp(val node: ParticleNode) : ParticleNode
+
+    data class Mix(val start: ParticleNode, val end: ParticleNode, val t: ParticleNode) : ParticleNode
+    data class Step(val edge: ParticleNode, val v: ParticleNode) : ParticleNode
+    data class SmoothStep(val e0: ParticleNode, val e1: ParticleNode, val v: ParticleNode) : ParticleNode
+    
+    data class Max(val first: ParticleNode, val second: ParticleNode) : ParticleNode
+    data class Min(val first: ParticleNode, val second: ParticleNode) : ParticleNode
+    data class Clamp(val value: ParticleNode, val min: ParticleNode, val max: ParticleNode) : ParticleNode
+
+    data class Fract(val node: ParticleNode): ParticleNode
+    data class Mod(val left: ParticleNode, val right: ParticleNode): ParticleNode
+    data class Floor(val node: ParticleNode): ParticleNode
+    data class Ceil(val node: ParticleNode): ParticleNode
+    data class Sign(val node: ParticleNode): ParticleNode
+
+    data class RandomRange(val min: Float, val max: Float, val exp: Float = 1.0f) : ParticleNode
+
+    data class Comparison(
+        val left: ParticleNode,
+        val right: ParticleNode,
+        val op: ComparisonOp
+    ) : ParticleNode
+
     data class Select(
         val condition: SelectCondition,
         val onTrue: ParticleNode,
         val onFalse: ParticleNode
-    ) : ParticleNode()
+    ) : ParticleNode
 
-    data class Color(val argb: Int) : ParticleNode()
+    data class Color(
+        val red: ParticleNode,
+        val green: ParticleNode,
+        val blue: ParticleNode,
+        val alpha: ParticleNode
+    ) : ParticleNode
 
-    object Time : ParticleNode()
-    object Index : ParticleNode()
-    object Count : ParticleNode()
-    object Progress : ParticleNode()
+    data object Time : ParticleNode
+    data object DeltaTime : ParticleNode
+    data object Index : ParticleNode
+    data object Count : ParticleNode
+    data object Progress : ParticleNode
 
-    operator fun plus(other: ParticleNode) = Add(this, other)
-    operator fun minus(other: ParticleNode) = Subtract(this, other)
-    operator fun times(other: ParticleNode) = Multiply(this, other)
-    operator fun div(other: ParticleNode) = Divide(this, other)
+    data object Origin : Vector2(
+        x = SlotNode(ParticleContext.ORIGIN, SlotNode.Part.First),
+        y = SlotNode(ParticleContext.ORIGIN, SlotNode.Part.Second)
+    )
+    data object Resolution : Vector2(
+        x = SlotNode(ParticleContext.RESOLUTION, SlotNode.Part.First),
+        y = SlotNode(ParticleContext.RESOLUTION, SlotNode.Part.Second)
+    )
 
-    operator fun plus(other: Float) = Add(this, Scalar(other))
-    operator fun minus(other: Float) = Subtract(this, Scalar(other))
-    operator fun times(other: Float) = Multiply(this, Scalar(other))
-    operator fun div(other: Float) = Divide(this, Scalar(other))
+    operator fun plus(other: ParticleNode): ParticleNode = Add(this, other)
+    operator fun minus(other: ParticleNode): ParticleNode = Subtract(this, other)
+    operator fun times(other: ParticleNode): ParticleNode = Multiply(this, other)
+    operator fun div(other: ParticleNode): ParticleNode = Divide(this, other)
 
-    fun sin(node: ParticleNode) = Sin(node)
-    fun cos(node: ParticleNode) = Cos(node)
-    fun pow(base: ParticleNode, exponent: ParticleNode) = Pow(base, exponent)
-    fun pow(base: ParticleNode, exponent: Float) = Pow(base, ParticleNode.Scalar(exponent))
+    operator fun plus(other: Float): ParticleNode = Add(this, Scalar(other))
+    operator fun minus(other: Float): ParticleNode = Subtract(this, Scalar(other))
+    operator fun times(other: Float): ParticleNode = Multiply(this, Scalar(other))
+    operator fun div(other: Float): ParticleNode = Divide(this, Scalar(other))
+
+    infix fun gt(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.GreaterThan)
+    infix fun lt(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.LessThan)
+    infix fun ge(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.GreaterEqual)
+    infix fun le(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.LessEqual)
+    infix fun eq(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.Equal)
+
+    infix fun gt(other: Float): ParticleNode = gt(Scalar(other))
+    infix fun lt(other: Float): ParticleNode = lt(Scalar(other))
+    infix fun ge(other: Float): ParticleNode = ge(Scalar(other))
+    infix fun le(other: Float): ParticleNode = le(Scalar(other))
+    infix fun eq(other: Float): ParticleNode = eq(Scalar(other))
+}
+
+@JvmInline
+internal value class SlotNode private constructor(val data: Int) : ParticleNode {
+    constructor(key: Int, part: Part) : this((key shl 2) or part.ordinal)
+
+    val key: Int get() = data shr 2
+    val part: Part get() = Part.entries[data and 0x3]
+
+    enum class Part { Single, First, Second }
 }
 
 sealed interface SelectCondition {
@@ -53,4 +114,13 @@ sealed interface SelectCondition {
     value class Threshold(val value: Int) : SelectCondition
     @JvmInline
     value class Modulo(val divisor: Int) : SelectCondition
+}
+
+enum class ComparisonOp(val symbol: String) {
+    Equal("=="),
+    NotEqual("!="),
+    GreaterThan(">"),
+    GreaterEqual(">="),
+    LessThan("<"),
+    LessEqual("<=")
 }

@@ -27,8 +27,9 @@ class VertexEffect(val pattern: ParticlePattern) {
     /**
      * Updates canvas resolution.
      */
-    fun setResolution(newSize: Size) {
-        this.size = newSize
+    fun setResolution(size: Size) {
+        if (this.size == size || size.isEmpty()) return
+        this.size = size
         isDirty = true
     }
 

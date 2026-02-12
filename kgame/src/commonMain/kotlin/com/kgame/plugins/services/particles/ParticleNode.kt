@@ -79,15 +79,11 @@ sealed interface ParticleNode {
     data object Count : ParticleNode
     data object Progress : ParticleNode
 
-    data object Resolution : Vector2(
-        x = SlotNode(ParticleContext.RESOLUTION, AttributeMapping.LowFloat),
-        y = SlotNode(ParticleContext.RESOLUTION, AttributeMapping.HighFloat)
-    )
-
     operator fun plus(other: ParticleNode): ParticleNode = Add(this, other)
     operator fun minus(other: ParticleNode): ParticleNode = Subtract(this, other)
     operator fun times(other: ParticleNode): ParticleNode = Multiply(this, other)
     operator fun div(other: ParticleNode): ParticleNode = Divide(this, other)
+    operator fun unaryMinus(): ParticleNode = Multiply(Scalar(-1f), this)
 
     operator fun plus(other: Float): ParticleNode = Add(this, Scalar(other))
     operator fun minus(other: Float): ParticleNode = Subtract(this, Scalar(other))
@@ -110,14 +106,6 @@ sealed interface ParticleNode {
 
     infix fun and(other: ParticleNode): ParticleNode = Combine(this, other, CombineOp.And)
     infix fun or(other: ParticleNode): ParticleNode = Combine(this, other, CombineOp.Or)
-}
-
-@JvmInline
-internal value class SlotNode private constructor(val data: Int) : ParticleNode {
-    constructor(key: Int, strategy: AttributeMapping) : this((key shl 2) or strategy.ordinal)
-
-    val key: Int get() = data shr 2
-    val mapping: AttributeMapping get() = AttributeMapping.entries[data and 0x3]
 }
 
 sealed interface SelectCondition {

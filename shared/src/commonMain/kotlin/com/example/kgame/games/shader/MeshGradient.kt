@@ -1,10 +1,10 @@
 package com.example.kgame.games.shader
 
 import androidx.compose.ui.graphics.Color
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.Shader.Companion.COLORS
-import com.kgame.engine.graphics.shader.ShaderEffect
-import com.kgame.engine.graphics.shader.ShaderMetadata
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.Material.Companion.COLORS
+import com.kgame.engine.graphics.material.MaterialEffect
+import com.kgame.engine.graphics.material.MaterialMetadata
 import org.intellij.lang.annotations.Language
 
 class MeshGradient(
@@ -17,10 +17,10 @@ class MeshGradient(
     speed: Float = 1f,
     /** Adjusts the scale of the board. Higher number -> larger billboard -> smaller color blobs */
     scale: Float = 2f,
-) : Shader {
+) : Material {
     private val colorCount = colors.size
 
-    override val metadata = ShaderMetadata(
+    override val metadata = MaterialMetadata(
         name = "MeshGradient",
         authorName = "Mike Penz",
         authorUrl = "https://github.com/mikepenz/",
@@ -161,7 +161,7 @@ class MeshGradient(
         }
     """
 
-    override fun ShaderEffect.applyUniforms() {
+    override fun MaterialEffect.applyUniforms() {
         uniform(COLORS, colors)
     }
 }

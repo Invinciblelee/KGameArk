@@ -10,8 +10,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.isUnspecified
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.ShaderEffect
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialEffect
 
 @Composable
 fun Circle(color: Color, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
@@ -30,24 +30,24 @@ fun Circle(brush: Brush, radius: Dp = Dp.Unspecified, modifier: Modifier = Modif
 }
 
 @Composable
-fun Circle(shader: Shader, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
+fun Circle(shader: Material, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
-    ShaderCanvas(shader, modifier.then(sizeModifier)) {
+    MaterialCanvas(shader, modifier.then(sizeModifier)) {
         drawCircle(it)
     }
 }
 
 @Composable
 fun ActiveCircle(
-    shader: Shader,
+    shader: Material,
     radius: Dp = Dp.Unspecified,
     speed: Float = 1f,
     modifier: Modifier = Modifier,
-    onUpdate: ShaderEffect.() -> Unit = {}
+    onUpdate: MaterialEffect.() -> Unit = {}
 ) {
     val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
-    ActiveShaderCanvas(
-        shader = shader,
+    ActiveMaterialCanvas(
+        material = shader,
         speed = speed,
         modifier = modifier.then(sizeModifier),
         onUpdate = onUpdate
@@ -74,24 +74,24 @@ fun Rectangle(brush: Brush, size: DpSize = DpSize.Unspecified, modifier: Modifie
 }
 
 @Composable
-fun Rectangle(shader: Shader, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
+fun Rectangle(shader: Material, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
-    ShaderCanvas(shader, modifier.then(sizeModifier)) {
+    MaterialCanvas(shader, modifier.then(sizeModifier)) {
         drawRect(it)
     }
 }
 
 @Composable
 fun ActiveRectangle(
-    shader: Shader,
+    shader: Material,
     size: DpSize = DpSize.Unspecified,
     speed: Float = 1f,
     modifier: Modifier = Modifier,
-    onUpdate: ShaderEffect.() -> Unit = {}
+    onUpdate: MaterialEffect.() -> Unit = {}
 ) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
-    ActiveShaderCanvas(
-        shader = shader,
+    ActiveMaterialCanvas(
+        material = shader,
         speed = speed,
         modifier = modifier.then(sizeModifier),
         onUpdate = onUpdate

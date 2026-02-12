@@ -3,6 +3,9 @@ package com.kgame.engine.graphics.drawscope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.kgame.engine.geometry.ResolutionManager
@@ -147,3 +150,13 @@ inline fun DrawScope.withLocalTransform(
         drawContext.size = oldSize
     }
 }
+
+expect fun DrawScope.drawVertices(
+    vertexMode: VertexMode,
+    positions: FloatArray,
+    colors: IntArray? = null,
+    texCoords: FloatArray? = null,
+    indices: ShortArray? = null,
+    blendMode: BlendMode,
+    paint: Paint
+)

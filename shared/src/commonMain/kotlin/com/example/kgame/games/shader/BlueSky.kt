@@ -1,11 +1,11 @@
 package com.example.kgame.games.shader
 
 import androidx.compose.ui.graphics.Color
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.Shader.Companion.RESOLUTION
-import com.kgame.engine.graphics.shader.Shader.Companion.TIME
-import com.kgame.engine.graphics.shader.ShaderEffect
-import com.kgame.engine.graphics.shader.ShaderMetadata
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.Material.Companion.RESOLUTION
+import com.kgame.engine.graphics.material.Material.Companion.TIME
+import com.kgame.engine.graphics.material.MaterialEffect
+import com.kgame.engine.graphics.material.MaterialMetadata
 import org.intellij.lang.annotations.Language
 
 class BlueSky(
@@ -14,7 +14,7 @@ class BlueSky(
     val cloudSharpness: Float = 0.25f,
     val skyColorTop: Color = Color(0.05f, 0.15f, 0.4f),
     val skyColorHorizon: Color = Color(0.55f, 0.75f, 1.0f)
-) : Shader {
+) : Material {
     companion object {
         // Uniform names
         private const val SCALE = "uScale"
@@ -23,7 +23,7 @@ class BlueSky(
         private const val SKY_COLOR_HORIZON = "uSkyColorHorizon"
     }
 
-    override val metadata = ShaderMetadata(
+    override val metadata = MaterialMetadata(
         name = "Blue Sky",
         authorName = "Kirk"
     )
@@ -99,7 +99,7 @@ class BlueSky(
         }
     """
 
-    override fun ShaderEffect.applyUniforms() {
+    override fun MaterialEffect.applyUniforms() {
         uniform(SCALE, scale)
         uniform(CLOUD_PARAMS, cloudCover, cloudSharpness)
         uniform(SKY_COLOR_TOP, skyColorTop)

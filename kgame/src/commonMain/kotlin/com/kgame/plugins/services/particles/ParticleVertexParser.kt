@@ -1,14 +1,17 @@
 package com.kgame.plugins.services.particles
 
+import com.kgame.engine.graphics.material.MaterialEffect
+
 /**
  * High-performance Parser for emission patterns.
  * Directly uses the Context to resolve nodes, ensuring zero redundancy.
  */
-object ParticleVertexParser : ParticleParser<List<VertexEffect>> {
-    override fun translate(scope: ParticleNodeScope): List<VertexEffect> {
+object ParticleVertexParser : ParticleParser<List<ParticleRenderer>> {
+    override fun translate(scope: ParticleNodeScope): List<ParticleRenderer> {
         return scope.layers.map { layer ->
             val pattern = VertexPattern(layer, scope.context)
-            VertexEffect(pattern).also { effect ->
+            val effect = layer.material?.let { MaterialEffect(it) }
+            ParticleRenderer(pattern, effect, layer.frame, layer.duration).also { effect ->
                 effect.setResolution(layer.frame.size)
             }
         }

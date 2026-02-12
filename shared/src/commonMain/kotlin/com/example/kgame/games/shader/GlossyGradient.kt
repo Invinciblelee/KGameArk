@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: MIT
 package com.example.kgame.games.shader
 
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.ShaderMetadata
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialMetadata
 import org.intellij.lang.annotations.Language
 
-object GlossyGradient : Shader {
+object GlossyGradient : Material {
 
-    override val metadata = ShaderMetadata(
+    override val metadata = MaterialMetadata(
         name = "GlossyGradients",
         authorName = "Giorgi Azmaipharashvili",
         authorUrl = "https://www.shadertoy.com/user/Peace",

@@ -1,12 +1,12 @@
 package com.example.kgame.games.shader
 
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.ShaderMetadata
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialMetadata
 import org.intellij.lang.annotations.Language
 
-object DaybreakSky : Shader {
+object DaybreakSky : Material {
 
-    override val metadata = ShaderMetadata(
+    override val metadata = MaterialMetadata(
         name = "Daybreak Sky"
     )
 

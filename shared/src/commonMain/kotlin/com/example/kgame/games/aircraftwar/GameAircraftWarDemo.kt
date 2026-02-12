@@ -32,6 +32,8 @@ import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.geometry.expandToRect
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
@@ -71,12 +73,74 @@ import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
 
+object PlasmaFireMaterial : Material {
+    override val sksl: String = """
+        uniform float uTime;
+        
+        vec4 main(vec2 uv) {
+            // 1. 将 UV 居中并处理呼吸感
+            vec2 st = uv * 2.0 - 1.0;
+            float d = length(st);
+            
+            // 2. 构造动态噪点（模拟火花中心的跳动）
+            float noise = sin(st.x * 10.0 + uTime * 5.0) * cos(st.y * 10.0 - uTime * 3.0);
+            
+            // 3. 径向衰减（让边缘消失）
+            float strength = 1.0 - smoothstep(0.0, 1.0 + noise * 0.2, d);
+            
+            // 4. 颜色梯度：中心亮白 -> 边缘火红
+            vec3 coreColor = vec3(1.0, 1.0, 0.8);
+            vec3 edgeColor = vec3(1.0, 0.3, 0.0);
+            vec3 finalColor = mix(edgeColor, coreColor, strength);
+            
+            // 5. 呼吸闪烁
+            float flash = sin(uTime * 15.0) * 0.1 + 0.9;
+            
+            return vec4(finalColor * flash, strength);
+        }
+    """.trimIndent()
+}
+
+object RainbowCircleMaterial : Material {
+    override val sksl: String = """
+        uniform float uTime;
+        
+        vec4 main(vec2 uv) {
+            vec2 st = uv * 2.0 - 1.0;
+            float d = length(st);
+
+            // 1. 核心光晕逻辑：用指数衰减模拟光的扩散
+            // 越靠近中心越亮，边缘通过 power 函数形成柔和的羽化效果
+            // 这里的 0.8 可以控制光晕的范围，数值越小，光晕越散
+            float glow = pow(max(0.0, 1.0 - d), 2.5); 
+            
+            // 2. 边缘平滑处理（抗锯齿）
+            // 即使是光晕，我们也希望在 UV 边界处彻底归零，防止出现你讨厌的“方框边角”
+            float alpha = smoothstep(1.0, 0.5, d);
+
+            // 3. 动态彩虹色（保持你之前的逻辑）
+            float hue = fract(uTime * 0.5);
+            vec3 color = 0.5 + 0.5 * cos(6.28318 * (hue + vec3(0.0, 0.33, 0.67)));
+
+            // 4. 增加中心亮度（让它看起来更像一个发光的实体）
+            // 中心部分叠加上白色或者增强原色
+            vec3 finalColor = color + vec3(0.5) * pow(max(0.0, 0.4 - d), 2.0);
+
+            // 5. 最终输出：颜色 * 强度 * 预乘Alpha
+            // 注意：glow 和 alpha 的结合是消灭方块边缘的关键
+            float finalAlpha = glow * alpha;
+            return vec4(finalColor * finalAlpha, finalAlpha);
+        }
+    """.trimIndent()
+}
+
 fun ParticleNodeScope.explosion(center: Offset) {
     val frame = center.expandToRect(200f)
 
     // 1. Explosion Core: The hot, dense center
     layer("explosion_core", 800, frame) {
         duration = 1.0f
+
 
         val angle = random(0f, 360f)
         val rad = math.toRadians(angle)
@@ -155,14 +219,30 @@ fun ParticleNodeScope.explosion(center: Offset) {
     }
 }
 
-fun ParticleNodeScope.simpleTest(center: Offset) {
-    layer("test_layer", 1, center.expandToRect(400f)) { // 先只画 1 个，排除叠加干扰
-        duration = 5.0f
+fun ParticleNodeScope.testSimple(center: Offset) {
+    // 渲染区域
+    val frame = center.expandToRect(400f)
 
-        size = scalar(40.0f) // 矩形的“边长”
-        color = color(1.0f, 0.0f, 0.0f) // 红色
+    layer("simple_test", 500, frame) {
+        duration = 2.0f
+        material = RainbowCircleMaterial
+
+        // 1. 水平方向随机分布
+        val xOffset = random(-150f, 150f)
+
+        // 2. 垂直方向匀速上升：起点在底部，随时间向上飞
+        // Y 轴减去速度 * 时间 (Android 坐标系向下为正)
+        val speed = random(100f, 200f)
+        position = vec2(xOffset, -speed * env.time)
+
+        // 3. 尺寸大一点，方便看清 Shader 效果
+        size = scalar(15f)
+
+        // 4. 简单的淡出效果
+        color = color(1f, 1f, 1f, alpha = 1.0f - env.progress)
     }
 }
+
 
 //class ExplosionPattern(
 //    private val origin: Offset,
@@ -381,7 +461,7 @@ private class AircraftCollisionSystem(
                     if (stats.hp <= 0) {
                         bullet.configure { +CleanupTag }
 
-                        particleService.emit(true) {
+                        particleService.emit {
                             explosion(ePos)
                         }
 //                        world.entity {

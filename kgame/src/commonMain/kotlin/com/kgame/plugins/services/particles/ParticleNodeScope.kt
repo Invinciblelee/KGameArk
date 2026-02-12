@@ -1,8 +1,7 @@
 package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-
+import com.kgame.engine.graphics.material.Material
 
 /**
  * The top-level scope for defining a multi-layered particle system.
@@ -27,6 +26,8 @@ class ParticleNodeScope(val context: ParticleContext) {
  */
 class ParticleLayer(val name: String, val count: Int, val frame: Rect) : ParticleNodeProvider {
     var duration: Float = 1.0f
+
+    var material: Material? = null
 
     // Physics nodes (CPU initially, GPU evolution)
     var position: ParticleNode = vec2(0f, 0f)

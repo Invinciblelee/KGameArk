@@ -72,8 +72,6 @@ object ParticleEnvironment {
     val index: ParticleNode get() = ParticleNode.Index
     val progress: ParticleNode get() = ParticleNode.Progress
     val count: ParticleNode get() = ParticleNode.Count
-
-    val resolution: ParticleNode.Resolution get() = ParticleNode.Resolution
 }
 
 object ParticleNodeMath {

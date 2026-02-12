@@ -1,6 +1,5 @@
 package com.kgame.engine.geometry
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.util.packFloats
 import androidx.compose.ui.util.unpackFloat1
 import androidx.compose.ui.util.unpackFloat2
@@ -16,9 +15,18 @@ value class Vector2(val packedValue: Long) {
 
     operator fun component1(): Float = x
     operator fun component2(): Float = y
-    
+
+    operator fun plus(other: Vector2) = Vector2(x + other.x, y + other.y)
+    operator fun minus(other: Vector2) = Vector2(x - other.x, y - other.y)
+    operator fun times(other: Vector2) = Vector2(x * other.x, y * other.y)
+    operator fun div(other: Vector2) = Vector2(
+        if (other.x != 0f) x / other.x else 0f,
+        if (other.y != 0f) y / other.y else 0f
+    )
+    operator fun times(scale: Float) = Vector2(x * scale, y * scale)
+
     companion object {
-        val Zero = Offset(0x0L)
+        val Zero = Vector2(0x0L)
     }
 }
 

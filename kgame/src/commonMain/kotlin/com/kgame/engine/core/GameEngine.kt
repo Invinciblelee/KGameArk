@@ -154,7 +154,11 @@ class GameEngine(
 
     private fun tick(deltaTime: Float) {
         if (isEnabled) {
-            onTickCallbacks.forEach { it(deltaTime) }
+            var index = 0
+            while (index < onTickCallbacks.size) {
+                val callback = onTickCallbacks[index++]
+                callback(deltaTime)
+            }
         }
 
         input.endFrame()
@@ -162,7 +166,7 @@ class GameEngine(
 
     internal fun onTick(onTick: TickCallback): Disposable {
         onTickCallbacks.add(onTick)
-        return Disposable {  }
+        return Disposable { onTickCallbacks.remove(onTick) }
     }
 
     internal fun release() {

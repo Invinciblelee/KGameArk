@@ -28,10 +28,6 @@ class ParticleContext(val capacity: Int = 8) {
         internal const val TIME = INTERNAL_BASE + 3
         internal const val DELTA_TIME = INTERNAL_BASE + 4
 
-        // --- User-defined Slots (Low range) ---
-        const val ORIGIN = 0
-        const val RESOLUTION = 1
-
         val Default: ParticleContext = ParticleContext()
     }
 

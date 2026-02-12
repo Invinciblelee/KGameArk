@@ -14,44 +14,44 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.toSize
-import com.kgame.engine.graphics.shader.Shader
-import com.kgame.engine.graphics.shader.ShaderEffect
+import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialEffect
 import kotlinx.coroutines.isActive
 
 @Composable
-fun ShaderCanvas(
-    shader: Shader,
+fun MaterialCanvas(
+    material: Material,
     modifier: Modifier = Modifier,
     onDraw: DrawScope.(Brush) -> Unit = { drawRect(it) },
 ) {
-    val shaderEffect = remember(shader) { ShaderEffect(shader) }
+    val materialEffect = remember(material) { MaterialEffect(material) }
 
     Canvas(modifier.onSizeChanged {
-        shaderEffect.setResolution(it.toSize())
+        materialEffect.setResolution(it.toSize())
     }) {
-        if (shaderEffect.ready) {
-            onDraw(shaderEffect.obtain())
+        if (materialEffect.ready) {
+            onDraw(materialEffect.obtainBrush())
         }
     }
 }
 
 @Composable
-fun ActiveShaderCanvas(
-    shader: Shader,
+fun ActiveMaterialCanvas(
+    material: Material,
     speed: Float = 1f,
     modifier: Modifier = Modifier,
-    onUpdate: ShaderEffect.() -> Unit = {},
+    onUpdate: MaterialEffect.() -> Unit = {},
     onDraw: DrawScope.(Brush) -> Unit = { drawRect(it) },
 ) {
-    val shaderEffect = remember(shader) { ShaderEffect(shader) }
+    val materialEffect = remember(material) { MaterialEffect(material) }
 
-    val shaderState = remember { ShaderState() }
+    val materialState = remember { MaterialState() }
 
-    LaunchedEffect(shaderEffect.supported) {
-        if (shaderEffect.supported) {
+    LaunchedEffect(materialEffect.supported) {
+        if (materialEffect.supported) {
             var lastFrameMillis = -1L
             while (isActive) {
-                onUpdate(shaderEffect)
+                onUpdate(materialEffect)
                 withInfiniteAnimationFrameMillis { frameTimeMillis ->
                     if (lastFrameMillis < 0L) {
                         lastFrameMillis = frameTimeMillis
@@ -59,31 +59,31 @@ fun ActiveShaderCanvas(
                     }
 
                     val dt = (frameTimeMillis - lastFrameMillis) / 1000f
-                    val safeDt = dt.coerceIn(0f, 0.033f) * speed * shader.speedModifier
+                    val safeDt = dt.coerceIn(0f, 0.033f) * speed * material.speedModifier
 
-                    shaderEffect.update(safeDt)
+                    materialEffect.update(safeDt)
 
                     lastFrameMillis = frameTimeMillis
                 }
-                shaderState.invalidate()
+                materialState.invalidate()
             }
         }
     }
 
     Canvas(modifier.onSizeChanged {
-        shaderEffect.setResolution(it.toSize())
+        materialEffect.setResolution(it.toSize())
     }) {
-        shaderState.signal()
+        materialState.signal()
 
-        if (shaderEffect.ready) {
-            onDraw(shaderEffect.obtain())
+        if (materialEffect.ready) {
+            onDraw(materialEffect.obtainBrush())
         }
     }
 }
 
 
 @Stable
-class ShaderState {
+class MaterialState {
 
     private var redrawSignal by mutableStateOf(false)
 

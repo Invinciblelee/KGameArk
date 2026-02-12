@@ -7,7 +7,7 @@ import com.kgame.engine.graphics.material.Material
  * The top-level scope for defining a multi-layered particle system.
  * Translates into both a Pattern for birth and a Shader for evolution.
  */
-class ParticleNodeScope(val context: ParticleContext) {
+class ParticleNodeScope {
     // List of layers, each with its own independent logic tree
     val layers = mutableListOf<ParticleLayer>()
 
@@ -24,7 +24,12 @@ class ParticleNodeScope(val context: ParticleContext) {
  * Represents a single layer's configuration.
  * Contains the nodes that will be resolved by the Pattern and Shader parsers.
  */
-class ParticleLayer(val name: String, val count: Int, val frame: Rect) : ParticleNodeProvider {
+class ParticleLayer(
+    val name: String,
+    val count: Int,
+    val frame: Rect,
+    val context: ParticleContext = ParticleContext()
+) : ParticleNodeProvider {
     var duration: Float = 1.0f
 
     var material: Material? = null
@@ -39,6 +44,6 @@ class ParticleLayer(val name: String, val count: Int, val frame: Rect) : Particl
 }
 
 /** Entry point for the multi-layer DSL. */
-fun particles(context: ParticleContext = ParticleContext.Default, block: ParticleNodeScope.() -> Unit): ParticleNodeScope {
-    return ParticleNodeScope(context).apply(block)
+fun particles(block: ParticleNodeScope.() -> Unit): ParticleNodeScope {
+    return ParticleNodeScope().apply(block)
 }

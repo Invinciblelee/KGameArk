@@ -79,6 +79,8 @@ sealed interface ParticleNode {
     data object Count : ParticleNode
     data object Progress : ParticleNode
 
+//    data object Origin: ParticleNode
+
     operator fun plus(other: ParticleNode): ParticleNode = Add(this, other)
     operator fun minus(other: ParticleNode): ParticleNode = Subtract(this, other)
     operator fun times(other: ParticleNode): ParticleNode = Multiply(this, other)

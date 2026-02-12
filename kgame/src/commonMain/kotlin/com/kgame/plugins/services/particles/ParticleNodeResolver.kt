@@ -26,11 +26,11 @@ object ParticleNodeResolver {
     ): Float = when (node) {
         // --- Constants and Uniforms ---
         is ParticleNode.Scalar -> node.value
-        is ParticleNode.Time -> context.getFloat(ParticleContext.TIME)
-        is ParticleNode.DeltaTime -> context.getFloat(ParticleContext.DELTA_TIME)
-        is ParticleNode.Progress -> context.getFloat(ParticleContext.PROGRESS)
-        is ParticleNode.Index -> context.getInt(ParticleContext.INDEX).toFloat()
-        is ParticleNode.Count -> context.getInt(ParticleContext.COUNT).toFloat()
+        is ParticleNode.Time -> context.time
+        is ParticleNode.DeltaTime -> context.deltaTime
+        is ParticleNode.Progress -> context.progress
+        is ParticleNode.Index -> context.index.toFloat()
+        is ParticleNode.Count -> context.count.toFloat()
 
         // --- Arithmetic Operations ---
         is ParticleNode.Add -> resolveScalar(node.left, context) + resolveScalar(node.right, context)
@@ -106,8 +106,7 @@ object ParticleNodeResolver {
             v.coerceIn(minV, maxV)
         }
         is ParticleNode.RandomRange -> {
-            val id = context.getInt(ParticleContext.INDEX)
-            val t = iHash(id xor node.hashCode())
+            val t = iHash(context.index xor node.hashCode())
             val weight = if (node.exp == 1.0f) t else t.pow(node.exp)
             node.min + (node.max - node.min) * weight
         }
@@ -273,12 +272,11 @@ object ParticleNodeResolver {
         }
     }
 
-    private fun evalCondition(cond: SelectCondition, args: ParticleContext): Boolean {
-        val id = args.getInt(ParticleContext.INDEX)
+    private fun evalCondition(cond: SelectCondition, context: ParticleContext): Boolean {
         return when (cond) {
-            is SelectCondition.Ratio -> iHash(id xor cond.hashCode()) < cond.value
-            is SelectCondition.Threshold -> id < cond.value
-            is SelectCondition.Modulo -> id % cond.divisor == 0
+            is SelectCondition.Ratio -> iHash(context.index xor cond.hashCode()) < cond.value
+            is SelectCondition.Threshold -> context.index < cond.value
+            is SelectCondition.Modulo -> context.index % cond.divisor == 0
         }
     }
 

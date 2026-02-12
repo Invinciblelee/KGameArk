@@ -1,59 +1,49 @@
 package com.kgame.plugins.services.particles
 
 import com.kgame.engine.geometry.Vector2
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.atan
+import kotlin.math.atan2
+import kotlin.math.ceil
+import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.tan
 
 /**
- * Industrial-grade compiler for ParticleNodes.
- *
- * This compiler transforms a recursive Abstract Syntax Tree (AST) into a flat,
- * optimized chain of function calls (Closures). This approach eliminates the
- * overhead of recursive class interpretation and leverages the JVM's JIT
- * inlining capabilities for maximum performance.
- *
- * Key Features:
- * - **Zero GC:** Uses value classes for Vector2 operations.
- * - **Type Promotion:** Automatically handles Scalar-to-Vector and Scalar-to-Color conversions.
- * - **branchless Logic:** Optimizes mathematical operations where possible.
+ * Optimized Compiler that mirrors ParticleNodeResolver logic 1:1.
+ * Each closure generated here is a functional equivalent of the recursive resolver.
  */
 class ParticleNodeCompiler {
 
     // =========================================================================
-    // Public API
+    // Public Entry Points
     // =========================================================================
 
-    /**
-     * Compiles a node tree into an executable scalar function.
-     */
     fun compileScalar(node: ParticleNode): ScalarExec = traverseScalar(node)
-
-    /**
-     * Compiles a node tree into an executable vector function.
-     * Guaranteed to return a value class [Vector2] without heap allocation.
-     */
     fun compileVector(node: ParticleNode): VectorExec = traverseVector(node)
-
-    /**
-     * Compiles a node tree into an executable color function (Packed Int).
-     */
     fun compileColor(node: ParticleNode): ColorExec = traverseColor(node)
 
-
     // =========================================================================
-    // Internal: Scalar Compilation Path
+    // Scalar Compilation Path (1:1 with resolveScalar)
     // =========================================================================
 
     private fun traverseScalar(node: ParticleNode): ScalarExec {
         return when (node) {
-            // --- Leafs: Constants & Context ---
+            // --- Constants and Uniforms ---
             is ParticleNode.Scalar -> { val v = node.value; ScalarExec { v } }
-            is ParticleNode.Time -> ScalarExec { ctx -> ctx.getFloat(ParticleContext.TIME) }
-            is ParticleNode.DeltaTime -> ScalarExec { ctx -> ctx.getFloat(ParticleContext.DELTA_TIME) }
-            is ParticleNode.Progress -> ScalarExec { ctx -> ctx.getFloat(ParticleContext.PROGRESS) }
-            is ParticleNode.Index -> ScalarExec { ctx -> ctx.getInt(ParticleContext.INDEX).toFloat() }
-            is ParticleNode.Count -> ScalarExec { ctx -> ctx.getInt(ParticleContext.COUNT).toFloat() }
+            is ParticleNode.Time -> ScalarExec { ctx -> ctx.time }
+            is ParticleNode.DeltaTime -> ScalarExec { ctx -> ctx.deltaTime }
+            is ParticleNode.Progress -> ScalarExec { ctx -> ctx.progress }
+            is ParticleNode.Index -> ScalarExec { ctx -> ctx.index.toFloat() }
+            is ParticleNode.Count -> ScalarExec { ctx -> ctx.count.toFloat() }
 
-            // --- Arithmetic ---
+            // --- Arithmetic Operations ---
             is ParticleNode.Add -> {
                 val l = traverseScalar(node.left); val r = traverseScalar(node.right)
                 ScalarExec { ctx -> l.eval(ctx) + r.eval(ctx) }
@@ -69,12 +59,12 @@ class ParticleNodeCompiler {
             is ParticleNode.Divide -> {
                 val l = traverseScalar(node.left); val r = traverseScalar(node.right)
                 ScalarExec { ctx ->
-                    val den = r.eval(ctx)
-                    if (den != 0f) l.eval(ctx) / den else 0f
+                    val rv = r.eval(ctx)
+                    if (rv != 0f) l.eval(ctx) / rv else 0f
                 }
             }
 
-            // --- Math Functions ---
+            // --- Trigonometric Functions ---
             is ParticleNode.Sin -> { val n = traverseScalar(node.node); ScalarExec { ctx -> sin(n.eval(ctx)) } }
             is ParticleNode.Cos -> { val n = traverseScalar(node.node); ScalarExec { ctx -> cos(n.eval(ctx)) } }
             is ParticleNode.Tan -> { val n = traverseScalar(node.node); ScalarExec { ctx -> tan(n.eval(ctx)) } }
@@ -83,226 +73,279 @@ class ParticleNodeCompiler {
                 val y = traverseScalar(node.y); val x = traverseScalar(node.x)
                 ScalarExec { ctx -> atan2(y.eval(ctx), x.eval(ctx)) }
             }
+
+            // --- Exponential and Power Functions ---
             is ParticleNode.Pow -> {
                 val b = traverseScalar(node.base); val e = traverseScalar(node.exponent)
                 ScalarExec { ctx -> b.eval(ctx).pow(e.eval(ctx)) }
             }
+            is ParticleNode.Exp -> { val n = traverseScalar(node.node); ScalarExec { ctx -> exp(n.eval(ctx)) } }
             is ParticleNode.Sqrt -> { val n = traverseScalar(node.node); ScalarExec { ctx -> sqrt(n.eval(ctx)) } }
             is ParticleNode.Abs -> { val n = traverseScalar(node.node); ScalarExec { ctx -> abs(n.eval(ctx)) } }
 
-            // --- Shaping Functions ---
+            // --- Cycling and Shaping ---
             is ParticleNode.Fract -> {
                 val n = traverseScalar(node.node)
                 ScalarExec { ctx -> val v = n.eval(ctx); v - floor(v) }
             }
+            is ParticleNode.Mod -> {
+                val xNode = traverseScalar(node.left); val yNode = traverseScalar(node.right)
+                ScalarExec { ctx ->
+                    val x = xNode.eval(ctx); val y = yNode.eval(ctx)
+                    if (y != 0f) x - y * floor(x / y) else 0f
+                }
+            }
+            is ParticleNode.Floor -> { val n = traverseScalar(node.node); ScalarExec { ctx -> floor(n.eval(ctx)) } }
+            is ParticleNode.Ceil -> { val n = traverseScalar(node.node); ScalarExec { ctx -> ceil(n.eval(ctx)) } }
+            is ParticleNode.Sign -> {
+                val n = traverseScalar(node.node)
+                ScalarExec { ctx ->
+                    val v = n.eval(ctx)
+                    if (v > 0f) 1.0f else if (v < 0f) -1.0f else 0.0f
+                }
+            }
+
+            // --- Interpolation and Steps ---
             is ParticleNode.Mix -> {
                 val s = traverseScalar(node.start); val e = traverseScalar(node.end); val t = traverseScalar(node.t)
-                ScalarExec { ctx ->
-                    val factor = t.eval(ctx)
-                    s.eval(ctx) * (1f - factor) + e.eval(ctx) * factor
-                }
+                ScalarExec { ctx -> s.eval(ctx) * (1.0f - t.eval(ctx)) + e.eval(ctx) * t.eval(ctx) }
             }
             is ParticleNode.Step -> {
                 val edge = traverseScalar(node.edge); val v = traverseScalar(node.v)
-                ScalarExec { ctx -> if (v.eval(ctx) < edge.eval(ctx)) 0f else 1f }
+                ScalarExec { ctx -> if (v.eval(ctx) < edge.eval(ctx)) 0.0f else 1.0f }
             }
             is ParticleNode.SmoothStep -> {
-                val e0 = traverseScalar(node.e0); val e1 = traverseScalar(node.e1); val v = traverseScalar(node.v)
+                val e0N = traverseScalar(node.e0); val e1N = traverseScalar(node.e1); val vN = traverseScalar(node.v)
                 ScalarExec { ctx ->
-                    val min = e0.eval(ctx); val max = e1.eval(ctx); val x = v.eval(ctx)
-                    val t = ((x - min) / (max - min)).coerceIn(0f, 1f)
-                    t * t * (3f - 2f * t)
+                    val e0 = e0N.eval(ctx); val e1 = e1N.eval(ctx); val v = vN.eval(ctx)
+                    val t = ((v - e0) / (e1 - e0)).coerceIn(0.0f, 1.0f)
+                    t * t * (3.0f - 2.0f * t)
                 }
             }
 
-            // --- Logic & Random ---
+            // --- Comparisons and Selections ---
+            is ParticleNode.Max -> {
+                val f = traverseScalar(node.first); val s = traverseScalar(node.second)
+                ScalarExec { ctx -> max(f.eval(ctx), s.eval(ctx)) }
+            }
+            is ParticleNode.Min -> {
+                val f = traverseScalar(node.first); val s = traverseScalar(node.second)
+                ScalarExec { ctx -> min(f.eval(ctx), s.eval(ctx)) }
+            }
             is ParticleNode.Clamp -> {
-                val v = traverseScalar(node.value); val min = traverseScalar(node.min); val max = traverseScalar(node.max)
-                ScalarExec { ctx -> v.eval(ctx).coerceIn(min.eval(ctx), max.eval(ctx)) }
+                val v = traverseScalar(node.value); val minN = traverseScalar(node.min); val maxN = traverseScalar(node.max)
+                ScalarExec { ctx -> v.eval(ctx).coerceIn(minN.eval(ctx), maxN.eval(ctx)) }
             }
             is ParticleNode.RandomRange -> {
-                val min = node.min; val max = node.max; val exp = node.exp; val seed = node.hashCode()
+                val nodeHash = node.hashCode(); val minVal = node.min; val maxVal = node.max; val exponent = node.exp
                 ScalarExec { ctx ->
-                    val id = ctx.getInt(ParticleContext.INDEX)
-                    val t = iHash(id xor seed)
-                    val w = if (exp == 1f) t else t.pow(exp)
-                    min + (max - min) * w
+                    val t = iHash(ctx.index xor nodeHash)
+                    val weight = if (exponent == 1.0f) t else t.pow(exponent)
+                    minVal + (maxVal - minVal) * weight
                 }
             }
-
-            // --- Fallbacks (Type Promotion / Demotion) ---
-            is ParticleNode.Vector2 -> {
-                val v = traverseVector(node)
-                ScalarExec { ctx -> v.eval(ctx).x } // Extract X component
+            is ParticleNode.Comparison -> {
+                val l = traverseScalar(node.left); val r = traverseScalar(node.right); val op = node.op
+                ScalarExec { ctx ->
+                    val a = l.eval(ctx); val b = r.eval(ctx)
+                    val res = when (op) {
+                        ComparisonOp.Equal -> a == b
+                        ComparisonOp.NotEqual -> a != b
+                        ComparisonOp.GreaterThan -> a > b
+                        ComparisonOp.GreaterEqual -> a >= b
+                        ComparisonOp.LessThan -> a < b
+                        ComparisonOp.LessEqual -> a <= b
+                    }
+                    if (res) 1.0f else 0.0f
+                }
             }
-            is ParticleNode.Color -> {
-                val c = traverseColor(node)
-                ScalarExec { ctx -> ((c.eval(ctx) ushr 24) and 0xFF) / 255f } // Extract Alpha
+            is ParticleNode.Combine -> {
+                val lN = traverseScalar(node.left); val rN = traverseScalar(node.right); val op = node.op
+                ScalarExec { ctx ->
+                    val l = lN.eval(ctx) > 0.5f; val r = rN.eval(ctx) > 0.5f
+                    val res = when (op) {
+                        CombineOp.And -> l && r
+                        CombineOp.Or -> l || r
+                    }
+                    if (res) 1.0f else 0.0f
+                }
+            }
+            is ParticleNode.Select -> {
+                val cond = compileCondition(node.condition)
+                val t = traverseScalar(node.onTrue); val f = traverseScalar(node.onFalse)
+                ScalarExec { ctx -> if (cond.check(ctx)) t.eval(ctx) else f.eval(ctx) }
             }
 
-            // --- Default ---
-            else -> ScalarExec { 0f }
-        }
-    }
-
-
-    // =========================================================================
-    // Internal: Vector Compilation Path
-    // =========================================================================
-
-    private fun traverseVector(node: ParticleNode): VectorExec {
-        return when (node) {
-            // --- Construction ---
-            is ParticleNode.Vector2 -> {
-                val x = traverseScalar(node.x); val y = traverseScalar(node.y)
-                VectorExec { ctx -> Vector2(x.eval(ctx), y.eval(ctx)) }
-            }
-
-            // --- Arithmetic (Component-wise) ---
-            is ParticleNode.Add -> {
+            // --- Vector-to-Scalar Operations ---
+            is ParticleNode.Dot -> {
                 val l = traverseVector(node.left); val r = traverseVector(node.right)
-                VectorExec { ctx -> l.eval(ctx) + r.eval(ctx) }
+                ScalarExec { ctx ->
+                    val lv = l.eval(ctx); val rv = r.eval(ctx)
+                    lv.x * rv.x + lv.y * rv.y
+                }
             }
-            is ParticleNode.Subtract -> {
-                val l = traverseVector(node.left); val r = traverseVector(node.right)
-                VectorExec { ctx -> l.eval(ctx) - r.eval(ctx) }
+            is ParticleNode.Length -> {
+                val n = traverseVector(node.node)
+                ScalarExec { ctx ->
+                    val v = n.eval(ctx)
+                    sqrt(v.x * v.x + v.y * v.y)
+                }
             }
-            is ParticleNode.Multiply -> {
-                val l = traverseVector(node.left); val r = traverseVector(node.right)
-                VectorExec { ctx -> l.eval(ctx) * r.eval(ctx) }
-            }
-            is ParticleNode.Divide -> {
-                val l = traverseVector(node.left); val r = traverseVector(node.right)
-                VectorExec { ctx -> l.eval(ctx) / r.eval(ctx) }
-            }
-
-            // --- Vector Operations ---
-            is ParticleNode.Mix -> {
-                val s = traverseVector(node.start); val e = traverseVector(node.end); val t = traverseScalar(node.t)
-                VectorExec { ctx ->
-                    val v1 = s.eval(ctx); val v2 = e.eval(ctx); val factor = t.eval(ctx)
-                    Vector2(
-                        v1.x * (1f - factor) + v2.x * factor,
-                        v1.y * (1f - factor) + v2.y * factor
-                    )
+            is ParticleNode.Distance -> {
+                val p1N = traverseVector(node.p1); val p2N = traverseVector(node.p2)
+                ScalarExec { ctx ->
+                    val p1 = p1N.eval(ctx); val p2 = p2N.eval(ctx)
+                    val dx = p1.x - p2.x; val dy = p1.y - p2.y
+                    sqrt(dx * dx + dy * dy)
                 }
             }
             is ParticleNode.Normalize -> {
+                // Resolved specifically as v.x per Resolver logic
                 val n = traverseVector(node.node)
-                VectorExec { ctx ->
-                    val v = n.eval(ctx)
-                    val len = sqrt(v.x * v.x + v.y * v.y)
-                    if (len > 0) Vector2(v.x / len, v.y / len) else Vector2(0f, 0f)
-                }
+                ScalarExec { ctx -> n.eval(ctx).x }
             }
 
-            // --- Complex Logic ---
-            is ParticleNode.Select -> {
-                val t = traverseVector(node.onTrue)
-                val f = traverseVector(node.onFalse)
-                val cond = compileCondition(node.condition)
-                VectorExec { ctx -> if (cond.check(ctx)) t.eval(ctx) else f.eval(ctx) }
+            // --- Type Promotion Fallbacks ---
+            is ParticleNode.Vector2 -> {
+                val x = traverseScalar(node.x)
+                ScalarExec { ctx -> x.eval(ctx) }
             }
-
-            // =================================================================
-            // CORE FEATURE: Implicit Scalar Promotion
-            // If the node is not a vector type, verify it as a scalar and promote it.
-            // =================================================================
-            else -> {
-                val s = traverseScalar(node)
-                // Promote scalar 'v' to vector '(v, v)'
-                // Since Vector2 is a value class, this allocation is on the stack (zero cost).
-                VectorExec { ctx ->
-                    val v = s.eval(ctx)
-                    Vector2(v, v)
-                }
-            }
-        }
-    }
-
-
-    // =========================================================================
-    // Internal: Color Compilation Path
-    // =========================================================================
-
-    private fun traverseColor(node: ParticleNode): ColorExec {
-        return when (node) {
-            // --- Construction ---
             is ParticleNode.Color -> {
-                val r = traverseScalar(node.red); val g = traverseScalar(node.green)
-                val b = traverseScalar(node.blue); val a = traverseScalar(node.alpha)
-                ColorExec { ctx ->
-                    val ri = (r.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
-                    val gi = (g.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
-                    val bi = (b.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
-                    val ai = (a.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
-                    (ai shl 24) or (ri shl 16) or (gi shl 8) or bi
-                }
-            }
-
-            // --- Operations ---
-            is ParticleNode.Mix -> {
-                val start = traverseColor(node.start)
-                val end = traverseColor(node.end)
-                val time = traverseScalar(node.t)
-                ColorExec { ctx ->
-                    val t = time.eval(ctx).coerceIn(0f, 1f)
-                    val c1 = start.eval(ctx)
-                    val c2 = end.eval(ctx)
-                    fastLerpColor(c1, c2, t)
-                }
-            }
-
-            is ParticleNode.Select -> {
-                val t = traverseColor(node.onTrue); val f = traverseColor(node.onFalse)
-                val cond = compileCondition(node.condition)
-                ColorExec { ctx -> if (cond.check(ctx)) t.eval(ctx) else f.eval(ctx) }
-            }
-
-            // =================================================================
-            // CORE FEATURE: Implicit Scalar Promotion to Color (Grayscale)
-            // =================================================================
-            else -> {
-                val s = traverseScalar(node)
-                ColorExec { ctx ->
-                    val v = (s.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
-                    // Result: A=255, R=v, G=v, B=v
-                    (255 shl 24) or (v shl 16) or (v shl 8) or v
-                }
+                val a = traverseScalar(node.alpha)
+                ScalarExec { ctx -> a.eval(ctx) }
             }
         }
     }
 
+    // =========================================================================
+    // Vector Compilation Path (1:1 with resolveVector2)
+    // =========================================================================
+
+    private fun traverseVector(node: ParticleNode): VectorExec = when (node) {
+        is ParticleNode.Scalar -> {
+            val v = node.value
+            VectorExec { Vector2(v, v) }
+        }
+        is ParticleNode.Vector2 -> {
+            val x = traverseScalar(node.x); val y = traverseScalar(node.y)
+            VectorExec { ctx -> Vector2(x.eval(ctx), y.eval(ctx)) }
+        }
+        is ParticleNode.Add -> {
+            val l = traverseVector(node.left); val r = traverseVector(node.right)
+            VectorExec { ctx ->
+                val lv = l.eval(ctx); val rv = r.eval(ctx)
+                Vector2(lv.x + rv.x, lv.y + rv.y)
+            }
+        }
+        is ParticleNode.Subtract -> {
+            val l = traverseVector(node.left); val r = traverseVector(node.right)
+            VectorExec { ctx ->
+                val lv = l.eval(ctx); val rv = r.eval(ctx)
+                Vector2(lv.x - rv.x, lv.y - rv.y)
+            }
+        }
+        is ParticleNode.Multiply -> {
+            val l = traverseVector(node.left); val r = traverseVector(node.right)
+            VectorExec { ctx ->
+                val lv = l.eval(ctx); val rv = r.eval(ctx)
+                Vector2(lv.x * rv.x, lv.y * rv.y)
+            }
+        }
+        is ParticleNode.Divide -> {
+            val l = traverseVector(node.left); val r = traverseVector(node.right)
+            VectorExec { ctx ->
+                val lv = l.eval(ctx); val rv = r.eval(ctx)
+                Vector2(
+                    if (rv.x != 0f) lv.x / rv.x else 0f,
+                    if (rv.y != 0f) lv.y / rv.y else 0f
+                )
+            }
+        }
+        is ParticleNode.Mix -> {
+            val s = traverseVector(node.start); val e = traverseVector(node.end); val tN = traverseScalar(node.t)
+            VectorExec { ctx ->
+                val sv = s.eval(ctx); val ev = e.eval(ctx); val t = tN.eval(ctx)
+                Vector2(sv.x * (1f - t) + ev.x * t, sv.y * (1f - t) + ev.y * t)
+            }
+        }
+        is ParticleNode.Select -> {
+            val cond = compileCondition(node.condition)
+            val t = traverseVector(node.onTrue); val f = traverseVector(node.onFalse)
+            VectorExec { ctx -> if (cond.check(ctx)) t.eval(ctx) else f.eval(ctx) }
+        }
+        is ParticleNode.Normalize -> {
+            val n = traverseVector(node.node)
+            VectorExec { ctx ->
+                val v = n.eval(ctx)
+                val len = sqrt(v.x * v.x + v.y * v.y)
+                if (len > 0f) Vector2(v.x / len, v.y / len) else Vector2(0f, 0f)
+            }
+        }
+        else -> {
+            val s = traverseScalar(node)
+            VectorExec { ctx -> val v = s.eval(ctx); Vector2(v, v) }
+        }
+    }
 
     // =========================================================================
-    // Helpers & Utilities
+    // Color Compilation Path (1:1 with resolveColor)
     // =========================================================================
 
-    private fun compileCondition(cond: SelectCondition): ConditionExec {
-        return when (cond) {
-            is SelectCondition.Ratio -> {
-                val threshold = cond.value; val seed = cond.hashCode()
-                ConditionExec { ctx -> iHash(ctx.getInt(ParticleContext.INDEX) xor seed) < threshold }
+    private fun traverseColor(node: ParticleNode): ColorExec = when (node) {
+        is ParticleNode.Color -> {
+            val rN = traverseScalar(node.red); val gN = traverseScalar(node.green)
+            val bN = traverseScalar(node.blue); val aN = traverseScalar(node.alpha)
+            ColorExec { ctx ->
+                val r = (rN.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
+                val g = (gN.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
+                val b = (bN.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
+                val a = (aN.eval(ctx).coerceIn(0f, 1f) * 255).toInt()
+                (a shl 24) or (r shl 16) or (g shl 8) or b
             }
-            is SelectCondition.Threshold -> {
-                val threshold = cond.value
-                ConditionExec { ctx -> ctx.getInt(ParticleContext.INDEX) < threshold }
+        }
+        is ParticleNode.Mix -> {
+            val c1N = traverseColor(node.start); val c2N = traverseColor(node.end); val tN = traverseScalar(node.t)
+            ColorExec { ctx ->
+                val c1 = c1N.eval(ctx); val c2 = c2N.eval(ctx)
+                val t = tN.eval(ctx).coerceIn(0f, 1f)
+                if (t <= 0f) c1 else if (t >= 1f) c2 else lerpPackedColor(c1, c2, t)
             }
-            is SelectCondition.Modulo -> {
-                val div = cond.divisor
-                ConditionExec { ctx -> ctx.getInt(ParticleContext.INDEX) % div == 0 }
+        }
+        is ParticleNode.Select -> {
+            val cond = compileCondition(node.condition)
+            val t = traverseColor(node.onTrue); val f = traverseColor(node.onFalse)
+            ColorExec { ctx -> if (cond.check(ctx)) t.eval(ctx) else f.eval(ctx) }
+        }
+        else -> {
+            val s = traverseScalar(node)
+            ColorExec { ctx ->
+                val v = (s.eval(ctx).coerceIn(0f, 1f) * 255f).toInt()
+                (0xFF shl 24) or (v shl 16) or (v shl 8) or v
             }
         }
     }
 
-    /**
-     * Optimized color interpolation without object creation.
-     */
-    private fun fastLerpColor(c1: Int, c2: Int, t: Float): Int {
-        if (t <= 0f) return c1
-        if (t >= 1f) return c2
+    // =========================================================================
+    // Internal Utilities
+    // =========================================================================
 
-        val a1 = (c1 ushr 24) and 0xFF; val a2 = (c2 ushr 24) and 0xFF
+    private fun compileCondition(cond: SelectCondition): ConditionExec = when (cond) {
+        is SelectCondition.Ratio -> {
+            val hash = cond.hashCode(); val ratio = cond.value
+            ConditionExec { ctx -> iHash(ctx.index xor hash) < ratio }
+        }
+        is SelectCondition.Threshold -> {
+            val threshold = cond.value
+            ConditionExec { ctx -> ctx.index < threshold }
+        }
+        is SelectCondition.Modulo -> {
+            val divisor = cond.divisor
+            ConditionExec { ctx -> ctx.index % divisor == 0 }
+        }
+    }
+
+    private fun lerpPackedColor(c1: Int, c2: Int, t: Float): Int {
+        val a1 = (c1 ushr 24); val a2 = (c2 ushr 24)
         val r1 = (c1 ushr 16) and 0xFF; val r2 = (c2 ushr 16) and 0xFF
         val g1 = (c1 ushr 8) and 0xFF; val g2 = (c2 ushr 8) and 0xFF
         val b1 = c1 and 0xFF; val b2 = c2 and 0xFF
@@ -315,10 +358,6 @@ class ParticleNodeCompiler {
         return (a shl 24) or (r shl 16) or (g shl 8) or b
     }
 
-    /**
-     * Deterministic integer hash for random stability across frames.
-     * Returns a float in range [0, 1].
-     */
     private fun iHash(x: Int): Float {
         var h = x
         h = h xor (h ushr 16)

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
@@ -33,7 +34,6 @@ import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.geometry.expandToRect
 import com.kgame.engine.graphics.material.Material
-import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
@@ -73,30 +73,53 @@ import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.time.ExperimentalTime
 
-object PlasmaFireMaterial : Material {
+/**
+ * @param baseColor The theme color of the plasma.
+ * @param duration Total duration for alpha calculation.
+ */
+class PlasmaFireMaterial(val baseColor: Color, val duration: Float) : Material {
+    private val r = "${baseColor.red}"
+    private val g = "${baseColor.green}"
+    private val b = "${baseColor.blue}"
+    private val a = "${baseColor.alpha}"
+
     override val sksl: String = """
         uniform float uTime;
         
         vec4 main(vec2 uv) {
-            // 1. 将 UV 居中并处理呼吸感
             vec2 st = uv * 2.0 - 1.0;
             float d = length(st);
             
-            // 2. 构造动态噪点（模拟火花中心的跳动）
             float noise = sin(st.x * 10.0 + uTime * 5.0) * cos(st.y * 10.0 - uTime * 3.0);
-            
-            // 3. 径向衰减（让边缘消失）
             float strength = 1.0 - smoothstep(0.0, 1.0 + noise * 0.2, d);
             
-            // 4. 颜色梯度：中心亮白 -> 边缘火红
-            vec3 coreColor = vec3(1.0, 1.0, 0.8);
-            vec3 edgeColor = vec3(1.0, 0.3, 0.0);
-            vec3 finalColor = mix(edgeColor, coreColor, strength);
+            // 颜色定义
+            vec3 edgeColor = vec3($r, $g, $b);
+            vec3 coreColor = mix(edgeColor, vec3(1.0, 1.0, 0.9), 0.6);
             
-            // 5. 呼吸闪烁
+            // --- 生命周期计算 ---
+            float progress = clamp(uTime / $duration, 0.0, 1.0);
+            
+            /**
+             * 修正后的淡出逻辑：
+             * 前 70% 的时间完全不透明，后 30% 平滑消失
+             */
+            float lifeFade = 1.0 - smoothstep(0.7, 1.0, progress); 
+            
+            // 边缘抗锯齿裁剪
+            float edgeFade = smoothstep(1.0, 0.8, d);
+            
+            // 呼吸闪烁
             float flash = sin(uTime * 15.0) * 0.1 + 0.9;
             
-            return vec4(finalColor * flash, strength);
+            // 最终颜色插值：消失时让核心也变暗
+            vec3 finalColor = mix(edgeColor, coreColor, strength * lifeFade);
+            
+            // 最终透明度
+            float finalAlpha = strength * lifeFade * edgeFade * $a;
+            
+            // 预乘 Alpha 输出
+            return vec4(finalColor * flash * finalAlpha, finalAlpha);
         }
     """.trimIndent()
 }
@@ -141,6 +164,7 @@ fun ParticleNodeScope.explosion(center: Offset) {
     layer("explosion_core", 800, frame) {
         duration = 1.0f
 
+        material = PlasmaFireMaterial(Color.Yellow, 1.0f)
 
         val angle = random(0f, 360f)
         val rad = math.toRadians(angle)
@@ -162,15 +186,17 @@ fun ParticleNodeScope.explosion(center: Offset) {
         size = random(2.0f, 5.0f) * (1.0f - math.smoothstep(0.6f, 1.0f, env.progress))
 
         // Color: Transitions from White-Hot to Orange
-        val alpha = math.smoothstep(0.0f, 0.1f, env.progress) * (1.0f - math.smoothstep(0.7f, 1.0f, env.progress))
-        val hotColor = color(1.0f, 1.0f, 1.0f, alpha = alpha)
-        val fireColor = color(1.0f, 0.8f, 0.2f, alpha = alpha)
-        color = math.mix(hotColor, fireColor, env.progress)
+//        val alpha = math.smoothstep(0.0f, 0.1f, env.progress) * (1.0f - math.smoothstep(0.7f, 1.0f, env.progress))
+//        val hotColor = color(1.0f, 1.0f, 1.0f, alpha = alpha)
+//        val fireColor = color(1.0f, 0.8f, 0.2f, alpha = alpha)
+//        color = math.mix(hotColor, fireColor, env.progress)
     }
 
     // 2. Explosion Blast: High-velocity sparks and debris
     layer("explosion_blast", 2500, frame) {
         duration = 1.5f
+
+        material = PlasmaFireMaterial(Color.Red, 1.5f)
 
         val angle = random(0f, 360f)
         val rad = math.toRadians(angle)
@@ -190,17 +216,18 @@ fun ParticleNodeScope.explosion(center: Offset) {
         // Visuals: Elongated "sparks" effect by making size small
         size = random(0.5f, 2.5f)
 
-        val alpha = (1.0f - env.progress) * 0.9f
-
         // Color: Deep red/embers using a select for variety
-        val ashColor = color(0.2f, 0.1f, 0.05f, alpha = alpha)
-        val emberColor = color(1.0f, 0.3f, 0.1f, alpha = alpha)
-        color = select(Ratio(0.4f), emberColor, ashColor)
+//        val alpha = (1.0f - env.progress) * 0.9f
+//        val ashColor = color(0.2f, 0.1f, 0.05f, alpha = alpha)
+//        val emberColor = color(1.0f, 0.3f, 0.1f, alpha = alpha)
+//        color = select(Ratio(0.4f), emberColor, ashColor)
     }
 
     // 3. Shockwave: A subtle, fast-expanding ring
     layer("shockwave", 100, frame) {
         duration = 0.4f
+
+        material = PlasmaFireMaterial(Color.White, 0.4f)
 
         val angle = (env.index / env.count) * 360f
         val rad = math.toRadians(angle)
@@ -215,7 +242,9 @@ fun ParticleNodeScope.explosion(center: Offset) {
         )
 
         size = 2.0f + env.progress * 10.0f // Expanding ring dots
-        color = color(1f, 1f, 1f, alpha = (1.0f - math.smoothstep(0.0f, 1.0f, env.progress)) * 0.5f)
+//
+//        val alpha = (1.0f - math.smoothstep(0.0f, 1.0f, env.progress)) * 0.5f
+//        color = color(1f, 1f, 1f, alpha = alpha)
     }
 }
 

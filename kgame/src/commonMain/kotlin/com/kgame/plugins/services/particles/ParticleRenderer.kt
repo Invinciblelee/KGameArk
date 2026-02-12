@@ -3,14 +3,10 @@ package com.kgame.plugins.services.particles
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.VertexMode
-import androidx.compose.ui.graphics.Vertices
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.text.TextPainter.paint
 import com.kgame.engine.graphics.drawscope.drawVertices
 import com.kgame.engine.graphics.material.MaterialEffect
 
@@ -20,6 +16,10 @@ class ParticleRenderer(
     val frame: Rect,
     val duration: Float
 ) {
+    companion object {
+        private val EffectMaxSize = Size(64f, 64f)
+    }
+
     private var elapsedTime: Float = 0f
     private var size: Size = Size.Zero
 
@@ -50,7 +50,7 @@ class ParticleRenderer(
     fun render(drawScope: DrawScope, paint: Paint) {
         if (elapsedTime > duration) return
 
-        effect?.applyTo(size, paint)
+        effect?.applyTo(EffectMaxSize, paint)
 
         val center = frame.center
         drawScope.withTransform({
@@ -61,6 +61,7 @@ class ParticleRenderer(
                 positions = pattern.positions,
                 colors = pattern.colors,
                 texCoords = pattern.texCoords,
+                indices = pattern.indices,
                 blendMode = if (effect == null) BlendMode.Dst else BlendMode.Src,
                 paint = paint
             )

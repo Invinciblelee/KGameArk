@@ -141,25 +141,65 @@ fun IntOffset.takeOrElse(block: () -> IntOffset): IntOffset {
 }
 
 /**
- * Creates a Rect with this Offset as its center.
+ * Generates a Rect centered at the current Offset.
  */
-fun Offset.expandToRect(width: Float, height: Float): Rect {
-    val halfWidth = width / 2f
-    val halfHeight = height / 2f
-    return Rect(
-        left = x - halfWidth,
-        top = y - halfHeight,
-        right = x + halfWidth,
-        bottom = y + halfHeight
-    )
+fun Offset.expandFromCenter(width: Float, height: Float): Rect {
+    val halfW = width / 2f
+    val halfH = height / 2f
+    return Rect(x - halfW, y - halfH, x + halfW, y + halfH)
 }
 
-fun Offset.expandToRect(size: Float): Rect {
-    val radius = size / 2f
-    return Rect(
-        left = x - radius,
-        top = y - radius,
-        right = x + radius,
-        bottom = y + radius
-    )
+/**
+ * Generates a square Rect centered at the current Offset.
+ */
+fun Offset.expandFromCenter(size: Float): Rect = expandFromCenter(size, size)
+
+/**
+ * Generates a Rect with the current Offset as the bottom-center anchor.
+ * Ideal for ground-based effects like tornadoes or cracks.
+ */
+fun Offset.expandFromBottom(width: Float, height: Float): Rect {
+    return Rect(x - width / 2f, y - height, x + width / 2f, y)
 }
+
+/**
+ * Generates a square Rect with the current Offset as the bottom-center anchor.
+ */
+fun Offset.expandFromBottom(size: Float): Rect = expandFromBottom(size, size)
+
+/**
+ * Generates a Rect with the current Offset as the top-center anchor.
+ * Ideal for ceiling or falling effects like rain or lightning.
+ */
+fun Offset.expandFromTop(width: Float, height: Float): Rect {
+    return Rect(x - width / 2f, y, x + width / 2f, y + height)
+}
+
+/**
+ * Generates a square Rect with the current Offset as the top-center anchor.
+ */
+fun Offset.expandFromTop(size: Float): Rect = expandFromTop(size, size)
+
+/**
+ * Generates a Rect with the current Offset as the middle-left anchor.
+ */
+fun Offset.expandFromLeft(width: Float, height: Float): Rect {
+    return Rect(x, y - height / 2f, x + width, y + height / 2f)
+}
+
+/**
+ * Generates a square Rect with the current Offset as the middle-left anchor.
+ */
+fun Offset.expandFromLeft(size: Float): Rect = expandFromLeft(size, size)
+
+/**
+ * Generates a Rect with the current Offset as the middle-right anchor.
+ */
+fun Offset.expandFromRight(width: Float, height: Float): Rect {
+    return Rect(x - width, y - height / 2f, x, y + height / 2f)
+}
+
+/**
+ * Generates a square Rect with the current Offset as the middle-right anchor.
+ */
+fun Offset.expandFromRight(size: Float): Rect = expandFromRight(size, size)

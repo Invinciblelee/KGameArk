@@ -161,7 +161,7 @@ class MeshGradient(
         }
     """
 
-    override fun MaterialEffect.applyUniforms() {
+    override fun MaterialEffect.onUpdate() {
         uniform(COLORS, colors)
     }
 }

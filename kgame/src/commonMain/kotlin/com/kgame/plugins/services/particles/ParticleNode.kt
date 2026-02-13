@@ -1,5 +1,7 @@
 package com.kgame.plugins.services.particles
 
+import com.kgame.plugins.services.particles.ParticleNode.Scalar
+import com.kgame.plugins.services.particles.ParticleNode.Select
 import kotlin.jvm.JvmInline
 
 /**
@@ -18,7 +20,6 @@ sealed interface ParticleNode {
 
     data class Dot(val left: ParticleNode, val right: ParticleNode) : ParticleNode
     data class Length(val node: ParticleNode) : ParticleNode
-    data class Normalize(val node: ParticleNode) : ParticleNode
     data class Distance(val p1: ParticleNode, val p2: ParticleNode) : ParticleNode
 
     data class Sin(val node: ParticleNode) : ParticleNode
@@ -32,10 +33,12 @@ sealed interface ParticleNode {
     data class Exp(val node: ParticleNode) : ParticleNode
     data class Pow(val base: ParticleNode, val exponent: ParticleNode) : ParticleNode
 
-    data class Mix(val start: ParticleNode, val end: ParticleNode, val t: ParticleNode) : ParticleNode
-    data class Step(val edge: ParticleNode, val v: ParticleNode) : ParticleNode
-    data class SmoothStep(val e0: ParticleNode, val e1: ParticleNode, val v: ParticleNode) : ParticleNode
-    
+    data class Mix(val from: ParticleNode, val to: ParticleNode, val factor: ParticleNode) : ParticleNode
+    data class Step(val threshold: ParticleNode, val input: ParticleNode) : ParticleNode
+    data class LinearStep(val from: ParticleNode, val to: ParticleNode, val input: ParticleNode) : ParticleNode
+    data class SmoothStep(val from: ParticleNode, val to: ParticleNode, val input: ParticleNode) : ParticleNode
+    data class Noise(val input: ParticleNode, val min: Float = 0f, val max: Float = 1f, val octaves: Int = 1) : ParticleNode
+
     data class Max(val first: ParticleNode, val second: ParticleNode) : ParticleNode
     data class Min(val first: ParticleNode, val second: ParticleNode) : ParticleNode
     data class Clamp(val value: ParticleNode, val min: ParticleNode, val max: ParticleNode) : ParticleNode
@@ -46,7 +49,16 @@ sealed interface ParticleNode {
     data class Ceil(val node: ParticleNode): ParticleNode
     data class Sign(val node: ParticleNode): ParticleNode
 
-    data class RandomRange(val min: Float, val max: Float, val exp: Float = 1.0f) : ParticleNode
+    data class Not(val node: ParticleNode): ParticleNode
+    data class Component(val node: ParticleNode, val index: Int): ParticleNode
+    data class Sample(val function: ParticleNode, val parameter: ParticleNode) : ParticleNode
+    data class Hash(val node: ParticleNode) : ParticleNode
+
+    data class Random(
+        val min: ParticleNode,
+        val max: ParticleNode,
+        val seed: ParticleNode? = null
+    ) : ParticleNode
 
     data class Comparison(
         val left: ParticleNode,
@@ -61,7 +73,7 @@ sealed interface ParticleNode {
     ) : ParticleNode
 
     data class Select(
-        val condition: SelectCondition,
+        val condition: ParticleNode,
         val onTrue: ParticleNode,
         val onFalse: ParticleNode
     ) : ParticleNode
@@ -78,19 +90,23 @@ sealed interface ParticleNode {
     data object Index : ParticleNode
     data object Count : ParticleNode
     data object Progress : ParticleNode
-
-//    data object Origin: ParticleNode
+    data object Origin : ParticleNode
 
     operator fun plus(other: ParticleNode): ParticleNode = Add(this, other)
     operator fun minus(other: ParticleNode): ParticleNode = Subtract(this, other)
     operator fun times(other: ParticleNode): ParticleNode = Multiply(this, other)
     operator fun div(other: ParticleNode): ParticleNode = Divide(this, other)
     operator fun unaryMinus(): ParticleNode = Multiply(Scalar(-1f), this)
-
+    operator fun rem(other: Float): ParticleNode = Mod(this, Scalar(other))
     operator fun plus(other: Float): ParticleNode = Add(this, Scalar(other))
     operator fun minus(other: Float): ParticleNode = Subtract(this, Scalar(other))
     operator fun times(other: Float): ParticleNode = Multiply(this, Scalar(other))
     operator fun div(other: Float): ParticleNode = Divide(this, Scalar(other))
+
+    operator fun not(): ParticleNode = Not(this)
+    operator fun get(index: Int): ParticleNode = Component(this, index)
+    operator fun invoke(t: ParticleNode): ParticleNode = Sample(this, t)
+    operator fun invoke(p: Float): ParticleNode = Sample(this, Scalar(p))
 
     infix fun gt(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.GreaterThan)
     infix fun lt(other: ParticleNode): ParticleNode = Comparison(this, other, ComparisonOp.LessThan)
@@ -110,25 +126,16 @@ sealed interface ParticleNode {
     infix fun or(other: ParticleNode): ParticleNode = Combine(this, other, CombineOp.Or)
 }
 
-sealed interface SelectCondition {
-    @JvmInline
-    value class Ratio(val value: Float) : SelectCondition
-    @JvmInline
-    value class Threshold(val value: Int) : SelectCondition
-    @JvmInline
-    value class Modulo(val divisor: Int) : SelectCondition
+enum class ComparisonOp {
+    Equal,
+    NotEqual,
+    GreaterThan,
+    GreaterEqual,
+    LessThan,
+    LessEqual
 }
 
-enum class ComparisonOp(val symbol: String) {
-    Equal("=="),
-    NotEqual("!="),
-    GreaterThan(">"),
-    GreaterEqual(">="),
-    LessThan("<"),
-    LessEqual("<=")
-}
-
-enum class CombineOp(val symbol: String) {
-    And("&&"),
-    Or("||")
+enum class CombineOp {
+    And,
+    Or
 }

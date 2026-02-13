@@ -99,7 +99,7 @@ class BlueSky(
         }
     """
 
-    override fun MaterialEffect.applyUniforms() {
+    override fun MaterialEffect.onUpdate() {
         uniform(SCALE, scale)
         uniform(CLOUD_PARAMS, cloudCover, cloudSharpness)
         uniform(SKY_COLOR_TOP, skyColorTop)

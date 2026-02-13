@@ -25,6 +25,7 @@ abstract class MaterialEffect {
 
     private var brush: Brush? = null
     private var isDirty: Boolean = true
+    private var isInitialized: Boolean = false
 
     private val useTime by lazy { material.sksl.contains(TIME) }
     private val useDeltaTime by lazy { material.sksl.contains(DELTA_TIME) }
@@ -46,38 +47,35 @@ abstract class MaterialEffect {
 
     abstract fun input(name: String, colorFilter: ColorFilter)
 
-    /** Sets a int array uniform for this shader */
     abstract fun uniform(name: String, value: Int)
 
-    /** Sets a int array uniform for this shader */
     abstract fun uniform(name: String, value1: Int, value2: Int)
 
-    /** Sets a int array uniform for this shader */
     abstract fun uniform(name: String, value1: Int, value2: Int, value3: Int)
 
-    /** Sets a int array uniform for this shader */
     abstract fun uniform(name: String, value1: Int, value2: Int, value3: Int, value4: Int)
 
-    /** Sets a float array uniform for this shader */
     abstract fun uniform(name: String, value: Float)
 
-    /** Sets a float array uniform for this shader */
     abstract fun uniform(name: String, value1: Float, value2: Float)
 
-    /** Sets a float array uniform for this shader */
     abstract fun uniform(name: String, value1: Float, value2: Float, value3: Float)
 
-    /** Sets a float array uniform for this shader */
+    abstract fun uniform(name: String, value1: Float, value2: Float, value3: Float, value4: Float)
+
     abstract fun uniform(name: String, values: FloatArray)
 
-    /** Sets a color uniform for this shader */
+    /** Sets a color uniform for this shader (RGBA) */
     fun uniform(name: String, value: Color) {
-        uniform(name, value.red, value.green, value.blue)
+        // Standardizing to RGBA for shader compatibility
+        uniform(name, value.red, value.green, value.blue, value.alpha)
     }
 
-    /** Sets colors uniform for this shader */
+    /** Sets an array of color uniforms for this shader (RGBA) */
     fun uniform(name: String, values: Array<Color>) {
-        val requiredSize = values.size * 3
+        // Each color now occupies 4 slots (R, G, B, A)
+        val stride = 4
+        val requiredSize = values.size * stride
 
         val buffer = colorBufferCache.getOrPut(name) {
             FloatArray(requiredSize)
@@ -91,12 +89,15 @@ abstract class MaterialEffect {
             newBuffer
         }
 
-        var index = 0
-        while (index < values.size) {
-            val color = values[index++]
-            finalBuffer[index * 3] = color.red
-            finalBuffer[index * 3 + 1] = color.green
-            finalBuffer[index * 3 + 2] = color.blue
+        var i = 0
+        while (i < values.size) {
+            val color = values[i]
+            val offset = i * stride
+            finalBuffer[offset] = color.red
+            finalBuffer[offset + 1] = color.green
+            finalBuffer[offset + 2] = color.blue
+            finalBuffer[offset + 3] = color.alpha
+            i++
         }
 
         uniform(name, finalBuffer)
@@ -116,15 +117,16 @@ abstract class MaterialEffect {
         if (useDeltaTime) uniform(DELTA_TIME, deltaTime)
     }
 
-    fun applyMaterialUniforms() {
-        with(material) {  applyUniforms()  }
-    }
-
     protected abstract fun createBrush(): Brush
 
     /** Obtains an updates ShaderBrush*/
     fun obtainBrush(): Brush {
-        with(material) { applyUniforms() }
+        if (!isInitialized) {
+            with(material) { onSetup() }
+            isInitialized = true
+        }
+
+        with(material) { onUpdate() }
         if (isDirty || brush == null) {
             brush = createBrush()
             isDirty = false

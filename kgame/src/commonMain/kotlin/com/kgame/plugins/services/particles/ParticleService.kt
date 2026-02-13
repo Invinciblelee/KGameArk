@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 class ParticleService(val capacity: Int = 64) {
-    private val particleRenderers = ArrayList<List<ParticleRenderer>>(capacity)
+    private val particleRenderers = ArrayList<List<ParticleLayerRenderer>>(capacity)
     private val paint = Paint().apply {
         isAntiAlias = false
     }

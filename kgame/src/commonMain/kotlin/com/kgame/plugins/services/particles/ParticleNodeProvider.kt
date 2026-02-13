@@ -1,6 +1,13 @@
 package com.kgame.plugins.services.particles
 
+import com.kgame.plugins.services.particles.ParticleNode.Clamp
+import com.kgame.plugins.services.particles.ParticleNode.LinearStep
+import com.kgame.plugins.services.particles.ParticleNode.Mix
+import com.kgame.plugins.services.particles.ParticleNode.Noise
 import com.kgame.plugins.services.particles.ParticleNode.Scalar
+import com.kgame.plugins.services.particles.ParticleNode.Select
+import com.kgame.plugins.services.particles.ParticleNode.SmoothStep
+import com.kgame.plugins.services.particles.ParticleNode.Step
 import com.kgame.plugins.services.particles.ParticleNode.Vector2
 
 /**
@@ -14,13 +21,6 @@ interface ParticleNodeProvider {
     fun vec2(x: ParticleNode, y: Float): ParticleNode = Vector2(x, scalar(y))
     fun vec2(x: Float, y: ParticleNode): ParticleNode = Vector2(scalar(x), y)
     fun vec2(x: Float, y: Float): ParticleNode = Vector2(scalar(x), scalar(y))
-
-    // Randomness & Logic
-    fun random(min: Float, max: Float, exp: Float = 1.0f): ParticleNode = 
-        ParticleNode.RandomRange(min, max, exp)
-
-    fun select(condition: SelectCondition, onTrue: ParticleNode, onFalse: ParticleNode): ParticleNode =
-        ParticleNode.Select(condition, onTrue, onFalse)
 
     fun color(argb: Int): ParticleNode {
         return ParticleNode.Color(
@@ -53,12 +53,9 @@ interface ParticleNodeProvider {
     fun color(red: Float, green: Float, blue: Float, alpha: Float = 1f): ParticleNode =
         color(scalar(red), scalar(green), scalar(blue), scalar(alpha))
 
-    fun Ratio(value: Float) = SelectCondition.Ratio(value)
-    fun Threshold(value: Int) = SelectCondition.Threshold(value)
-    fun Modulo(value: Int) = SelectCondition.Modulo(value)
-
     val math: ParticleNodeMath get() = ParticleNodeMath
-    val env: ParticleEnvironment get() = ParticleEnvironment
+    val env: ParticleNodeEnvironment get() = ParticleNodeEnvironment
+    val via: ParticleNodeVia get() = ParticleNodeVia
 
     operator fun Float.minus(node: ParticleNode): ParticleNode = scalar(this) - node
     operator fun Float.plus(node: ParticleNode): ParticleNode = scalar(this) + node
@@ -66,12 +63,50 @@ interface ParticleNodeProvider {
     operator fun Float.div(node: ParticleNode): ParticleNode = scalar(this) / node
 }
 
-object ParticleEnvironment {
+object ParticleNodeEnvironment {
     val time: ParticleNode get() = ParticleNode.Time
     val deltaTime: ParticleNode get() = ParticleNode.DeltaTime
     val index: ParticleNode get() = ParticleNode.Index
     val progress: ParticleNode get() = ParticleNode.Progress
     val count: ParticleNode get() = ParticleNode.Count
+    val origin: ParticleNode get() = ParticleNode.Origin
+}
+
+object ParticleNodeVia {
+
+    fun select(condition: ParticleNode, onTrue: ParticleNode, onFalse: ParticleNode) =
+        ParticleNode.Select(condition, onTrue, onFalse)
+
+    fun select(condition: ParticleNode, onTrue: Float, onFalse: Float) =
+        ParticleNode.Select(condition, Scalar(onTrue), Scalar(onFalse))
+
+    // --- 区间映射与混合 ---
+    fun mix(from: ParticleNode, to: ParticleNode, factor: ParticleNode) =
+        ParticleNode.Mix(from, to, factor)
+
+    fun mix(from: Float, to: Float, factor: ParticleNode) =
+        ParticleNode.Mix(Scalar(from), Scalar(to), factor)
+
+    fun clamp(value: ParticleNode, min: Float, max: Float) =
+        ParticleNode.Clamp(value, Scalar(min), Scalar(max))
+
+    // --- 步进整形 ---
+    fun step(threshold: ParticleNode, input: ParticleNode) =
+        ParticleNode.Step(threshold, input)
+
+    fun smoothstep(from: ParticleNode, to: ParticleNode, input: ParticleNode) =
+        ParticleNode.SmoothStep(from, to, input)
+
+    fun smoothstep(from: Float, to: Float, input: ParticleNode) =
+        ParticleNode.SmoothStep(Scalar(from), Scalar(to), input)
+
+    // --- 随机与噪声 ---
+    fun noise(input: ParticleNode, min: Float = 0f, max: Float = 1f, octaves: Int = 1) =
+        ParticleNode.Noise(input, min, max, octaves)
+
+    fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null) =
+        ParticleNode.Random(min, max, seed)
+
 }
 
 object ParticleNodeMath {
@@ -87,7 +122,6 @@ object ParticleNodeMath {
     // --- Vector Math Operators ---
     fun dot(left: ParticleNode, right: ParticleNode): ParticleNode = ParticleNode.Dot(left, right)
     fun dot(left: ParticleNode, right: Float): ParticleNode = ParticleNode.Dot(left, Scalar(right))
-    fun dot(left: Float, right: ParticleNode): ParticleNode = ParticleNode.Dot(Scalar(left), right)
 
     fun length(node: ParticleNode): ParticleNode = ParticleNode.Length(node)
     fun length(value: Float): ParticleNode = ParticleNode.Length(Scalar(value))
@@ -96,9 +130,6 @@ object ParticleNodeMath {
     fun distance(p1: ParticleNode, p2: Float): ParticleNode = ParticleNode.Distance(p1, Scalar(p2))
     fun distance(p1: Float, p2: ParticleNode): ParticleNode = ParticleNode.Distance(Scalar(p1), p2)
 
-    fun normalize(node: ParticleNode): ParticleNode = ParticleNode.Normalize(node)
-    fun normalize(value: Float): ParticleNode = ParticleNode.Normalize(Scalar(value))
-
     // -- Compare --
     fun min(first: ParticleNode, second: ParticleNode): ParticleNode = ParticleNode.Min(first, second)
     fun min(first: ParticleNode, second: Float): ParticleNode = ParticleNode.Min(first, Scalar(second))
@@ -106,9 +137,6 @@ object ParticleNodeMath {
     fun max(first: ParticleNode, second: ParticleNode): ParticleNode = ParticleNode.Max(first, second)
     fun max(first: ParticleNode, second: Float): ParticleNode = ParticleNode.Max(first, Scalar(second))
     fun max(first: Float, second: ParticleNode): ParticleNode = ParticleNode.Max(Scalar(first), second)
-
-    fun clamp(value: ParticleNode, min: ParticleNode, max: ParticleNode): ParticleNode = ParticleNode.Clamp(value, min, max)
-    fun clamp(value: ParticleNode, min: Float, max: Float): ParticleNode = ParticleNode.Clamp(value, Scalar(min), Scalar(max))
 
     // --- Basic Functions ---
     fun abs(node: ParticleNode): ParticleNode = ParticleNode.Abs(node)
@@ -143,19 +171,12 @@ object ParticleNodeMath {
     // --- Power ---
     fun pow(base: ParticleNode, exp: ParticleNode): ParticleNode = ParticleNode.Pow(base, exp)
     fun pow(base: ParticleNode, exp: Float): ParticleNode = ParticleNode.Pow(base, Scalar(exp))
-    fun pow(base: Float, exp: ParticleNode): ParticleNode = ParticleNode.Pow(Scalar(base), exp)
-    fun pow(base: Float, exp: Float): ParticleNode = ParticleNode.Pow(Scalar(base), Scalar(exp))
 
-    // --- Linear Interpolation (mix) ---
-    fun mix(start: ParticleNode, end: ParticleNode, t: ParticleNode): ParticleNode =
-        ParticleNode.Mix(start, end, t)
-    fun mix(start: Float, end: Float, t: ParticleNode): ParticleNode =
-        ParticleNode.Mix(Scalar(start), Scalar(end), t)
-
-    // --- Step Functions ---
-    fun step(edge: Float, v: ParticleNode): ParticleNode = ParticleNode.Step(Scalar(edge), v)
-    fun smoothstep(edge0: Float, edge1: Float, v: ParticleNode): ParticleNode =
-        ParticleNode.SmoothStep(Scalar(edge0), Scalar(edge1), v)
+    // --- Random ---
+    fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null): ParticleNode =
+        ParticleNode.Random(min, max, seed)
+    fun random(min: Float, max: Float, seed: ParticleNode? = null): ParticleNode =
+        ParticleNode.Random(Scalar(min), Scalar(max), seed)
 
     // --- Shaping & Cycles ---
     // Returns the fractional part of x (x - floor(x)).
@@ -166,7 +187,6 @@ object ParticleNodeMath {
     // Modulo: x - y * floor(x/y). Useful for grouping particles by index.
     fun mod(x: ParticleNode, y: ParticleNode): ParticleNode = ParticleNode.Mod(x, y)
     fun mod(x: ParticleNode, y: Float): ParticleNode = ParticleNode.Mod(x, Scalar(y))
-    fun mod(x: Float, y: ParticleNode): ParticleNode = ParticleNode.Mod(Scalar(x), y)
 
     // --- Rounding & Sign ---
     fun floor(node: ParticleNode): ParticleNode = ParticleNode.Floor(node)
@@ -178,4 +198,7 @@ object ParticleNodeMath {
     // Returns -1.0 for negative, 0.0 for zero, and 1.0 for positive.
     fun sign(node: ParticleNode): ParticleNode = ParticleNode.Sign(node)
     fun sign(value: Float): ParticleNode = ParticleNode.Sign(Scalar(value))
+
+    // --- Hash ---
+    fun hash(node: ParticleNode): ParticleNode = ParticleNode.Hash(node)
 }

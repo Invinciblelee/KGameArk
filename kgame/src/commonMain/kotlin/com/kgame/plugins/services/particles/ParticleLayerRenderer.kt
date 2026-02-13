@@ -1,7 +1,5 @@
 package com.kgame.plugins.services.particles
 
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.VertexMode
@@ -10,20 +8,16 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import com.kgame.engine.graphics.drawscope.drawVertices
 import com.kgame.engine.graphics.material.MaterialEffect
 
-class ParticleRenderer(
+class ParticleLayerRenderer(
     val pattern: VertexPattern,
-    val effect: MaterialEffect?,
-    val frame: Rect,
-    val duration: Float
+    val config: ParticleLayerConfig
 ) {
-    companion object {
-        private val EffectMaxSize = Size(64f, 64f)
-    }
+
+    private val effect = config.material?.let { MaterialEffect(it) }
 
     private var elapsedTime: Float = 0f
-    private var size: Size = Size.Zero
 
-    val isDead: Boolean get() = elapsedTime >= duration
+    val isDead: Boolean get() = elapsedTime > config.duration + config.decayPadding
 
     /**
      * Updates particle state.
@@ -32,29 +26,22 @@ class ParticleRenderer(
     fun update(dt: Float) {
         elapsedTime += dt
 
-        if (elapsedTime > duration) return
+        if (isDead) return
 
         pattern.update(dt)
         effect?.update(dt)
     }
 
     /**
-     * Updates canvas resolution.
+     * Renders particle.
      */
-    fun setResolution(size: Size) {
-        if (this.size == size || size.isEmpty()) return
-        this.size = size
-        effect?.setResolution(size)
-    }
-
     fun render(drawScope: DrawScope, paint: Paint) {
-        if (elapsedTime > duration) return
+        if (isDead) return
 
-        effect?.applyTo(EffectMaxSize, paint)
+        effect?.applyTo(drawScope.size, paint)
 
-        val center = frame.center
         drawScope.withTransform({
-            translate(center.x, center.y)
+            translate(config.origin.x, config.origin.y)
         }) {
             drawVertices(
                 vertexMode = VertexMode.Triangles,

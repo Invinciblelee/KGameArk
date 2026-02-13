@@ -57,6 +57,11 @@ private class WebMaterialEffect(override val material: Material) : MaterialEffec
         markDirty()
     }
 
+    override fun uniform(name: String, value1: Float, value2: Float, value3: Float, value4: Float) {
+        runtimeShaderBuilder.uniform(name, value1, value2, value3, value4)
+        markDirty()
+    }
+
     override fun uniform(name: String, values: FloatArray) {
         runtimeShaderBuilder.uniform(name, values)
         markDirty()

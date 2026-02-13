@@ -5,9 +5,9 @@ class VertexPattern(
     private val context: ParticleContext
 ) {
     // 1 Particle = 4 Vertices (TL, TR, BR, BL)
-    private val vertexCount = layer.count * 4
+    private val vertexCount = layer.config.count * 4
     // 1 Particle = 2 Triangles = 6 Indices
-    private val indexCount = layer.count * 6
+    private val indexCount = layer.config.count * 6
 
     // --- Primitive Buffers (0 GC) ---
     internal val positions = FloatArray(vertexCount * 2)
@@ -36,8 +36,8 @@ class VertexPattern(
      * Initial setup pass. Resolves birth state and initializes static buffers.
      */
     fun populate() {
-        val count = layer.count
-        val duration = layer.duration
+        val count = layer.config.count
+        val duration = layer.config.duration
 
         context.reset()
 
@@ -78,8 +78,8 @@ class VertexPattern(
      */
     fun update(deltaTime: Float) {
         elapsedTime += deltaTime
-        val count = layer.count
-        val duration = layer.duration
+        val count = layer.config.count
+        val duration = layer.config.duration
 
         if (elapsedTime > duration) return
 
@@ -108,47 +108,25 @@ class VertexPattern(
     }
 
     /**
-     * Legacy path for validation. Replicated exactly to match Resolver logic.
-     */
-    fun updateLegacy(deltaTime: Float) {
-        elapsedTime += deltaTime
-        val count = layer.count
-        val duration = layer.duration
-        if (elapsedTime > duration) return
-
-        context.update(elapsedTime, deltaTime, elapsedTime / duration, count)
-
-        var pIdx = 0
-        while (pIdx < count) {
-            val vBase = pIdx shl 2
-            if (lifes[vBase] > 0f) {
-                context.seek(pIdx)
-
-                val resPos = ParticleNodeResolver.resolveVector2(layer.position, context)
-                val resSize = ParticleNodeResolver.resolveScalar(layer.size, context)
-                val resColor = ParticleNodeResolver.resolveColor(layer.color, context)
-
-                writeVertexData(vBase, resPos.x, resPos.y, resSize, resColor, lifes[vBase] - deltaTime)
-            }
-            pIdx++
-        }
-    }
-
-    /**
      * High-speed vertex write logic.
      * Inlined to eliminate function call overhead while maintaining clean code.
      */
     @Suppress("NOTHING_TO_INLINE")
     private inline fun writeVertexData(vBase: Int, x: Float, y: Float, size: Float, color: Int, life: Float) {
         val p = vBase shl 1
-        val right = x + size
-        val bottom = y + size
+
+        val r = size * 0.5f
+
+        val left = x - r
+        val top = y - r
+        val right = x + r
+        val bottom = y + r
 
         // Position Buffer Writes (4 vertices)
-        positions[p] = x;         positions[p + 1] = y      // TL
-        positions[p + 2] = right; positions[p + 3] = y      // TR
+        positions[p] = left;      positions[p + 1] = top    // TL
+        positions[p + 2] = right; positions[p + 3] = top    // TR
         positions[p + 4] = right; positions[p + 5] = bottom // BR
-        positions[p + 6] = x;     positions[p + 7] = bottom // BL
+        positions[p + 6] = left;  positions[p + 7] = bottom // BL
 
         // Color Buffer Writes
         colors[vBase] = color;     colors[vBase + 1] = color

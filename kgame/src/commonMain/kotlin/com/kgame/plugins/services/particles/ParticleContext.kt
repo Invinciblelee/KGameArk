@@ -1,6 +1,6 @@
 package com.kgame.plugins.services.particles
 
-import com.kgame.engine.geometry.Vector2
+import androidx.compose.ui.geometry.Offset
 
 /**
  * A high-performance, thread-safe context for managing particle system parameters.
@@ -11,20 +11,27 @@ class ParticleContext {
 
     // --- Frame Global State ---
     var time: Float = 0f
-        private set
+        internal set
 
     var deltaTime: Float = 0f
-        private set
+        internal set
 
     var progress: Float = 0f
-        private set
+        internal set
 
     var count: Int = 0
-        private set
+        internal set
 
     // --- Iterator State ---
     var index: Int = 0
+        internal set
+
+    var origin: Offset = Offset.Zero
         private set
+
+    fun setOrigin(origin: Offset) {
+        this.origin = origin
+    }
 
     /**
      * Synchronizes global frame parameters.

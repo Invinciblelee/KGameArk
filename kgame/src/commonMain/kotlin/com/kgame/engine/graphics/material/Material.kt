@@ -30,6 +30,7 @@ interface Material {
         const val RESOLUTION = "uResolution"
         const val TIME = "uTime"
         const val DURATION = "uDuration"
+        const val PROGRESS = "uProgress"
         const val DELTA_TIME = "uDeltaTime"
 
         const val COLOR = "uColor"
@@ -49,8 +50,19 @@ interface Material {
     /** Contains the sksl shader*/
     val sksl: String
 
-    /** Applies the uniforms required for this shader to the effect */
-    fun MaterialEffect.applyUniforms() = Unit
+
+    /**
+     * Initialization hook for uniforms, executed only once.
+     * Ideal for: texture binding, noise parameters, or constants that do not change.
+     */
+    fun MaterialEffect.onSetup() = Unit
+
+    /**
+     * Per-frame update hook, executed within the rendering loop.
+     * Ideal for: uTime, animation progress, or dynamic arrays like particle positions.
+     * Warning: Keep this implementation lean to avoid frame drops.
+     */
+    fun MaterialEffect.onUpdate() = Unit
 
 }
 

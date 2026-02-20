@@ -1,19 +1,23 @@
 package com.kgame.plugins.services.particles
 
-import com.kgame.plugins.services.particles.ParticleNode.Clamp
-import com.kgame.plugins.services.particles.ParticleNode.LinearStep
-import com.kgame.plugins.services.particles.ParticleNode.Mix
-import com.kgame.plugins.services.particles.ParticleNode.Noise
+import com.kgame.plugins.services.particles.ParticleNode.Add
+import com.kgame.plugins.services.particles.ParticleNode.Combine
+import com.kgame.plugins.services.particles.ParticleNode.Comparison
+import com.kgame.plugins.services.particles.ParticleNode.Component
+import com.kgame.plugins.services.particles.ParticleNode.Divide
+import com.kgame.plugins.services.particles.ParticleNode.Mod
+import com.kgame.plugins.services.particles.ParticleNode.Multiply
+import com.kgame.plugins.services.particles.ParticleNode.Not
+import com.kgame.plugins.services.particles.ParticleNode.Sample
 import com.kgame.plugins.services.particles.ParticleNode.Scalar
-import com.kgame.plugins.services.particles.ParticleNode.Select
-import com.kgame.plugins.services.particles.ParticleNode.SmoothStep
-import com.kgame.plugins.services.particles.ParticleNode.Step
+import com.kgame.plugins.services.particles.ParticleNode.Subtract
 import com.kgame.plugins.services.particles.ParticleNode.Vector2
 
 /**
  * A capability interface that provides shorthand methods to create ParticleNodes.
  * Implemented by scopes to enable a clean, math-like DSL.
  */
+@ParticleDslMarker
 interface ParticleNodeProvider {
     // Basic Constants
     fun scalar(value: Float): ParticleNode = Scalar(value)
@@ -53,17 +57,64 @@ interface ParticleNodeProvider {
     fun color(red: Float, green: Float, blue: Float, alpha: Float = 1f): ParticleNode =
         color(scalar(red), scalar(green), scalar(blue), scalar(alpha))
 
-    val math: ParticleNodeMath get() = ParticleNodeMath
-    val env: ParticleNodeEnvironment get() = ParticleNodeEnvironment
-    val via: ParticleNodeVia get() = ParticleNodeVia
+    val math: ParticleNodeMath
+    val env: ParticleNodeEnvironment
+    val ops: ParticleNodeOperations
+
+    operator fun ParticleNode.plus(other: ParticleNode): ParticleNode = Add(this, other)
+    operator fun ParticleNode.minus(other: ParticleNode): ParticleNode = Subtract(this, other)
+    operator fun ParticleNode.times(other: ParticleNode): ParticleNode = Multiply(this, other)
+    operator fun ParticleNode.div(other: ParticleNode): ParticleNode = Divide(this, other)
+    operator fun ParticleNode.unaryMinus(): ParticleNode = Multiply(Scalar(-1f), this)
+    operator fun ParticleNode.rem(other: Float): ParticleNode = Mod(this, Scalar(other))
+    operator fun ParticleNode.plus(other: Float): ParticleNode = Add(this, Scalar(other))
+    operator fun ParticleNode.minus(other: Float): ParticleNode = Subtract(this, Scalar(other))
+    operator fun ParticleNode.times(other: Float): ParticleNode = Multiply(this, Scalar(other))
+    operator fun ParticleNode.div(other: Float): ParticleNode = Divide(this, Scalar(other))
 
     operator fun Float.minus(node: ParticleNode): ParticleNode = scalar(this) - node
     operator fun Float.plus(node: ParticleNode): ParticleNode = scalar(this) + node
     operator fun Float.times(node: ParticleNode): ParticleNode = scalar(this) * node
     operator fun Float.div(node: ParticleNode): ParticleNode = scalar(this) / node
+
+    operator fun ParticleNode.not(): ParticleNode = Not(this)
+    operator fun ParticleNode.get(index: Int): ParticleNode = Component(this, index)
+    operator fun ParticleNode.invoke(t: ParticleNode): ParticleNode = Sample(this, t)
+    operator fun ParticleNode.invoke(p: Float): ParticleNode = Sample(this, Scalar(p))
+
+    infix fun ParticleNode.gt(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.GreaterThan)
+
+    infix fun ParticleNode.lt(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.LessThan)
+
+    infix fun ParticleNode.ge(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.GreaterEqual)
+
+    infix fun ParticleNode.le(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.LessEqual)
+
+    infix fun ParticleNode.eq(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.Equal)
+
+    infix fun ParticleNode.ne(other: ParticleNode): ParticleNode =
+        Comparison(this, other, ComparisonOp.NotEqual)
+
+    infix fun ParticleNode.gt(other: Float): ParticleNode = gt(Scalar(other))
+    infix fun ParticleNode.lt(other: Float): ParticleNode = lt(Scalar(other))
+    infix fun ParticleNode.ge(other: Float): ParticleNode = ge(Scalar(other))
+    infix fun ParticleNode.le(other: Float): ParticleNode = le(Scalar(other))
+    infix fun ParticleNode.eq(other: Float): ParticleNode = eq(Scalar(other))
+    infix fun ParticleNode.ne(other: Float): ParticleNode = ne(Scalar(other))
+
+    infix fun ParticleNode.and(other: ParticleNode): ParticleNode =
+        Combine(this, other, CombineOp.And)
+
+    infix fun ParticleNode.or(other: ParticleNode): ParticleNode =
+        Combine(this, other, CombineOp.Or)
 }
 
-object ParticleNodeEnvironment {
+class ParticleNodeEnvironment {
     val time: ParticleNode get() = ParticleNode.Time
     val deltaTime: ParticleNode get() = ParticleNode.DeltaTime
     val index: ParticleNode get() = ParticleNode.Index
@@ -72,7 +123,7 @@ object ParticleNodeEnvironment {
     val origin: ParticleNode get() = ParticleNode.Origin
 }
 
-object ParticleNodeVia {
+class ParticleNodeOperations {
 
     fun select(condition: ParticleNode, onTrue: ParticleNode, onFalse: ParticleNode) =
         ParticleNode.Select(condition, onTrue, onFalse)
@@ -80,19 +131,23 @@ object ParticleNodeVia {
     fun select(condition: ParticleNode, onTrue: Float, onFalse: Float) =
         ParticleNode.Select(condition, Scalar(onTrue), Scalar(onFalse))
 
-    // --- 区间映射与混合 ---
     fun mix(from: ParticleNode, to: ParticleNode, factor: ParticleNode) =
         ParticleNode.Mix(from, to, factor)
 
     fun mix(from: Float, to: Float, factor: ParticleNode) =
         ParticleNode.Mix(Scalar(from), Scalar(to), factor)
 
+    fun clamp(value: ParticleNode, min: ParticleNode, max: ParticleNode) =
+        ParticleNode.Clamp(value, min, max)
+
     fun clamp(value: ParticleNode, min: Float, max: Float) =
         ParticleNode.Clamp(value, Scalar(min), Scalar(max))
 
-    // --- 步进整形 ---
     fun step(threshold: ParticleNode, input: ParticleNode) =
         ParticleNode.Step(threshold, input)
+
+    fun step(threshold: Float, input: ParticleNode) =
+        ParticleNode.Step(Scalar(threshold), input)
 
     fun smoothstep(from: ParticleNode, to: ParticleNode, input: ParticleNode) =
         ParticleNode.SmoothStep(from, to, input)
@@ -100,24 +155,34 @@ object ParticleNodeVia {
     fun smoothstep(from: Float, to: Float, input: ParticleNode) =
         ParticleNode.SmoothStep(Scalar(from), Scalar(to), input)
 
-    // --- 随机与噪声 ---
     fun noise(input: ParticleNode, min: Float = 0f, max: Float = 1f, octaves: Int = 1) =
         ParticleNode.Noise(input, min, max, octaves)
-
-    fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null) =
-        ParticleNode.Random(min, max, seed)
-
 }
 
-object ParticleNodeMath {
-    val PI: ParticleNode = Scalar(kotlin.math.PI.toFloat())
+class ParticleNodeMath(val provider: ParticleNodeProvider) {
+
+    companion object {
+        val PI: ParticleNode = Scalar(kotlin.math.PI.toFloat())
+        val TAU: ParticleNode = Scalar(kotlin.math.PI.toFloat() * 2f)
+        val E: ParticleNode = Scalar(kotlin.math.E.toFloat())
+
+        /** * Constant to convert degrees to radians.
+         * Calculation: PI / 180.0
+         */
+        val D2R: ParticleNode = Scalar(0.017453292f)
+
+        /** * Constant to convert radians to degrees.
+         * Calculation: 180.0 / PI
+         */
+        val R2D: ParticleNode = Scalar(57.29578f)
+    }
 
     // --- Unit Conversions ---
-    fun toRadians(degrees: ParticleNode): ParticleNode = (PI / Scalar(180.0f)) * degrees
-    fun toRadians(degrees: Float): ParticleNode = (PI / 180.0f) * degrees
+    fun toRadians(degrees: ParticleNode): ParticleNode = with(provider) { D2R * degrees }
+    fun toRadians(degrees: Float): ParticleNode = with(provider) { D2R * degrees }
 
-    fun toDegrees(radians: ParticleNode): ParticleNode = (Scalar(180.0f) / PI) * radians
-    fun toDegrees(radians: Float): ParticleNode = (Scalar(180.0f) / PI) * radians
+    fun toDegrees(radians: ParticleNode): ParticleNode = with(provider) { R2D * radians }
+    fun toDegrees(radians: Float): ParticleNode = with(provider) { R2D * radians }
 
     // --- Vector Math Operators ---
     fun dot(left: ParticleNode, right: ParticleNode): ParticleNode = ParticleNode.Dot(left, right)
@@ -131,12 +196,23 @@ object ParticleNodeMath {
     fun distance(p1: Float, p2: ParticleNode): ParticleNode = ParticleNode.Distance(Scalar(p1), p2)
 
     // -- Compare --
-    fun min(first: ParticleNode, second: ParticleNode): ParticleNode = ParticleNode.Min(first, second)
-    fun min(first: ParticleNode, second: Float): ParticleNode = ParticleNode.Min(first, Scalar(second))
-    fun min(first: Float, second: ParticleNode): ParticleNode = ParticleNode.Min(Scalar(first), second)
-    fun max(first: ParticleNode, second: ParticleNode): ParticleNode = ParticleNode.Max(first, second)
-    fun max(first: ParticleNode, second: Float): ParticleNode = ParticleNode.Max(first, Scalar(second))
-    fun max(first: Float, second: ParticleNode): ParticleNode = ParticleNode.Max(Scalar(first), second)
+    fun min(first: ParticleNode, second: ParticleNode): ParticleNode =
+        ParticleNode.Min(first, second)
+
+    fun min(first: ParticleNode, second: Float): ParticleNode =
+        ParticleNode.Min(first, Scalar(second))
+
+    fun min(first: Float, second: ParticleNode): ParticleNode =
+        ParticleNode.Min(Scalar(first), second)
+
+    fun max(first: ParticleNode, second: ParticleNode): ParticleNode =
+        ParticleNode.Max(first, second)
+
+    fun max(first: ParticleNode, second: Float): ParticleNode =
+        ParticleNode.Max(first, Scalar(second))
+
+    fun max(first: Float, second: ParticleNode): ParticleNode =
+        ParticleNode.Max(Scalar(first), second)
 
     // --- Basic Functions ---
     fun abs(node: ParticleNode): ParticleNode = ParticleNode.Abs(node)
@@ -172,12 +248,6 @@ object ParticleNodeMath {
     fun pow(base: ParticleNode, exp: ParticleNode): ParticleNode = ParticleNode.Pow(base, exp)
     fun pow(base: ParticleNode, exp: Float): ParticleNode = ParticleNode.Pow(base, Scalar(exp))
 
-    // --- Random ---
-    fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null): ParticleNode =
-        ParticleNode.Random(min, max, seed)
-    fun random(min: Float, max: Float, seed: ParticleNode? = null): ParticleNode =
-        ParticleNode.Random(Scalar(min), Scalar(max), seed)
-
     // --- Shaping & Cycles ---
     // Returns the fractional part of x (x - floor(x)).
     // Powerful for looping: math.fract(time * 2.0) creates a 0..1 ramp every 0.5s.
@@ -199,6 +269,10 @@ object ParticleNodeMath {
     fun sign(node: ParticleNode): ParticleNode = ParticleNode.Sign(node)
     fun sign(value: Float): ParticleNode = ParticleNode.Sign(Scalar(value))
 
-    // --- Hash ---
-    fun hash(node: ParticleNode): ParticleNode = ParticleNode.Hash(node)
+    // Random
+    fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null) =
+        ParticleNode.Random(min, max, seed)
+
+    fun random(min: Float, max: Float, seed: ParticleNode? = null) =
+        ParticleNode.Random(Scalar(min), Scalar(max), seed)
 }

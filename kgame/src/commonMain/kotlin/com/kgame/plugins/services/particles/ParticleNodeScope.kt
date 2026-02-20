@@ -58,7 +58,7 @@ class ParticleLayerConfigBuilder(
     private val origin: Offset,
     val context: ParticleContext
 ) {
-    var count: Int = 512
+    var count: Int = 1
     var duration: Float = 1.0f
     var decayPadding: Float = 0.0f
     var material: Material? = null
@@ -88,6 +88,10 @@ class ParticleLayerBuilder(
     var size: ParticleNode = scalar(1f)
 
     var color: ParticleNode = color(0xFFFFFFFF)
+
+    override val math: ParticleNodeMath = ParticleNodeMath(this)
+    override val env: ParticleNodeEnvironment = ParticleNodeEnvironment()
+    override val ops: ParticleNodeOperations = ParticleNodeOperations()
 
     internal fun build(): ParticleLayer {
         return ParticleLayer(

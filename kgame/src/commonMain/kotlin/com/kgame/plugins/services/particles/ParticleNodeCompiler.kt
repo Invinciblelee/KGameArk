@@ -236,17 +236,21 @@ class ParticleNodeCompiler {
             }
 
             is ParticleNode.Random -> {
-                val minExec = compileScalar(node.min)
-                val maxExec = compileScalar(node.max)
-
-                val seedExec = node.seed?.let { compileScalar(it) }
-                val nodeHash = node.hashCode()
+                val minExec = traverseScalar(node.min)
+                val maxExec = traverseScalar(node.max)
+                val seedExec = node.seed?.let { traverseScalar(it) }
+                val salt = node.hashCode()
 
                 ScalarExec { ctx ->
-                    val t = seedExec?.eval(ctx) ?: iHash(ctx.index xor nodeHash)
-                    val currentMin = minExec.eval(ctx)
-                    val currentMax = maxExec.eval(ctx)
-                    currentMin + (currentMax - currentMin) * t
+                    var h = ctx.index xor salt
+                    if (seedExec != null) {
+                        h = h xor seedExec.eval(ctx).toRawBits()
+                    }
+                    val t = iHash(h)
+
+                    val mn = minExec.eval(ctx)
+                    val mx = maxExec.eval(ctx)
+                    mn + (mx - mn) * t
                 }
             }
 

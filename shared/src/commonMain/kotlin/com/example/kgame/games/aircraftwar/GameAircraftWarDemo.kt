@@ -161,7 +161,7 @@ fun ParticleNodeScope.explosion(center: Offset) {
         )
 
         // Visuals: Glowing particles that shrink over time
-        size = math.random(2.0f, 5.0f) * (1.0f - env.progress.smoothstep(0.6f, 1.0f))
+        size = math.random(2.0f, 5.0f) * (1.0f - ops.smoothstep(0.6f, 1.0f, env.progress))
 
         // Color: Transitions from White-Hot to Orange
 //        val alpha = math.smoothstep(0.0f, 0.1f, env.progress) * (1.0f - math.smoothstep(0.7f, 1.0f, env.progress))
@@ -369,7 +369,7 @@ fun ParticleNodeScope.cyberConvergence(center: Offset) {
         val baseRadius = 80f + orbitId * 40f // 轨道半径分别为 80, 120, 160
 
         // 旋转逻辑：不同轨道速度不同，且方向交替
-        val speed = orbitId.eq(1f).select(1.5f, -1.0f)
+        val speed = ops.select(orbitId eq 1f, 1.5f, -1.0f)
         val angle = env.index * (360f / (80f / 3f)) + env.time * 40f * speed
         val rad = math.toRadians(angle)
 
@@ -398,10 +398,10 @@ fun ParticleNodeScope.cyberConvergence(center: Offset) {
         }
 
         // 初始随机状态
-        val baseAngle = random(0f, 360f)
+        val baseAngle = math.random(0f, 360f)
         val startRadius = 450f
 
-        val direction = select(
+        val direction = ops.select(
             condition = env.index % 2f,
             onTrue = 1.0f,
             onFalse = -1.0f
@@ -422,7 +422,7 @@ fun ParticleNodeScope.cyberConvergence(center: Offset) {
         )
 
         // 尺寸：在中心压缩时略微变大增加爆发感，随后消失
-        size = random(6f, 14f) * (1.0f + math.smoothstep(0.7f, 1.0f, p) * 1.5f)
+        size = math.random(6f, 14f) * (1.0f + ops.smoothstep(0.7f, 1.0f, p) * 1.5f)
     }
 
     // Layer 3: 汇聚触达时的数码火星（纯顶点色，不加 Material）
@@ -434,89 +434,119 @@ fun ParticleNodeScope.cyberConvergence(center: Offset) {
 
         val p = env.progress
         // 瞬间喷发逻辑：从中心向四周极小范围炸开
-        val angle = random(0f, 360f)
+        val angle = math.random(0f, 360f)
         val rad = math.toRadians(angle)
-        val speed = random(50f, 200f) * p
+        val speed = math.random(50f, 200f) * p
 
         position = vec2(math.cos(rad) * speed, math.sin(rad) * speed)
 
         // 这里体现顶点色的“五彩斑斓”：随机青色到白色的闪烁
-        color = math.mix(
+        color = ops.mix(
             color(0.0f, 1.0f, 0.9f, 1.0f - p),
             color(1.0f, 1.0f, 1.0f, 1.0f - p),
-            random(0f, 1f)
+            math.random(0f, 1f)
         )
 
-        size = random(2f, 5f)
+        size = math.random(2f, 5f)
     }
 }
 
-class TornadoEnergyMaterial(val color: Color) : Material {
+class TornadoVolumetricMaterial(
+    private val baseColor: Color,
+    private val context: ParticleContext
+) : Material {
 
     @Language("AGSL")
     override val sksl: String = """
         uniform float uTime;
+        uniform float uProgress;
         uniform vec4 uColor;
-        
+
+        float hash(vec2 p) {
+            return fract(sin(dot(p, vec2(12.71, 311.7))) * 43758.5453);
+        }
+
+        float noise(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p);
+            vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                       mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+        }
+
         vec4 main(vec2 uv) {
-            // 1. 将 UV 中心化并进行纵向缩放，模拟“拉丝”感
-            vec2 st = uv * 2.0 - 1.0;
-            st.y *= 0.5; // 纵向拉伸，让圆点变成长条
+            // 1. Root-centric coordinates
+            float h = 0.5 - uv.y;
+            if (h < 0.0) return vec4(0.0);
+            float nH = h * 2.0;
             
-            // 2. 高斯模糊效果的圆心距离
-            float d = length(st);
+            // 2. Wobble logic (Dynamic Curvature)
+            float wobble = sin(nH * 2.5 - uTime * 3.5) * 0.12 * nH;
+            float x = (uv.x - 0.5) * 2.0 - wobble;
             
-            // 3. 核心流光：利用 sin 和噪点制造“内部涌动”的效果
-            float wave = sin(uv.y * 10.0 - uTime * 20.0) * 0.5 + 0.5;
+            // 3. Sharp Needle Tapering
+            float widthFactor = mix(0.002, 1.0, pow(nH, 1.35));
+            float localX = x / widthFactor;
+            if (abs(localX) > 1.2) return vec4(0.0);
+
+            float surfaceX = asin(clamp(localX, -1.0, 1.0)) / 1.57;
+
+            // 4. Parallax Layering (The Secret to Texture Depth)
+            // Inner Core Layer (Faster, denser)
+            float spiral1 = sin(surfaceX * 5.0 + nH * 35.0 - uTime * 28.0);
+            float coreLayer = smoothstep(0.2, 0.5, spiral1) * smoothstep(0.8, 0.5, spiral1);
             
-            // 4. 边缘消隐：让粒子看起来是半透明的能量束
-            float alpha = smoothstep(1.0, 0.0, d);
+            // Outer Mantle Layer (Slower, wispy)
+            float spiral2 = sin(surfaceX * 3.0 + nH * 15.0 - uTime * 12.0);
+            float mantleLayer = smoothstep(0.1, 0.6, spiral2) * smoothstep(0.9, 0.4, spiral2);
             
-            // 5. 颜色增强：边缘暗，中心亮，带一点发光（Glow）
-            vec3 finalColor = uColor.rgb * (wave + 0.5);
+            // Turbulent Noise Detail
+            float fiber = noise(vec2(surfaceX * 12.0 - uTime * 10.0, nH * 2.0 - uTime * 15.0));
             
-            // 最终输出：中心更亮，且整体透明度随距离衰减
-            return vec4(finalColor * alpha, alpha * uColor.a);
+            // 5. Blending & Volumetric Alpha
+            // The "Eye" of the tornado is slightly more transparent
+            float eyeMask = smoothstep(0.0, 0.4, abs(localX));
+            float mask = pow(cos(clamp(localX * 1.4, -1.57, 1.57)), 3.0) * eyeMask;
+            
+            // Combine layers: Inner core glows through the outer mantle
+            float finalBands = mix(mantleLayer, coreLayer, 0.4) * (0.5 + fiber * 0.5);
+            
+            // Animations and Fades
+            float growth = smoothstep(uProgress, uProgress - 0.15, nH);
+            float lifeFade = 1.0 - pow(uProgress, 4.0);
+            float topFade = smoothstep(1.0, 0.8, nH);
+
+            // 6. Final Shading
+            // Base color is shifted towards white in the highlight bands
+            vec3 color = mix(uColor.rgb, vec3(1.0, 1.0, 1.0), finalBands * 0.4);
+            // Height-based intensity (brighter at the bottom, dissipating at the top)
+            float intensity = 1.0 + (1.0 - nH) * 0.5;
+            
+            float alpha = finalBands * mask * growth * lifeFade * topFade * uColor.a;
+            
+            return vec4(color * alpha * intensity, alpha);
         }
     """.trimIndent()
 
     override fun MaterialEffect.onSetup() {
-        uniform(Material.COLOR, color)
+        uniform(Material.COLOR, baseColor)
+    }
+
+    override fun MaterialEffect.onUpdate() {
+        uniform(Material.PROGRESS, context.progress)
     }
 }
 
-fun ParticleNodeScope.cyberTornado(center: Offset) {
-    layer("tornado_main", center) {
+fun ParticleNodeScope.cyberTornadoVolumetric(center: Offset) {
+    layer("tornado_burst", center) {
         config {
-            count = 3000
-            duration = 4.0f // Longer life for better density
-            material = TornadoEnergyMaterial(Color(0.2f, 0.7f, 1.0f, 0.8f))
+            count = 3
+            duration = 3.0f
+            material = TornadoVolumetricMaterial(Color(0.2f, 0.6f, 1.0f, 0.8f), context)
         }
 
-        // 1. Introduce birth offset using index to break synchronicity
-        val p = (env.time + env.index * 0.01f) % 4.0f / 4.0f
 
-        // 2. Add randomness to radius and height to fill the volume
-        val seed = env.index
-        val hJitter = random(-20f, 20f, seed = seed)
-        val rJitter = random( 0.8f, 1.2f, seed = seed + 1f)
 
-        // 3. Physical trajectory
-        val height = p * 800f + hJitter
-        val baseRadius = 15f + math.pow(p, 1.5f) * 250f
-        val radius = baseRadius * rJitter
-
-        // 4. Spiral logic with high frequency
-        val spiralSpeed = 120f + p * 300f
-        val angle = env.index * 137.5f + env.time * spiralSpeed
-        val rad = math.toRadians(angle)
-
-        position = vec2(
-            math.cos(rad) * radius,
-            -height
-        )
-
-        size = 2f + (1.0f - p) * 6f
+        size = scalar(800f)
     }
 }
 

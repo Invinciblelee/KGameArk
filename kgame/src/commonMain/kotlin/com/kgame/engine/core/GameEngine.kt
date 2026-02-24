@@ -1,6 +1,5 @@
 package com.kgame.engine.core
 
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.focus.FocusRequester
@@ -8,7 +7,7 @@ import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.text.TextMeasurer
 import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
@@ -36,7 +35,7 @@ import kotlinx.coroutines.isActive
  *
  * @property actualSize The actual size of the kgame.
  * @property virtualSize The virtual size of the kgame.
- * @property scaledSize The scaled size of the kgame.
+ * @property scaleSize The scaled size of the kgame.
  * @property isEnabled Whether the kgame is enabled.
  */
 @Stable
@@ -55,8 +54,8 @@ class GameEngine(
     override val virtualSize: Size
         get() = resolution.virtualSize
 
-    override val scaledSize: Size
-        get() = resolution.scaledSize
+    override val scaleSize: Size
+        get() = resolution.scaleSize
 
     override var isEnabled: Boolean by atomic(true)
         private set
@@ -95,11 +94,15 @@ class GameEngine(
     }
 
     internal fun actualSizeChanged(size: Size) {
-        resolution.applySize(actualSize = size)
+        resolution.setActualSize(size)
     }
 
     internal fun virtualSizeChanged(size: Size) {
-        resolution.applySize(virtualSize = size)
+        resolution.setVirtualSize(size)
+    }
+
+    internal fun canvasOffsetChanged(offset: Offset) {
+        resolution.setCanvasOffset(offset)
     }
 
     internal fun focusChanged(state: FocusState) {
@@ -121,19 +124,8 @@ class GameEngine(
         return isFocused && input.onKeyEvent(event)
     }
 
-    internal suspend fun handlePointerEvent(scope: PointerInputScope, canvasOffset: Offset) {
-        scope.detectDragGestures(
-            onDragStart = { position ->
-                input.onPointerUpdate(position, canvasOffset)
-                input.onPointerStart()
-            },
-            onDragEnd = { input.onPointerEnd() },
-            onDragCancel = { input.onPointerEnd() },
-            onDrag = { change, _ ->
-                change.consume()
-                input.onPointerUpdate(change.position, canvasOffset)
-            }
-        )
+    internal fun handlePointerEvent(event: PointerEvent) {
+        input.onPointerEvent(event)
     }
 
     internal suspend fun startTicking() {

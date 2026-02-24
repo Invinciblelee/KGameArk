@@ -1,39 +1,39 @@
 [versions]
-agp = "9.0.0"
+agp = "9.0.1"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 
-kotlin = "2.3.0"
+kotlin = "2.3.10"
 junit = "4.13.2"
 
-annotations = "26.0.2-1"
+annotations = "26.1.0"
 
-androidxActivity = "1.12.3"
+androidxActivity = "1.12.4"
 androidxLifecycle = "2.10.0-alpha07"
 androidxNavigation3UI = "1.1.0-alpha01"
-androidxNavigationEvent = "1.0.0"
+androidxNavigationEvent = "1.0.1"
 androidxSavedstate = "1.4.0"
 androidxCollection = "1.5.0"
 
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.10.0"
+composeMultiplatform = "1.10.1"
 composeMaterial3 = "1.11.0-alpha01"
 composeMaterialIcons = "1.7.3"
 
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.31.0"
-kotlinBrowser = "2026.2.2"
-kotlinCss = "2026.2.2"
+kotlinBrowser = "2026.2.18"
+kotlinCss = "2026.2.18"
 
 ktor = "3.4.0"
 
-logbackJvm = "1.5.27"
+logbackJvm = "1.5.32"
 logbackAndroid = "3.0.0"
 slf4jApi = "2.0.17"
 
-ksoup = "0.2.5"
+ksoup = "0.2.6"
 okio = "3.16.4"
 
 soundlibsMp3spi = "1.9.5.4"

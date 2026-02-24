@@ -21,7 +21,7 @@ kotlin {
     sourceSets {
         webMain.dependencies {
             implementation(project(":shared"))
-            implementation(compose.runtime)
+            implementation(libs.compose.runtime)
         }
     }
 }

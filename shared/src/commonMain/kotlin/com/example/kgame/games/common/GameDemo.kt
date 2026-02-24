@@ -44,6 +44,7 @@ import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.asset.AssetsManager
+import com.kgame.engine.asset.load
 import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
@@ -673,7 +674,7 @@ fun GameDemo() {
             }
 
             onCreate {
-                load(
+                assets.load(
                     GameAssets.Image.Player,
                     GameAssets.Sound.Eat,
                     GameAssets.Music.BGM,

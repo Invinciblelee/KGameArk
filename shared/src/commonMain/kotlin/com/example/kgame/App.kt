@@ -17,12 +17,3 @@ fun App() {
         GameAircraftWarDemo()
     }
 }
-
-
-@Preview(showBackground = true)
-@Composable
-fun Test() {
-    Text("fasdfasd")
-
-    Text("fasdfasddfasdf")
-}

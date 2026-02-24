@@ -123,19 +123,27 @@ class ParticleNodeEnvironment {
     val origin: ParticleNode get() = ParticleNode.Origin
 }
 
+/**
+ * Graphical Operations & Composite Logic.
+ * Optimized with multiple overloads to minimize explicit Scalar wrapping.
+ */
 class ParticleNodeOperations {
 
-    fun select(condition: ParticleNode, onTrue: ParticleNode, onFalse: ParticleNode) =
-        ParticleNode.Select(condition, onTrue, onFalse)
-
-    fun select(condition: ParticleNode, onTrue: Float, onFalse: Float) =
-        ParticleNode.Select(condition, Scalar(onTrue), Scalar(onFalse))
+    // --- Linear Interpolation (mix) ---
 
     fun mix(from: ParticleNode, to: ParticleNode, factor: ParticleNode) =
         ParticleNode.Mix(from, to, factor)
 
+    fun mix(from: ParticleNode, to: Float, factor: ParticleNode) =
+        ParticleNode.Mix(from, Scalar(to), factor)
+
+    fun mix(from: Float, to: ParticleNode, factor: ParticleNode) =
+        ParticleNode.Mix(Scalar(from), to, factor)
+
     fun mix(from: Float, to: Float, factor: ParticleNode) =
         ParticleNode.Mix(Scalar(from), Scalar(to), factor)
+
+    // --- Constraints (clamp) ---
 
     fun clamp(value: ParticleNode, min: ParticleNode, max: ParticleNode) =
         ParticleNode.Clamp(value, min, max)
@@ -143,11 +151,21 @@ class ParticleNodeOperations {
     fun clamp(value: ParticleNode, min: Float, max: Float) =
         ParticleNode.Clamp(value, Scalar(min), Scalar(max))
 
+    fun clamp(value: ParticleNode, min: ParticleNode, max: Float) =
+        ParticleNode.Clamp(value, min, Scalar(max))
+
+    fun clamp(value: ParticleNode, min: Float, max: ParticleNode) =
+        ParticleNode.Clamp(value, Scalar(min), max)
+
+    // --- Thresholding (step) ---
+
     fun step(threshold: ParticleNode, input: ParticleNode) =
         ParticleNode.Step(threshold, input)
 
     fun step(threshold: Float, input: ParticleNode) =
         ParticleNode.Step(Scalar(threshold), input)
+
+    // --- Smooth Interpolation (smoothstep) ---
 
     fun smoothstep(from: ParticleNode, to: ParticleNode, input: ParticleNode) =
         ParticleNode.SmoothStep(from, to, input)
@@ -155,10 +173,35 @@ class ParticleNodeOperations {
     fun smoothstep(from: Float, to: Float, input: ParticleNode) =
         ParticleNode.SmoothStep(Scalar(from), Scalar(to), input)
 
+    fun smoothstep(from: Float, to: ParticleNode, input: ParticleNode) =
+        ParticleNode.SmoothStep(Scalar(from), to, input)
+
+    fun smoothstep(from: ParticleNode, to: Float, input: ParticleNode) =
+        ParticleNode.SmoothStep(from, Scalar(to), input)
+
+    // --- Logical Selection (select) ---
+
+    fun select(condition: ParticleNode, onTrue: ParticleNode, onFalse: ParticleNode) =
+        ParticleNode.Select(condition, onTrue, onFalse)
+
+    fun select(condition: ParticleNode, onTrue: Float, onFalse: Float) =
+        ParticleNode.Select(condition, Scalar(onTrue), Scalar(onFalse))
+
+    fun select(condition: ParticleNode, onTrue: ParticleNode, onFalse: Float) =
+        ParticleNode.Select(condition, onTrue, Scalar(onFalse))
+
+    fun select(condition: ParticleNode, onTrue: Float, onFalse: ParticleNode) =
+        ParticleNode.Select(condition, Scalar(onTrue), onFalse)
+
+    // --- Procedural ---
+
     fun noise(input: ParticleNode, min: Float = 0f, max: Float = 1f, octaves: Int = 1) =
         ParticleNode.Noise(input, min, max, octaves)
 }
 
+/**
+ * Mathematical Operations.
+ */
 class ParticleNodeMath(val provider: ParticleNodeProvider) {
 
     companion object {
@@ -272,7 +315,6 @@ class ParticleNodeMath(val provider: ParticleNodeProvider) {
     // Random
     fun random(min: ParticleNode, max: ParticleNode, seed: ParticleNode? = null) =
         ParticleNode.Random(min, max, seed)
-
     fun random(min: Float, max: Float, seed: ParticleNode? = null) =
         ParticleNode.Random(Scalar(min), Scalar(max), seed)
 }

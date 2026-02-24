@@ -255,17 +255,13 @@ private fun <T : Any> ScaledGameViewport(
 
     val viewportTransform = engine.resolution
     val scaleFactor = viewportTransform.scaleFactor
-    val scaledSize = viewportTransform.scaledSize
+    val scaleSize = viewportTransform.scaleSize
 
-    val (scaledWidthDp, scaledHeightDp) = remember(scaledSize) {
-        with(originalDensity) {
-            scaledSize.width.toDp() to scaledSize.height.toDp()
-        }
+    val (scaledWidthDp, scaledHeightDp) = remember(scaleSize) {
+        with(originalDensity) { scaleSize.width.toDp() to scaleSize.height.toDp() }
     }
 
-    val scaledDensity = remember(scaleFactor) {
-        Density(density = scaleFactor)
-    }
+    val scaledDensity = remember(scaleFactor) { Density(density = scaleFactor) }
 
     Box(modifier = Modifier.size(scaledWidthDp, scaledHeightDp).clipToBounds()) {
         CompositionLocalProvider(LocalDensity provides scaledDensity) {

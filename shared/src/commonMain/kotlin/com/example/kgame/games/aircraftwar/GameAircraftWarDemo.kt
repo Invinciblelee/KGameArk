@@ -32,13 +32,12 @@ import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
-import com.kgame.engine.geometry.expandFromBottom
-import com.kgame.engine.geometry.expandFromCenter
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.GameJoypad
+import com.kgame.engine.ui.Rectangle
 import com.kgame.engine.ui.applyJoypad
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.plugins.components.AlphaAnimation
@@ -644,6 +643,287 @@ fun ParticleNodeScope.risingSmoke(center: Offset) {
     }
 }
 
+/**
+ * Neon Pulse Material: Features a glowing ring with chromatic aberration-like effects.
+ * Best used for high-energy bursts or tactical UI feedback.
+ */
+class NeonPulseMaterial(val baseColor: Color, val context: ParticleContext) : Material {
+
+    @Language("AGSL")
+    override val sksl: String = """
+        uniform float uTime;
+        uniform float uProgress;
+        uniform vec4 uColor;
+        
+        vec4 main(vec2 uv) {
+            vec2 st = uv * 2.0 - 1.0;
+            float d = length(st);
+            
+            // 1. Dynamic ring thickness based on progress
+            // Ring starts thick and sharpens as it expands
+            float thickness = mix(0.3, 0.05, uProgress);
+            float ring = smoothstep(thickness, 0.0, abs(d - uProgress));
+            
+            // 2. Chromatic Aberration Effect
+            // Shift the blue channel slightly outward to create a "digital" feel
+            float ringB = smoothstep(thickness, 0.0, abs(d - (uProgress + 0.02)));
+            
+            // 3. Glitch Flicker
+            float flicker = sin(uTime * 40.0) * 0.1 + 0.9;
+            if (fract(uTime * 10.0) > 0.98) flicker *= 2.0; // Random spike
+            
+            // 4. Alpha logic
+            // Fade out based on progress and ensure the quad corners are transparent
+            float edgeFade = smoothstep(1.0, 0.8, d);
+            float lifeFade = 1.0 - smoothstep(0.5, 1.0, uProgress);
+            
+            vec3 finalColor = uColor.rgb;
+            finalColor.b += ringB * 0.5; // Enhance blue fringe
+            
+            float alpha = ring * uColor.a * lifeFade * edgeFade;
+            
+            // Premultiplied alpha output
+            return vec4(finalColor * alpha * flicker, alpha);
+        }
+    """.trimIndent()
+
+    override fun MaterialEffect.onSetup() {
+        uniform(Material.COLOR, baseColor)
+    }
+
+    override fun MaterialEffect.onUpdate() {
+        uniform(Material.PROGRESS, context.progress)
+    }
+}
+
+/**
+ * Neon Energy Pulse DSL:
+ * Redesigned using the Pure Math vs. Graphical Ops architecture.
+ */
+fun ParticleNodeScope.neonEnergyPulse(center: Offset) {
+
+    // Layer 1: Converging Data Fragments
+    // Logic: Spiral movement into the center
+    layer("convergence", center) {
+        config {
+            count = 120
+            duration = 0.8f
+            material = NeonPulseMaterial(
+                baseColor = Color(0.0f, 0.8f, 1.0f, 0.6f),
+                context = context
+            )
+        }
+
+        val p = env.progress
+        val invP = 1.0f - p
+
+        // Using math for atomic calculations
+        val angleDegrees = env.index * 25.0f + p * 10.0f
+        val rad = math.toRadians(angleDegrees)
+
+        // Using ops.mix to handle the radius contraction smoothly
+        val baseRadius = 300.0f * math.random(0.8f, 1.2f)
+        val radius = ops.mix(baseRadius, 0.0f, p)
+
+        position = vec2(
+            math.cos(rad) * radius,
+            math.sin(rad) * radius
+        )
+
+        size = 4.0f + p * 8.0f
+    }
+
+    // Layer 2: The Main Expanding Ring (The "Shader Quad" trick)
+    // Why it's smooth: Multiple overlapping quads with shader-driven distance fields.
+    layer("shockwave_ring", center) {
+        config {
+            count = 5
+            duration = 1.2f
+            material = NeonPulseMaterial(
+                baseColor = Color(0.0f, 1.0f, 0.7f, 0.9f),
+                context = context
+            )
+        }
+
+        // Logic: Offset timing to create a "echo" effect
+        val delay = env.index * 0.12f
+        val timeWithDelay = env.time - delay
+
+        // Using ops.clamp to ensure the signal is valid
+        val localP = ops.clamp(timeWithDelay / 1.0f, 0.0f, 1.0f)
+
+        position = vec2(0f, 0f)
+        // size expands, but the shader within the quad defines the "ring"
+        size = 600.0f * localP
+    }
+
+    // Layer 3: High-Velocity Spikes (Physical Burst)
+    layer("spark_burst", center) {
+        config {
+            count = 250
+            duration = 1.5f
+        }
+
+        val angle = math.random(0f, 360f)
+        val rad = math.toRadians(angle)
+
+        // Physics: Drag-limited expansion
+        val speed = math.random(300f, 700f)
+        val dragK = 2.0f
+        val velocity = speed * (1.0f - math.exp(-dragK * env.time)) / dragK
+
+        position = vec2(
+            math.cos(rad) * velocity,
+            math.sin(rad) * velocity
+        )
+
+        // Using ops.mix for sophisticated color fading
+        val p = env.progress
+        val fade = 1.0f - p
+
+        color = ops.mix(
+            from = color(0.0f, 1.0f, 0.8f, fade), // Neon Cyan
+            to = color(1.0f, 1.0f, 1.0f, 0.0f),    // Dissolve to white
+            factor = ops.smoothstep(0.4f, 1.0f, p) // Fade starts late
+        )
+
+        size = math.random(2f, 5f) * fade
+    }
+}
+
+/**
+ * Chromatic Collapse Material:
+ * Simulates gravitational lensing and color splitting during an energy collapse.
+ */
+class ChromaticCollapseMaterial(val baseColor: Color, val context: ParticleContext) : Material {
+
+    @Language("AGSL")
+    override val sksl: String = """
+        uniform float uTime;
+        uniform float uProgress;
+        uniform vec4 uColor;
+        
+        vec4 main(vec2 uv) {
+            vec2 st = uv * 2.0 - 1.0;
+            float d = length(st);
+            
+            // 1. Spatial Distortion: Suck UVs towards center as progress increases
+            float distortion = 1.0 + pow(uProgress, 3.0) * 2.0;
+            vec2 distortedUV = st * distortion;
+            float dd = length(distortedUV);
+            
+            // 2. Chromatic Aberration: Split RGB based on distance and progress
+            float shift = 0.05 * uProgress;
+            float r = smoothstep(0.8 + shift, 0.0, dd);
+            float g = smoothstep(0.8, 0.0, dd);
+            float b = smoothstep(0.8 - shift, 0.0, dd);
+            
+            // 3. Dynamic Flicker & Glitch
+            float flicker = sin(uTime * 50.0) * uProgress * 0.2 + (1.0 - uProgress * 0.3);
+            
+            // 4. Alpha logic: Inward collapse fade
+            float alpha = g * (1.0 - uProgress) * uColor.a;
+            vec3 color = vec3(r, g, b) * uColor.rgb;
+            
+            return vec4(color * alpha * flicker, alpha);
+        }
+    """.trimIndent()
+
+    override fun MaterialEffect.onSetup() {
+        uniform(Material.COLOR, baseColor)
+    }
+
+    override fun MaterialEffect.onUpdate() {
+        uniform(Material.PROGRESS, context.progress)
+    }
+}
+
+/**
+ * Quantum Collapse: A complex three-stage particle event.
+ * Validates the 'ops' layer's ability to handle non-linear logic and coordinate systems.
+ */
+fun ParticleNodeScope.quantumCollapse(center: Offset) {
+
+    // Stage 1: The Accretion Disk (吸积盘 - 稳定的环绕)
+    layer("accretion_disk", center) {
+        config {
+            count = 400
+            duration = 2.5f
+            material = ChromaticCollapseMaterial(Color(0.4f, 0.2f, 1.0f), context)
+        }
+
+        val p = env.progress
+        // 使用 ops.smoothstep 定义坍缩开始的时间点
+        val collapseSignal = ops.smoothstep(0.6f, 1.0f, p)
+
+        // 旋转物理逻辑
+        val baseAngle = env.index * 137.5f // Golden angle distribution
+        val rotation = env.time * 120f
+        val rad = math.toRadians(baseAngle + rotation)
+
+        // 关键逻辑：半径从稳定轨道(200)迅速坍缩至中心(0)
+        val orbitRadius = 200.0f
+        val radius = ops.mix(orbitRadius, 0.0f, collapseSignal)
+
+        position = vec2(
+            math.cos(rad) * radius,
+            math.sin(rad) * radius
+        )
+
+        size = ops.mix(8f, 2f, collapseSignal)
+    }
+
+    // Stage 2: Singular Convergence (奇点汇聚 - 极速粒子束)
+    layer("singularity_beams", center) {
+        config {
+            count = 800
+            duration = 1.0f
+        }
+
+        val p = env.progress
+        val speedBase = math.random(400f, 800f)
+
+        // 这里的逻辑反转：粒子从外部被“吸”向中心
+        val invP = 1.0f - p
+        val angle = math.random(0f, 360f)
+        val rad = math.toRadians(angle)
+
+        // 模拟引力加速度：越靠近中心越快
+        val dist = speedBase * math.pow(invP, 2.0f)
+
+        position = vec2(
+            math.cos(rad) * dist,
+            math.sin(rad) * dist
+        )
+
+        // 颜色在接近奇点时变为纯白
+        color = ops.mix(
+            from = color(0.1f, 0.5f, 1.0f, p),
+            to = color(1.0f, 1.0f, 1.0f, p),
+            factor = p
+        )
+
+        size = 2.0f + p * 4.0f
+    }
+
+    // Stage 3: Event Horizon (事件视界 - 震荡的大光圈)
+    layer("event_horizon", center) {
+        config {
+            count = 2
+            duration = 1.2f
+            material = ChromaticCollapseMaterial(Color(1f, 1f, 1f), context)
+        }
+
+        // 利用 ops.clamp 和 math.sin 制造最后时刻的剧烈震动
+        val p = env.progress
+        val vibration = math.sin(env.time * 60f) * ops.step(0.7f, p) * 10f
+
+        position = vec2(vibration, vibration)
+
+        // 事件视界先扩张后瞬间消失
+        size = ops.mix(0f, 800f, ops.smoothstep(0f, 0.8f, p))
+    }
+}
 
 private data class WeaponComponent(
     val cooldown: Float = 0.3f,
@@ -656,7 +936,6 @@ private data class WeaponComponent(
 // --- 3. 游戏系统 (Game Systems) ---
 
 private class AircraftControlSystem(
-    val cameraService: CameraService = inject(),
     val input: InputManager = inject(),
     val assets: AssetsManager = inject(),
     priority: SystemPriority
@@ -679,7 +958,6 @@ private class AircraftControlSystem(
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) deltaX += 1f
 
         transform.applyKinematicMovement(deltaTime = deltaTime, rawDeltaX = deltaX, rawDeltaY = deltaY, speed = 200f)
-        transform.position = cameraService.transformer.clampToBounds(transform.position)
 
         // 射击控制 (Spacebar)
         weapon.timeUntilNextShot -= deltaTime
@@ -799,7 +1077,7 @@ private class AircraftCollisionSystem(
                         bullet.configure { +CleanupTag }
 
                         particleService.emit {
-                            explosion(ePos)
+                            quantumCollapse(ePos)
                         }
 //                        world.entity {
 //                            +Transform(position = ePos)
@@ -852,10 +1130,13 @@ private sealed interface Scenes {
 @Composable
 fun GameAircraftWarDemo() {
     val sceneStack = rememberGameSceneStack<Any>(Scenes.Menu)
-    KGame(sceneStack = sceneStack) {
+    KGame(
+        sceneStack = sceneStack,
+        virtualSize = Size(600f, 800f)
+    ) {
         scene<Scenes.Menu> {
-            onStart {
-                println("Enter")
+            onBackgroundUI {
+                Rectangle(Color.Red)
             }
 
             onForegroundUI {
@@ -930,8 +1211,8 @@ fun GameAircraftWarDemo() {
             }
 
             onCreate {
-                load(GameAssets.Image.Background)
-                load(GameAssets.Atlas.Texture)
+                assets.load(GameAssets.Image.Background)
+                assets.load(GameAssets.Atlas.Texture)
             }
 
             onUpdate {

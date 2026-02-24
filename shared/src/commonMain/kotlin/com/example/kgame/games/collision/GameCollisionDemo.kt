@@ -129,7 +129,7 @@ fun GameCollisionDemo() {
         }
 
         onCreate {
-            load(GameAssets.Atlas.Walk)
+            assets.load(GameAssets.Atlas.Walk)
         }
 
         val fpsCalculator = FpsCalculator()

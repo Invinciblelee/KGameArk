@@ -15,78 +15,121 @@ enum class ResolutionScaleType {
 }
 
 interface ResolutionManager {
-    var actualSize: Size
-    var virtualSize: Size
-    var scaledSize: Size
+    // --- Inputs (Properties) ---
+    val actualSize: Size
 
-    var scaleFactor: Float
+    val virtualSize: Size
 
-    var offsetX: Float
-    var offsetY: Float
+    val scaleType: ResolutionScaleType
 
-    var scaleType: ResolutionScaleType
+    // --- Computed Results ---
 
-    fun applySize(
-        actualSize: Size = this.actualSize,
-        virtualSize: Size = this.virtualSize,
-        scaleType: ResolutionScaleType = ResolutionScaleType.Fill
-    ) {
-        this.actualSize = actualSize
-        this.virtualSize = virtualSize
-        this.scaleType = scaleType
+    val scaleSize: Size
 
-        if (actualSize.width <= 0 || actualSize.height <= 0) return
-        if (virtualSize.width <= 0 || virtualSize.height <= 0) return
+    val scaleFactor: Float
+    val offsetX: Float
+    val offsetY: Float
 
-        val scaleX = actualSize.width / virtualSize.width
-        val scaleY = actualSize.height / virtualSize.height
+    /**
+     * Set the virtual size of the rendering area (the "Canvas").
+     */
+    fun setVirtualSize(size: Size, scaleType: ResolutionScaleType = this.scaleType)
 
-        this.scaleFactor = when (scaleType) {
+    /**
+     * Set the physical size of the rendering area (the "Box" or "Window").
+     */
+    fun setActualSize(size: Size)
+
+    /**
+     * Set the absolute offset of the rendering area in the root window.
+     */
+    fun setCanvasOffset(offset: Offset)
+
+    fun actualToVirtual(position: Offset): Offset
+    fun virtualToActual(position: Offset): Offset
+}
+
+@Stable
+class DefaultResolutionManager : ResolutionManager {
+
+    private var _virtualSize by mutableStateOf(Size.Zero)
+    override val virtualSize: Size get() = _virtualSize
+
+    private var _actualSize by mutableStateOf(Size.Zero)
+    override val actualSize: Size get() = _actualSize
+    private var _canvasOffset by mutableStateOf(Offset.Zero)
+
+    private var _scaleType by mutableStateOf(ResolutionScaleType.Fill)
+    override val scaleType: ResolutionScaleType get() = _scaleType
+
+    override var scaleSize by mutableStateOf(Size.Zero)
+        private set
+
+    override var scaleFactor by mutableFloatStateOf(1f)
+        private set
+
+    override var offsetX by mutableFloatStateOf(0f)
+        private set
+    override var offsetY by mutableFloatStateOf(0f)
+        private set
+
+    override fun setVirtualSize(size: Size, scaleType: ResolutionScaleType) {
+        if (this._virtualSize == size && this._scaleType == scaleType) return
+        this._virtualSize = size
+        this._scaleType = scaleType
+        layout()
+    }
+
+    override fun setActualSize(size: Size) {
+        if (this.actualSize == size) return
+        this._actualSize = size
+        layout()
+    }
+
+    override fun setCanvasOffset(offset: Offset) {
+        this._canvasOffset = offset
+    }
+
+    private fun layout() {
+        val aW = actualSize.width
+        val aH = actualSize.height
+        val vW = virtualSize.width
+        val vH = virtualSize.height
+
+        if (aW <= 0f || aH <= 0f || vW <= 0f || vH <= 0f) return
+
+        val scaleX = aW / vW
+        val scaleY = aH / vH
+
+        scaleFactor = when (scaleType) {
             ResolutionScaleType.Fit -> min(scaleX, scaleY)
             ResolutionScaleType.Fill -> max(scaleX, scaleY)
         }
 
-        val scaledWidth = virtualSize.width * scaleFactor
-        val scaledHeight = virtualSize.height * scaleFactor
+        // Calculate the physical size after scaling
+        scaleSize = Size(vW * scaleFactor, vH * scaleFactor)
 
-        this.scaledSize = Size(scaledWidth, scaledHeight)
-
-        this.offsetX = (actualSize.width - scaledWidth) / 2f
-        this.offsetY = (actualSize.height - scaledHeight) / 2f
+        // Internal offset for centering the game within the actualSize
+        offsetX = (aW - (vW * scaleFactor)) / 2f
+        offsetY = (aH - (vH * scaleFactor)) / 2f
     }
 
-    fun actualToVirtual(position: Offset): Offset {
-        val xAfterTranslate = position.x - offsetX
-        val yAfterTranslate = position.y - offsetY
+    override fun actualToVirtual(position: Offset): Offset {
+        // 1. Position from Root -> Position relative to the Container (Box)
+        val localToBoxX = position.x - _canvasOffset.x
+        val localToBoxY = position.y - _canvasOffset.y
 
-        val xVirtual = xAfterTranslate / scaleFactor
-        val yVirtual = yAfterTranslate / scaleFactor
-
-        return Offset(xVirtual, yVirtual)
+        // 2. Position relative to Box -> Position relative to Virtual Space
+        return Offset(
+            x = (localToBoxX - offsetX) / scaleFactor,
+            y = (localToBoxY - offsetY) / scaleFactor
+        )
     }
 
-    fun virtualToActual(position: Offset): Offset {
-        val xAfterScale = position.x * scaleFactor
-        val yAfterScale = position.y * scaleFactor
-
-        val xActual = xAfterScale + offsetX
-        val yActual = yAfterScale + offsetY
-
-        return Offset(xActual, yActual)
+    override fun virtualToActual(position: Offset): Offset {
+        return Offset(
+            x = (position.x * scaleFactor) + offsetX + _canvasOffset.x,
+            y = (position.y * scaleFactor) + offsetY + _canvasOffset.y
+        )
     }
-
-}
-
-@Stable
-class DefaultResolutionManager: ResolutionManager {
-    override var actualSize: Size by mutableStateOf(Size.Zero)
-    override var virtualSize: Size by mutableStateOf(Size.Zero)
-
-    override var scaledSize: Size by mutableStateOf(Size.Zero)
-
-    override var scaleFactor: Float by mutableFloatStateOf(1f)
-    override var offsetX: Float by mutableFloatStateOf(0f)
-    override var offsetY: Float by mutableFloatStateOf(0f)
-
-    override var scaleType: ResolutionScaleType by mutableStateOf(ResolutionScaleType.Fill)
 }

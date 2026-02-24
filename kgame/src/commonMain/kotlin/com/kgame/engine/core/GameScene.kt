@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -49,7 +50,7 @@ import kotlinx.coroutines.launch
 internal class GameScene<T : Any>(
     val key: T,
     private val engine: GameEngine,
-    private val onCreate: (suspend AssetsScope.() -> Unit)?,
+    private val onCreate: (suspend () -> Unit)?,
     private val onStart: (() -> Unit)?,
     private val onDestroy: (() -> Unit)?,
     private val onEnable: (() -> Unit)?,
@@ -67,8 +68,6 @@ internal class GameScene<T : Any>(
 
     private val windowManager = WindowManager()
 
-    private val assetsScope = AssetsScope(engine.assets)
-
     private fun invalidate() {
         redrawSignal = !redrawSignal
     }
@@ -76,7 +75,7 @@ internal class GameScene<T : Any>(
     private suspend fun create() {
         isActive = true
 
-        onCreate?.invoke(assetsScope)
+        onCreate?.invoke()
 
         isCreated = true
     }
@@ -195,40 +194,23 @@ internal class GameScene<T : Any>(
         engine: GameEngine,
         onDraw: DrawScope.() -> Unit
     ) {
-        var canvasOffset by remember { mutableStateOf(Offset.Zero) }
-
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .onGloballyPositioned { canvasOffset = it.positionInRoot() }
-                .pointerInput(Unit) { engine.handlePointerEvent(this, canvasOffset) }
+                .onGloballyPositioned {
+                    engine.canvasOffsetChanged(it.positionInRoot())
+                }
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event: PointerEvent = awaitPointerEvent()
+                            engine.handlePointerEvent(event)
+                        }
+                    }
+                }
         ) {
             onDraw()
-        }
-    }
-
-}
-
-class AssetsScope(private val assets: AssetsManager) {
-
-    private val assetKeys = mutableSetOf<AssetKey<*, *>>()
-
-    suspend fun load(key: AssetKey<*, *>) {
-        if (assetKeys.add(key)) {
-            assets.load(key)
-        }
-    }
-
-    suspend fun load(vararg keys: AssetKey<*, *>) {
-        for (key in keys) {
-            load(key)
-        }
-    }
-
-    internal fun unload() {
-        for (key in assetKeys) {
-            assets.unload(key)
         }
     }
 

@@ -56,7 +56,7 @@ fun InputManager.applyJoypad(value: JoypadValue) {
     }
     // 上: 225° ~ 315°
     else if (normalizedAngle in 225f..315f) {
-        simulateKey(Key.Spacebar)
+        simulateKey(Key.DirectionUp)
     }
 }
 

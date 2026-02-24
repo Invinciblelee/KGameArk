@@ -95,6 +95,10 @@ interface AssetsManager {
 
 }
 
+suspend fun AssetsManager.load(vararg keys: AssetKey<*, *>) {
+    keys.forEach { key -> load(key) }
+}
+
 interface AssetsReader {
     suspend fun readBytes(path: String): ByteArray
     fun getUri(path: String): String

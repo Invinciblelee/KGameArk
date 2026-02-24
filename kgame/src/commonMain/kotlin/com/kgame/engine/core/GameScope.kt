@@ -31,7 +31,7 @@ interface GameScope {
     /**
      * The scaled size of the kgame.
      */
-    val scaledSize: Size
+    val scaleSize: Size
 
     /**
      * The resolution manager.

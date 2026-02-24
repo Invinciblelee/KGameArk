@@ -3,7 +3,6 @@ package com.kgame.engine.dsl
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.kgame.engine.core.AssetsScope
 import com.kgame.engine.core.GameEngine
 import com.kgame.engine.core.GameScene
 import com.kgame.engine.core.GameScope
@@ -15,7 +14,7 @@ class SceneBuilderScope<T: Any>(
     val key: T,
     private val engine: GameEngine
 ) : GameScope by engine {
-    private var onCreate: (suspend AssetsScope.() -> Unit)? = null
+    private var onCreate: (suspend () -> Unit)? = null
     private var onStart: (() -> Unit)? = null
     private var onDestroy: (() -> Unit)? = null
     private var onEnable: (() -> Unit)? = null
@@ -35,7 +34,7 @@ class SceneBuilderScope<T: Any>(
         world = GameWorldBuilder(engine, capacity).apply(builder).build()
     }
 
-    fun onCreate(block: suspend AssetsScope.() -> Unit) {
+    fun onCreate(block: suspend () -> Unit) {
         onCreate = block
     }
 

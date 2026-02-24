@@ -196,6 +196,9 @@ class AnimationService {
     }
 
     /** * Control functions requiring explicit name to target the correct composite key.
+     * @param id The entity ID.
+     * @param name The animation name.
+     * @param clip The animation clip, e.g. "idle", "walk", etc.
      */
     fun play(id: Int, name: String, clip: String? = null) {
         val state = getOrCreateState(id, name, clip, autoPlay = true)

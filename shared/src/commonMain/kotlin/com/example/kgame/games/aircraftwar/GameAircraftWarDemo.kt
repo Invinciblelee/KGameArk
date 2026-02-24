@@ -57,9 +57,12 @@ import com.kgame.plugins.components.PlayerTag
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Scroller
+import com.kgame.plugins.components.ScrollerTarget
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
+import com.kgame.plugins.components.Velocity
 import com.kgame.plugins.components.WorldBounds
+import com.kgame.plugins.components.applyDirection
 import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
@@ -947,6 +950,7 @@ private class AircraftControlSystem(
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
+        val velocity = entity[Velocity]
         val renderable = entity[Renderable]
         val weapon = entity[WeaponComponent]
 
@@ -957,7 +961,11 @@ private class AircraftControlSystem(
         if (input.isKeyDown(Key.A) || input.isKeyDown(Key.DirectionLeft)) deltaX -= 1f
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) deltaX += 1f
 
-        transform.applyKinematicMovement(deltaTime = deltaTime, rawDeltaX = deltaX, rawDeltaY = deltaY, speed = 200f)
+        // 2. You can set both at once
+        velocity.applyDirection(deltaX, deltaY)
+        println("x: ${velocity.x}, y: ${velocity.y}")
+
+        transform.applyKinematicMovement(velocity, deltaTime)
 
         // 射击控制 (Spacebar)
         weapon.timeUntilNextShot -= deltaTime
@@ -1136,7 +1144,7 @@ fun GameAircraftWarDemo() {
     ) {
         scene<Scenes.Menu> {
             onBackgroundUI {
-                Rectangle(Color.Red)
+                Rectangle(Color.Black)
             }
 
             onForegroundUI {
@@ -1174,16 +1182,10 @@ fun GameAircraftWarDemo() {
                 spawn {
                     val worldBounds = Rect(-400f, -400f, 400f, 300f)
 
-                    entity {
-                        val image = assets[GameAssets.Image.Background]
-                        +Transform()
-                        +Scroller(speed = -120f, axis = Axis.Y)
-                        +Renderable(ImageVisual(image), zIndex = -100)
-                    }
-
                     // 1. 玩家实体
                     val player = entity {
                         +Transform()
+                        +Velocity(120f, 120f)
                         +PlayerTag
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)
@@ -1198,6 +1200,14 @@ fun GameAircraftWarDemo() {
                                 size = Size(80f, 80f)
                             )
                         )
+                    }
+
+                    entity {
+                        val image = assets[GameAssets.Image.Background]
+                        +Transform()
+                        +Scroller(speed = -120f, axis = Axis.Y)
+                        +ScrollerTarget(player)
+                        +Renderable(ImageVisual(image), zIndex = -100)
                     }
 
                     entity {

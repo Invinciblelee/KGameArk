@@ -20,9 +20,17 @@ data class Transform(
     override fun type() = Transform
     companion object : ComponentType<Transform>()
 
-    val x: Float get() = position.x
+    var x: Float
+        get() = position.x
+        set(value) {
+            position = position.copy(x = value)
+        }
 
-    val y: Float get() = position.y
+    var y: Float
+        get() = position.y
+        set(value) {
+            position = position.copy(y = value)
+        }
 }
 
 /**
@@ -118,35 +126,15 @@ fun Transform.applySmoothFollow(
 }
 
 /**
- * Computes and updates the Transform's position from raw input direction (delta) and speed.
- * Normalizes the input so diagonal movement is not faster.
- *
- * @param rawDeltaX Raw X-axis input (-1f, 0f, 1f).
- * @param rawDeltaY Raw Y-axis input (-1f, 0f, 1f).
- * @param speed     Movement speed (e.g. 20f).
- * @param deltaTime Time step (dt).
+ * Updates the transform position based on its current velocity.
  */
 fun Transform.applyKinematicMovement(
-    rawDeltaX: Float,
-    rawDeltaY: Float,
-    speed: Float,
-    deltaTime: Float,
+    velocity: Velocity,
+    deltaTime: Float
 ) {
-    var deltaX = rawDeltaX
-    var deltaY = rawDeltaY
-
-    val length = sqrt(deltaX * deltaX + deltaY * deltaY)
-    if (length > 0) {
-        deltaX /= length
-        deltaY /= length
-    }
-
-    val movementX = deltaX * speed * deltaTime
-    val movementY = deltaY * speed * deltaTime
-
     this.position = Offset(
-        x = this.position.x + movementX,
-        y = this.position.y + movementY
+        x = this.position.x + velocity.x * deltaTime,
+        y = this.position.y + velocity.y * deltaTime
     )
 }
 

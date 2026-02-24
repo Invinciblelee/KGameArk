@@ -69,7 +69,6 @@ import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyImpulseFromSegment
-import com.kgame.plugins.components.applyKinematicMovement
 import com.kgame.plugins.components.applyScale
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
@@ -537,12 +536,12 @@ private class PlayerControlSystem(
             playerTransform.applyScale(scaleX = 1f, scaleY = 1f)
         }
 
-        playerTransform.applyKinematicMovement(
-            deltaTime = deltaTime,
-            rawDeltaX = deltaX,
-            rawDeltaY = deltaY,
-            speed = 100f
-        )
+//        playerTransform.applyKinematicMovement(
+//            deltaTime = deltaTime,
+//            rawDeltaX = deltaX,
+//            rawDeltaY = deltaY,
+//            speed = 100f
+//        )
     }
 }
 

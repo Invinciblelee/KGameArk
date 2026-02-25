@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
 import com.kgame.ecs.Entity
@@ -103,14 +104,14 @@ fun GameCollisionDemo() {
 
                     // 创建随机移动和碰撞的实体
                     +Transform(bounds.randomOffset())
-                    +RigidBody(Offset(velX, velY), mass = mass)
+                    +RigidBody(Velocity(velX, velY), mass = mass)
                     +Renderable(CircleVisual(color, 40f), zIndex = 1)
                 }
 
                 // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
                 val e = entity {
                     +Transform()
-                    +RigidBody(Offset.Zero, mass = 0f)
+                    +RigidBody(mass = 0f)
                     +anim
                     +SpriteAnimation("run")
                     +Renderable(

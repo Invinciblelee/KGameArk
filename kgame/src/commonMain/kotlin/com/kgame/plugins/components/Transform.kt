@@ -8,7 +8,8 @@ import androidx.compose.ui.layout.lerp
 import androidx.compose.ui.util.lerp
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
-import kotlin.math.sqrt
+import com.kgame.engine.geometry.toOffset
+import com.kgame.engine.geometry.toVelocity
 
 data class Transform(
     var position: Offset = Offset.Zero,
@@ -89,7 +90,7 @@ fun Transform.applyElasticityFollow(
     val forceSpring = displacement * -elasticity.stiffness
     // **CORRECTED**: Use the velocity from the RigidBody for the damping calculation.
     val forceDamping = rigidBody.velocity * -elasticity.damping
-    val totalForce = forceSpring + forceDamping
+    val totalForce = forceSpring.toVelocity() + forceDamping
 
     // a = F / m (Newton's Second Law of Motion).
     // Acceleration is calculated using the mass from the RigidBody component.
@@ -101,7 +102,7 @@ fun Transform.applyElasticityFollow(
 
     // p = p_initial + v * dt
     // **CORRECTED**: Update the Transform's position using the RigidBody's newly calculated velocity.
-    this.position += rigidBody.velocity * deltaTime
+    this.position += (rigidBody.velocity * deltaTime).toOffset()
 }
 
 /**
@@ -129,12 +130,12 @@ fun Transform.applySmoothFollow(
  * Updates the transform position based on its current velocity.
  */
 fun Transform.applyKinematicMovement(
-    velocity: Velocity,
+    movement: Movement,
     deltaTime: Float
 ) {
     this.position = Offset(
-        x = this.position.x + velocity.x * deltaTime,
-        y = this.position.y + velocity.y * deltaTime
+        x = this.position.x + movement.velocityX * deltaTime,
+        y = this.position.y + movement.velocityY * deltaTime
     )
 }
 

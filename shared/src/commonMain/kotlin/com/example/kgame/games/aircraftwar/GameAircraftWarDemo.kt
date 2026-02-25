@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
 import com.kgame.ecs.Component
@@ -60,7 +61,7 @@ import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.ScrollerTarget
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.Velocity
+import com.kgame.plugins.components.Movement
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyDirection
 import com.kgame.plugins.components.applyKinematicMovement
@@ -950,7 +951,7 @@ private class AircraftControlSystem(
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
-        val velocity = entity[Velocity]
+        val velocity = entity[Movement]
         val renderable = entity[Renderable]
         val weapon = entity[WeaponComponent]
 
@@ -963,7 +964,6 @@ private class AircraftControlSystem(
 
         // 2. You can set both at once
         velocity.applyDirection(deltaX, deltaY)
-        println("x: ${velocity.x}, y: ${velocity.y}")
 
         transform.applyKinematicMovement(velocity, deltaTime)
 
@@ -977,7 +977,7 @@ private class AircraftControlSystem(
                 +Transform(
                     position = transform.position + Offset(0f, -renderable.size.height / 2f),
                 )
-                +RigidBody(velocity = Offset(0f, -600f), drag = 0f)
+                +RigidBody(velocity = Velocity(0f, -600f), drag = 0f)
                 +Boundary(strategy = BoundaryStrategy.Cleanup)
                 +PlayerBulletTag(damage = 10f)
                 +Renderable(SpriteVisual(atlas = texture, name = "stormplane_bullet_hero.png"), zIndex = -1)
@@ -1006,7 +1006,7 @@ private class EnemyWeaponSystem(
                 +Transform(
                     position = transform.position,
                 )
-                +RigidBody(velocity = Offset(0f, 300f), drag = 0f) // 向下
+                +RigidBody(velocity = Velocity(0f, 300f), drag = 0f) // 向下
                 +Boundary(strategy = BoundaryStrategy.Cleanup)
                 +EnemyBulletTag(damage = 15f)
                 +Renderable(SpriteVisual(atlas = texture, name = "stormplane_bullet_elite.png"), zIndex = -1)
@@ -1041,7 +1041,7 @@ private class EnemySpawnSystem(
                         y = spawnY
                     ),
                 )
-                +RigidBody(velocity = Offset((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
+                +RigidBody(velocity = Velocity((-100f..100f).random(), 150f), drag = 0f) // 缓慢向下
                 +CharacterStats(maxHp = 20f)
                 +WorldBounds(worldBounds)
                 +Boundary(strategy = BoundaryStrategy.Cleanup)
@@ -1144,7 +1144,7 @@ fun GameAircraftWarDemo() {
     ) {
         scene<Scenes.Menu> {
             onBackgroundUI {
-                Rectangle(Color.Black)
+                Rectangle(Color.White)
             }
 
             onForegroundUI {
@@ -1185,7 +1185,7 @@ fun GameAircraftWarDemo() {
                     // 1. 玩家实体
                     val player = entity {
                         +Transform()
-                        +Velocity(120f, 120f)
+                        +Movement(120f, 120f)
                         +PlayerTag
                         +CharacterStats(maxHp = 100f)
                         +WeaponComponent(cooldown = 0.2f)

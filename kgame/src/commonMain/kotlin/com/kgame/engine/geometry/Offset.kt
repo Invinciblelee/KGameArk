@@ -2,13 +2,9 @@ package com.kgame.engine.geometry
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.layout.ScaleFactor
-import androidx.compose.ui.text.font.FontVariation.width
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import com.kgame.engine.maps.TiledMapShape.Point.size
+import androidx.compose.ui.unit.Velocity
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -203,3 +199,8 @@ fun Offset.expandFromRight(width: Float, height: Float): Rect {
  * Generates a square Rect with the current Offset as the middle-right anchor.
  */
 fun Offset.expandFromRight(size: Float): Rect = expandFromRight(size, size)
+
+/**
+ * Converts this [Offset] to a [Velocity].
+ */
+fun Offset.toVelocity(): Velocity = Velocity(x, y)

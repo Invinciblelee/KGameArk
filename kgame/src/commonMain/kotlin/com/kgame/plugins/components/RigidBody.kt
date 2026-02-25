@@ -1,10 +1,15 @@
 package com.kgame.plugins.components
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
+import com.kgame.engine.geometry.magnitude
+import com.kgame.engine.geometry.magnitudeSquared
 import com.kgame.engine.geometry.normalized
+import com.kgame.engine.geometry.toOffset
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -23,8 +28,8 @@ import kotlin.random.Random
  * @param inertia Moment of inertia(Moment of Inertia, I).
  */
 data class RigidBody(
-    var velocity: Offset = Offset.Zero,
-    var acceleration: Offset = Offset.Zero,
+    var velocity: Velocity = Velocity.Zero,
+    var acceleration: Velocity = Velocity.Zero,
     var mass: Float = 1f,
     var drag: Float = 2.0f,
     var maxSpeed: Float = 1000f,
@@ -93,7 +98,7 @@ fun RigidBody.applyForce(force: Offset) {
     if (this.mass <= 0f) {
         return
     }
-    this.acceleration += force / this.mass
+    this.acceleration += Velocity(force.x / this.mass, force.y / this.mass)
 }
 
 /**
@@ -105,7 +110,7 @@ fun RigidBody.applyImpulse(impulse: Offset) {
     if (this.mass <= 0f) {
         return
     }
-    this.velocity += impulse / this.mass
+    this.velocity += Velocity(impulse.x / this.mass, impulse.y / this.mass)
 }
 
 /**
@@ -158,7 +163,7 @@ fun RigidBody.applyTorqueToAlign(
 ) {
     if (targetDirection == Offset.Zero) return
 
-    val targetAngle = kotlin.math.atan2(targetDirection.y, targetDirection.x) * (180f / kotlin.math.PI.toFloat())
+    val targetAngle = atan2(targetDirection.y, targetDirection.x) * (180f / PI.toFloat())
 
     // Find the shortest angle to rotate
     var angleDiff = targetAngle - currentRotation
@@ -229,11 +234,11 @@ fun RigidBody.applyExplosionForce(
  * @param dragCoefficient A constant that combines factors like fluid density, cross-sectional area, etc.
  */
 fun RigidBody.applyDragForce(dragCoefficient: Float = 0.1f) {
-    if (this.velocity == Offset.Zero) return
-    val speed = this.velocity.getDistance()
+    if (this.velocity == Velocity.Zero) return
+    val speed = this.velocity.magnitude
     val dragForceMagnitude = dragCoefficient * speed * speed
     val dragForce = this.velocity.normalized() * -dragForceMagnitude
-    this.applyForce(dragForce)
+    this.applyForce(dragForce.toOffset())
 }
 
 
@@ -252,8 +257,8 @@ fun RigidBody.applyArriverForce(
     val dist = diff.getDistance()
 
     if (dist < arriver.stopDistance) {
-        this.velocity = Offset.Zero
-        this.acceleration = Offset.Zero
+        this.velocity = Velocity.Zero
+        this.acceleration = Velocity.Zero
         return
     }
 
@@ -268,7 +273,7 @@ fun RigidBody.applyArriverForce(
     }
 
     val desiredVel = diff.normalized() * desiredSpeed
-    val steerForce = (desiredVel - this.velocity) * 4f
+    val steerForce = (desiredVel - this.velocity.toOffset()) * 4f
 
     this.applyForce(steerForce)
 }
@@ -292,7 +297,7 @@ fun RigidBody.applyElasticityForce(
     // F_damping = -c * v
     val forceDamping = this.velocity * -elasticity.damping
 
-    this.applyForce(forceSpring + forceDamping)
+    this.applyForce(forceSpring + forceDamping.toOffset())
 }
 
 /**
@@ -305,8 +310,8 @@ fun RigidBody.applyElasticityForce(
 fun RigidBody.applyWanderForce(wander: Wander) {
     // 1. Project the wander circle's center in front of the entity based on its velocity.
     // If velocity is zero, we create a default forward direction to avoid getting stuck.
-    val circleCenterDirection = if (this.velocity != Offset.Zero) {
-        this.velocity.normalized()
+    val circleCenterDirection = if (this.velocity != Velocity.Zero) {
+        this.velocity.normalized().toOffset()
     } else {
         // Start by wandering in a random direction if standing still
         Offset(cos(wander.angle * (PI / 180f).toFloat()), sin(wander.angle * (PI / 180f).toFloat()))
@@ -405,7 +410,7 @@ fun RigidBody.applyImpulseFromSegment(
  * @return The total kinetic energy (linear + angular).
  */
 fun RigidBody.getKineticEnergy(): Float {
-    val linearKE = 0.5f * this.mass * this.velocity.getDistanceSquared()
+    val linearKE = 0.5f * this.mass * this.velocity.magnitudeSquared
     val angularKE = 0.5f * this.inertia * this.angularVelocity * this.angularVelocity
     return linearKE + angularKE
 }
@@ -418,7 +423,7 @@ fun RigidBody.getKineticEnergy(): Float {
  * @return `true` if both linear and angular velocities are below their respective thresholds.
  */
 fun RigidBody.isSleeping(linearThreshold: Float = 0.1f, angularThreshold: Float = 0.1f): Boolean {
-    return this.velocity.getDistanceSquared() < linearThreshold * linearThreshold &&
+    return this.velocity.magnitudeSquared < linearThreshold * linearThreshold &&
             kotlin.math.abs(this.angularVelocity) < angularThreshold
 }
 
@@ -426,8 +431,8 @@ fun RigidBody.isSleeping(linearThreshold: Float = 0.1f, angularThreshold: Float 
  * Sets the velocity, acceleration, angular velocity, and angular acceleration of a rigid body to zero.
  */
 fun RigidBody.still() {
-    this.velocity = Offset.Zero
-    this.acceleration = Offset.Zero
+    this.velocity = Velocity.Zero
+    this.acceleration = Velocity.Zero
     this.angularVelocity = 0f
     this.angularAcceleration = 0f
 }
@@ -480,13 +485,13 @@ fun RigidBody.integrate(transform: Transform, deltaTime: Float) {
 
     // 3. Limit max speed
     val maxSpeedSq = this.maxSpeed * this.maxSpeed
-    if (this.velocity.getDistanceSquared() > maxSpeedSq) {
+    if (this.velocity.magnitudeSquared > maxSpeedSq) {
         this.velocity = this.velocity.normalized() * this.maxSpeed
     }
 
     // 4. Update position based on the new velocity
     // p += v * dt
-    transform.position += this.velocity * deltaTime
+    transform.position += this.velocity.toOffset() * deltaTime
 
     // --- Angular Motion ---
     // 5. Apply angular drag to angular velocity
@@ -500,6 +505,6 @@ fun RigidBody.integrate(transform: Transform, deltaTime: Float) {
     transform.rotation += this.angularVelocity * deltaTime
 
     // 8. Reset both linear and angular accelerations for the next frame
-    this.acceleration = Offset.Zero
+    this.acceleration = Velocity.Zero
     this.angularAcceleration = 0f
 }

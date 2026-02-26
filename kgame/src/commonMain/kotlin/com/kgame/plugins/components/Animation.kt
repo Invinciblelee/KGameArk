@@ -20,7 +20,8 @@ sealed interface AnimationSpec
  */
 data class Spring(
     val stiffness: Float = 300f,
-    val damping: Float = 15f
+    val damping: Float = 15f,
+    val initialVelocity: Float = 0f
 ) : AnimationSpec
 
 /**

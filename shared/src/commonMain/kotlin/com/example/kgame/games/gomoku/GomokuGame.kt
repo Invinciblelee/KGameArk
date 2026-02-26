@@ -31,9 +31,12 @@ import com.kgame.plugins.visuals.Visual
 import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.services.particles.ParticleNodeScope
 import com.kgame.plugins.services.CameraService
+import com.kgame.plugins.services.particles.ParticleNodeMath
 import org.intellij.lang.annotations.Language
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -279,7 +282,9 @@ private class GomokuSystem(
             +StoneTag
             +Transform(worldPos)
             +Renderable(StoneVisual(type), zIndex = 10)
-            +ScaleAnimation(name = "drop", from = 0f, to = 1f, pivot = TransformOrigin.Center, spec = Spring(stiffness = 500f), autoPlay = true)
+            +ScaleAnimation(name = "drop", from = 0f, to = 1f,
+                spec = Spring(stiffness = 500f, damping = 25f, initialVelocity = 3.5f),
+                autoPlay = true)
         }
         
         // 缩短震动时间感
@@ -296,11 +301,44 @@ private class GomokuSystem(
 }
 
 private fun ParticleNodeScope.ripple(c: Offset, col: Color) {
-    layer("r", c) { config { count = 1; duration = 0.4f }; size = scalar(15f) + env.progress * 100f; color = color(col.red, col.green, col.blue, (1f - env.progress) * 0.4f) }
+    layer("zen_ripple", c) {
+        config {
+            count = 24 // 增加点数，让圆环更密
+            duration = 0.4f
+        }
+
+        // --- 极坐标逻辑 ---
+        // 直接使用 math.TAU (Float常量节点)，运算符重载会自动处理
+        val angle = (env.index / env.count) * ParticleNodeMath.TAU
+
+        // 扩散半径：直接进行 Float 运算
+        val radius = env.progress * 80f
+
+        // 位置映射：vec2 构造器接收 ParticleNode
+        position = vec2(math.cos(angle) * radius, math.sin(angle) * radius)
+
+        // --- 视觉动态 (利用 ops) ---
+        // 1.0f - env.progress 会触发你定义的 Float.minus(node)
+        val invProgress = 1.0f - env.progress
+
+        // 使用 smoothstep 让粒子在扩张时优雅地变小并淡出
+        size = ops.smoothstep(1.0f, 0.0f, env.progress) * 5f
+
+        // 利用 mix 或直接乘法控制透明度
+        val alpha = invProgress * 0.5f
+        color = color(col.red, col.green, col.blue, alpha)
+    }
 }
 
 private fun ParticleNodeScope.victoryRain() {
-    layer("v", Offset(Config.BOARD_X, Config.BOARD_Y)) { config { count = 120; duration = 2.5f }; val a = math.random(0f, 360f); val r = math.toRadians(a); position = vec2(math.cos(r) * 500f * env.progress, math.sin(r) * 400f * env.progress); size = math.random(5f, 12f); color = color(1f, 0.85f, 0.2f, 1f - env.progress) }
+    layer("v", Offset(Config.BOARD_X, Config.BOARD_Y)) {
+        config { count = 120; duration = 2.5f }
+        val a = math.random(0f, 360f)
+        val r = math.toRadians(a)
+        position = vec2(math.cos(r) * 500f * env.progress, math.sin(r) * 400f * env.progress)
+        size = math.random(5f, 12f)
+        color = color(1f, 0.85f, 0.2f, 1f - env.progress)
+    }
 }
 
 // --- 7. Entry ---

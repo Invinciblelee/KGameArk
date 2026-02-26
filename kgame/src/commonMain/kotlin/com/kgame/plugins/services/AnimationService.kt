@@ -11,6 +11,7 @@ import com.kgame.engine.maps.TiledMapAnimationFrame
 import com.kgame.engine.math.degrees
 import com.kgame.plugins.components.Animation
 import com.kgame.ecs.Identifiable
+import com.kgame.engine.utils.internal.SpringSolver
 import com.kgame.plugins.components.InfiniteRepeatable
 import com.kgame.plugins.components.PathAnimation
 import com.kgame.plugins.components.Spring
@@ -122,7 +123,7 @@ class AnimationService {
                 }
             }
             is Spring -> {
-                SpringRatioSimulation.getFraction(elapsedTime, spec)
+                SpringSolver.getFraction(elapsedTime, spec.stiffness, spec.damping, spec.initialVelocity)
             }
         }
     }
@@ -233,29 +234,3 @@ class AnimationService {
 fun AnimationService.play(identifiable: Identifiable, name: String, clip: String? = null) = play(identifiable.id, name, clip)
 fun AnimationService.pause(identifiable: Identifiable, name: String) = pause(identifiable.id, name)
 fun AnimationService.stop(identifiable: Identifiable, name: String) = stop(identifiable.id, name)
-
-private object SpringRatioSimulation {
-    fun getFraction(elapsedTime: Float, spring: Spring): Float {
-        val natFreq = sqrt(spring.stiffness.toDouble())
-        val dampingRatio = (spring.damping / (2f * sqrt(spring.stiffness))).toDouble()
-        val t = elapsedTime.toDouble()
-        val newDisp: Double = when {
-            dampingRatio > 1.0 -> overDamped(t, natFreq, dampingRatio)
-            dampingRatio == 1.0 -> criticallyDamped(t, natFreq)
-            else -> underDamped(t, natFreq, dampingRatio)
-        }
-        return (1.0 - newDisp).toFloat()
-    }
-
-    private fun overDamped(t: Double, natFreq: Double, dampingRatio: Double): Double {
-        val r = -dampingRatio * natFreq; val s = natFreq * sqrt(dampingRatio * dampingRatio - 1); val gp = r + s; val gm = r - s; val b = (gm - 0.0) / (gm - gp); val a = 1.0 - b; return a * exp(gm * t) + b * exp(gp * t)
-    }
-
-    private fun criticallyDamped(t: Double, natFreq: Double): Double {
-        val a = 1.0; val b = natFreq; return (a + b * t) * exp(-natFreq * t)
-    }
-
-    private fun underDamped(t: Double, natFreq: Double, dampingRatio: Double): Double {
-        val dampedFreq = natFreq * sqrt(1 - dampingRatio * dampingRatio); val r = -dampingRatio * natFreq; val sinCoeff = r / dampedFreq; return exp(r * t) * (cos(dampedFreq * t) + sinCoeff * sin(dampedFreq * t))
-    }
-}

@@ -487,9 +487,9 @@ class ParticleNodeCompiler {
 
     private fun traverseColor(node: ParticleNode): ColorExec = when (node) {
         is ParticleNode.Color -> {
-            val rN = traverseScalar(node.red);
+            val rN = traverseScalar(node.red)
             val gN = traverseScalar(node.green)
-            val bN = traverseScalar(node.blue);
+            val bN = traverseScalar(node.blue)
             val aN = traverseScalar(node.alpha)
             ColorExec { ctx ->
                 val r = (rN.eval(ctx).coerceIn(0f, 1f) * 255).toInt()

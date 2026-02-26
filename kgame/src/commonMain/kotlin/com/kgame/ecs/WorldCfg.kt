@@ -52,7 +52,8 @@ class InjectableConfiguration(private val world: World) {
  */
 @WorldCfgMarker
 class SystemConfiguration(
-    private val systems: MutableList<IntervalSystem>
+    @PublishedApi
+    internal val systems: MutableList<IntervalSystem>
 ) {
     /**
      * Adds the [system] to the [world][World].
@@ -73,9 +74,9 @@ class SystemConfiguration(
      *
      * @see add
      */
-    fun <T : IntervalSystem> SystemConfiguration.addIfAbsent(system: T) {
-        if (systems.none { it::class == system::class }) {
-            add(system)
+    inline fun <reified T : IntervalSystem> SystemConfiguration.addIfAbsent(system: () -> T) {
+        if (systems.none { it::class == T::class }) {
+            add(system())
         }
     }
 

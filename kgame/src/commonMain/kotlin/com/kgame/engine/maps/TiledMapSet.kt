@@ -4,7 +4,6 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
-import com.kgame.engine.collection.SimpleCollection
 import kotlin.jvm.JvmInline
 
 /**
@@ -32,7 +31,7 @@ data class TiledMapSet(
     val image: ImageBitmap,
     val terrains: Map<String, Int>,
     val tiles: Map<Int, TiledMapTile>,
-) : SimpleCollection<TiledMapTile> {
+) {
     // Calculate how many columns and rows fit in the image
     // Formula: (ImageDimension - 2 * margin + spacing) / (tileSize + spacing)
     val columns: Int = ((size.width - 2 * margin + spacing) / (tileSize.width + spacing)).toInt().coerceAtLeast(1)
@@ -41,15 +40,6 @@ data class TiledMapSet(
     // If you have 'tilecount', use: rows = ceil(tilecount / columns)
     // If not, calculate based on image height:
     val rows: Int = ((size.height - 2 * margin + spacing) / (tileSize.height + spacing)).toInt().coerceAtLeast(1)
-
-    private val tileList: List<TiledMapTile> = tiles.values.toList()
-
-    override val count: Int
-        get() = tileList.size
-
-    override fun get(index: Int): TiledMapTile {
-        return tileList[index]
-    }
 
     /**
      * Gets the special tile [TiledMapTile] for a given Global ID (GID).
@@ -126,15 +116,9 @@ data class AnimatedTiledMapTile(
     override val id: Int,
     override val properties: Map<String, String> = emptyMap(),
     val frames: List<TiledMapAnimationFrame>
-) : TiledMapTile, SimpleCollection<TiledMapAnimationFrame> {
+) : TiledMapTile {
 
     val duration: Int = frames.sumOf { it.duration }
-
-    override val count: Int get() = frames.size
-
-    override fun get(index: Int): TiledMapAnimationFrame {
-        return frames[index]
-    }
 
 }
 

@@ -94,31 +94,31 @@ class GameWorldBuilder(
         if (useDefaultSystems) {
             config.systems {
                 // --- Physics & Collision Stage ---
-                addIfAbsent(PhysicsSystem())
-                addIfAbsent(TiledMapCollisionSystem())
-                addIfAbsent(BoundarySystem())
-                addIfAbsent(CollisionSystem())
+                addIfAbsent { PhysicsSystem() }
+                addIfAbsent { TiledMapCollisionSystem() }
+                addIfAbsent { BoundarySystem() }
+                addIfAbsent { CollisionSystem() }
 
                 // --- Logic & AI Stage ---
-                addIfAbsent(SteeringSystem())
-                addIfAbsent(ScrollerDriveSystem())
-                addIfAbsent(InvincibleSystem())
+                addIfAbsent { SteeringSystem() }
+                addIfAbsent { ScrollerDriveSystem() }
+                addIfAbsent { InvincibleSystem() }
 
                 // --- Animation Stage ---
-                addIfAbsent(AnimationTickSystem())
-                addIfAbsent(AnimationSystem())
+                addIfAbsent { AnimationTickSystem() }
+                addIfAbsent { AnimationSystem() }
 
                 // --- Camera Stage ---
-                addIfAbsent(CameraSystem())
+                addIfAbsent { CameraSystem() }
 
                 // --- Rendering Stage ---
-                addIfAbsent(TiledMapRenderSystem())
-                addIfAbsent(ScrollerRenderSystem())
-                addIfAbsent(RenderSystem())
-                addIfAbsent(ParticleRenderSystem())
+                addIfAbsent { TiledMapRenderSystem() }
+                addIfAbsent { ScrollerRenderSystem() }
+                addIfAbsent { RenderSystem() }
+                addIfAbsent { ParticleRenderSystem() }
 
                 // --- Lifecycle Stage ---
-                addIfAbsent(CleanupSystem())
+                addIfAbsent { CleanupSystem() }
             }
         }
     }

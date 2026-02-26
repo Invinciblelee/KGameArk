@@ -102,8 +102,8 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
     override var scrollDelta: Offset = Offset.Zero
         private set
 
-    override val isPointerDown: Boolean
-        get() = isMouseDown(0)
+    override var isPointerDown: Boolean = false
+        private set
 
     override val isKeyDown: Boolean
         get() {
@@ -143,8 +143,10 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         val changes = event.changes
         var i = 0
         var accScroll = Offset.Zero
+        var pointerDown = false
         while (i < changes.size) {
             val change = changes[i]
+            if (change.pressed) pointerDown = true
             if (i == 0) {
                 // Using the first pointer's position as the main pointerPosition
                 pointerPosition = resolution.actualToVirtual(change.position)
@@ -153,6 +155,7 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
             i++
         }
         scrollDelta = accScroll
+        isPointerDown = pointerDown
 
         // 2. Update Mouse Button States using event.buttons mask
         val buttons = event.buttons

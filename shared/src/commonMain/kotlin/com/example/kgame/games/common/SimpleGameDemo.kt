@@ -34,7 +34,7 @@ fun SimpleGameDemo() {
     ) {
         val visual = RectangleVisual(color = Color.Red, size = Size(width = 100f, height = 100f))
 
-        world {
+        onWorld {
             useDefaultSystems()
 
             spawn {
@@ -62,7 +62,8 @@ fun SimpleGameDemo() {
                             repeatMode = RepeatMode.Restart
                         ),
                         orientToPath = true, // Enable automatic rotation
-                        rotationOffset = 90f // Adjust if your sprite faces "up" by default
+                        rotationOffset = 90f, // Adjust if your sprite faces "up" by default
+                        autoPlay = true
                     )
 
                     // 3. Keep your existing scale animation to see them combined

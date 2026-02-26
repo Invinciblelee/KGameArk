@@ -18,15 +18,11 @@ import com.kgame.plugins.components.applyReflectionImpulse
  * The BoundarySystem is responsible for detecting when an entity has left the world bounds.
  */
 class BoundarySystem(priority: SystemPriority = SystemPriorityAnchors.Physics) : IteratingSystem(
-    family = family { all(Boundary, Transform) },
+    family = family { all(Boundary, Transform).none(Camera) },
     priority = priority
 ) {
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
-        if (entity has Camera) {
-            return
-        }
-
         val worldBounds = entity.getOrNull(WorldBounds) ?: return
         val transform = entity[Transform]
         val boundary = entity[Boundary]

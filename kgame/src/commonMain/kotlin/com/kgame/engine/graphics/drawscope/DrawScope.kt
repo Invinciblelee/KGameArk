@@ -85,11 +85,8 @@ inline fun DrawScope.withCameraTransform(
     val shakeRotation = shake?.shakeRotation ?: 0f
     val finalRotation = cameraRotation + shakeRotation
 
-    var finalCameraX = cameraPos.x
-    var finalCameraY = cameraPos.y
-
-    finalCameraX += shakeOffsetX
-    finalCameraY += shakeOffsetY
+    val finalCameraX = (cameraPos.x + shakeOffsetX).toInt().toFloat()
+    val finalCameraY = (cameraPos.y + shakeOffsetY).toInt().toFloat()
 
     withTransform({
         clipRect(

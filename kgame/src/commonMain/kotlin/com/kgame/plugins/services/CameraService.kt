@@ -19,6 +19,7 @@ import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
 import com.kgame.plugins.components.CameraTransition
 import com.kgame.plugins.components.Elasticity
+import com.kgame.plugins.components.Movement
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Smooth
 import com.kgame.plugins.components.Transform
@@ -136,9 +137,9 @@ class CameraDirector(
 
         val elasticity = entity.getOrNull(Elasticity)
         if (elasticity != null) {
-            val rigidBody = entity.getOrNull(RigidBody)
-            if (rigidBody != null) {
-                transform.applyElasticityFollow(newTargetPos, elasticity, rigidBody, deltaTime)
+            val movement = entity.getOrNull(Movement)
+            if (movement != null) {
+                transform.applyElasticityFollow(newTargetPos, elasticity, movement, deltaTime)
                 return
             }
         }
@@ -521,6 +522,9 @@ class CameraFrustumCuller(
      *         `true` if the transform is potentially inside the view and should be rendered.
      */
     fun overlaps(transform: Transform, bounds: Rect, cameraName: String? = null): Boolean {
+        if (bounds.isInfinite) return true
+        if (bounds.isEmpty) return false
+
         // --- Setup ---
         // If the camera cannot be found, there is no basis for culling, so we don't cull.
         val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return true

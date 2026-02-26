@@ -10,7 +10,7 @@ import com.kgame.ecs.ComponentType
  * @property lerpSpeed The speed factor for the linear interpolation. Higher values result in a tighter, more responsive follow.
  */
 data class Smooth(
-    var lerpSpeed: Float = 5f
+    var lerpSpeed: Float = 5.0f
 ) : Component<Smooth> {
     override fun type() = Smooth
     companion object: ComponentType<Smooth>()

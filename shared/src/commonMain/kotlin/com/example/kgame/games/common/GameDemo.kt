@@ -50,18 +50,17 @@ import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.randomOffset
-import com.kgame.engine.ui.GameJoypad
 import com.kgame.engine.ui.LocalWindowManager
 import com.kgame.engine.ui.Rectangle
 import com.kgame.engine.ui.Window
 import com.kgame.engine.ui.WindowHeader
-import com.kgame.engine.ui.applyJoypad
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.CameraTarget
 import com.kgame.plugins.components.Elasticity
 import com.kgame.plugins.components.Hitbox
+import com.kgame.plugins.components.Movement
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.SpriteAnimation
@@ -70,6 +69,7 @@ import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.applyImpulseFromSegment
 import com.kgame.plugins.components.applyScale
+import com.kgame.plugins.components.step
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
 import com.kgame.plugins.systems.AnimationTickSystem
@@ -224,6 +224,7 @@ private class SilkPhysicsSystem(
         val rootWorldPos = player[Transform].position
         val targetWorldPos = cameraService.transformer.virtualToWorld(input.pointerPosition)
         val isPointerDown = input.isPointerDown
+
 
         silkFamily.forEach {
             val silk = it[SilkComponent]
@@ -494,7 +495,7 @@ private class PlayerControlSystem(
     val input: InputManager = inject(),
     val cameraService: CameraService = inject()
 ) : IteratingSystem(
-    family = family { all(PlayerTag, Transform) }
+    family = family { all(PlayerTag, Transform, Movement) }
 ) {
     private var currentCamera = "player"
 
@@ -516,6 +517,8 @@ private class PlayerControlSystem(
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val playerTransform = entity[Transform]
+        val playerMovement = entity[Movement]
+
         var deltaX = 0f
         var deltaY = 0f
 
@@ -536,12 +539,7 @@ private class PlayerControlSystem(
             playerTransform.applyScale(scaleX = 1f, scaleY = 1f)
         }
 
-//        playerTransform.applyKinematicMovement(
-//            deltaTime = deltaTime,
-//            rawDeltaX = deltaX,
-//            rawDeltaY = deltaY,
-//            speed = 100f
-//        )
+        playerMovement.step(playerTransform, deltaX, deltaY, deltaTime)
     }
 }
 
@@ -579,7 +577,7 @@ fun GameDemo() {
         }
 
         scene<Battle> {
-            world {
+            onWorld {
                 configure {
                     systems {
                         +PlayerControlSystem()
@@ -608,8 +606,9 @@ fun GameDemo() {
                     val player = entity {
                         +Transform(position = Offset(0f, -100f))
                         +PlayerTag()
-                        +SpriteAnimation("run")
+                        +Movement(120f, 120f)
                         +Hitbox(Rect(left = -15f, top = -10f, right = 15f, bottom = 25f))
+                        +SpriteAnimation("run")
                         +Renderable(
                             SpriteVisual(
                                 assets[GameAssets.Atlas.Walk],
@@ -632,7 +631,7 @@ fun GameDemo() {
                         val silk = SilkComponent(WuXing.Water)
                         +Transform()
                         +silk
-                        +Renderable(SilkVisual(silk), zIndex = 2)
+                        +Renderable(SilkVisual(silk), zIndex = 99)
                         +SilkBounds()
                     }
 
@@ -646,7 +645,7 @@ fun GameDemo() {
                     entity {
                         +Transform()
                         +Elasticity(stiffness = 80f, damping = 10f)
-                        +RigidBody()
+                        +Movement()
                         +CameraTarget(enemy)
                         +CameraShake()
                         +Camera("enemy")
@@ -712,7 +711,6 @@ fun GameDemo() {
             onForegroundUI {
                 val windowManager = LocalWindowManager.current
 
-                GameJoypad(onValue = input::applyJoypad)
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -761,7 +759,7 @@ fun GameDemo() {
     }
 }
 
-private class TestWindow() : Window(200.dp, 200.dp) {
+private class TestWindow : Window(200.dp, 200.dp) {
 
     private var text by mutableStateOf("")
 

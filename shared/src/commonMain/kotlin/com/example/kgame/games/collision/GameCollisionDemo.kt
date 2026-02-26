@@ -2,16 +2,13 @@ package com.example.kgame.games.collision
 
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.dp
 import com.example.kgame.games.GameAssets
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
@@ -23,15 +20,15 @@ import com.kgame.engine.math.randomOffset
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraTarget
+import com.kgame.plugins.components.Hitbox
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
-import com.kgame.plugins.components.ScaleAnimation
-import com.kgame.plugins.components.Spring
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.systems.AnimationSystem
+import com.kgame.plugins.systems.AnimationTickSystem
 import com.kgame.plugins.systems.CollisionSystem
 import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.visuals.images.SpriteVisual
@@ -73,21 +70,12 @@ fun GameCollisionDemo() {
     KSimpleGame(
         modifier = Modifier.fillMaxSize(),
     ) {
-        val anim = ScaleAnimation(
-            name = "alpha",
-            from = 0f,
-            to = 1f,
-            spec = Spring(
-                stiffness = 80f,
-                damping = 15f,
-            )
-        )
-
-        world {
+        onWorld {
             configure {
                 systems {
                     +CollisionSystem()
                     +MovementSystem()
+                    +AnimationTickSystem()
                     +AnimationSystem()
                     +RenderSystem()
                 }
@@ -105,6 +93,7 @@ fun GameCollisionDemo() {
                     // 创建随机移动和碰撞的实体
                     +Transform(bounds.randomOffset())
                     +RigidBody(Velocity(velX, velY), mass = mass)
+                    +Hitbox(Rect(-20f, -20f, 20f, 20f))
                     +Renderable(CircleVisual(color, 40f), zIndex = 1)
                 }
 
@@ -112,11 +101,11 @@ fun GameCollisionDemo() {
                 val e = entity {
                     +Transform()
                     +RigidBody(mass = 0f)
-                    +anim
+                    +Hitbox(Rect(-50f, -50f, 50f, 50f))
                     +SpriteAnimation("run")
                     +Renderable(
-                        visual = SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0"),
-                        zIndex = 1
+                        visual = SpriteVisual(assets[GameAssets.Atlas.Walk], "frame_0_0", size = Size(100f, 100f)),
+                        zIndex = 1,
                     )
                 }
 
@@ -131,6 +120,8 @@ fun GameCollisionDemo() {
 
         onCreate {
             assets.load(GameAssets.Atlas.Walk)
+
+            RenderSystem.isDebugging = true
         }
 
         val fpsCalculator = FpsCalculator()
@@ -139,15 +130,6 @@ fun GameCollisionDemo() {
 
         onForegroundUI {
             Text("FPS: ${fpsCalculator.fps}")
-
-            Button(
-                onClick = {
-
-                },
-                modifier = Modifier.padding(top = 100.dp)
-            ) {
-                Text("Test")
-            }
         }
     }
 }

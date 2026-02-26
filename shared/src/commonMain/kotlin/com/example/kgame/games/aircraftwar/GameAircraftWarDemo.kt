@@ -63,8 +63,7 @@ import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Movement
 import com.kgame.plugins.components.WorldBounds
-import com.kgame.plugins.components.applyDirection
-import com.kgame.plugins.components.applyKinematicMovement
+import com.kgame.plugins.components.step
 import com.kgame.plugins.services.AnimationService
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.services.particles.ParticleContext
@@ -951,7 +950,7 @@ private class AircraftControlSystem(
 
     override fun onTickEntity(entity: Entity, deltaTime: Float) {
         val transform = entity[Transform]
-        val velocity = entity[Movement]
+        val movement = entity[Movement]
         val renderable = entity[Renderable]
         val weapon = entity[WeaponComponent]
 
@@ -963,9 +962,7 @@ private class AircraftControlSystem(
         if (input.isKeyDown(Key.D) || input.isKeyDown(Key.DirectionRight)) deltaX += 1f
 
         // 2. You can set both at once
-        velocity.applyDirection(deltaX, deltaY)
-
-        transform.applyKinematicMovement(velocity, deltaTime)
+        movement.step(transform, deltaX, deltaY, deltaTime)
 
         // 射击控制 (Spacebar)
         weapon.timeUntilNextShot -= deltaTime
@@ -1162,7 +1159,7 @@ fun GameAircraftWarDemo() {
         }
 
         scene<Scenes.Battle> {
-            world {
+            onWorld {
                 useDefaultSystems()
 
                 configure {
@@ -1203,11 +1200,10 @@ fun GameAircraftWarDemo() {
                     }
 
                     entity {
-                        val image = assets[GameAssets.Image.Background]
                         +Transform()
                         +Scroller(speed = -120f, axis = Axis.Y)
                         +ScrollerTarget(player)
-                        +Renderable(ImageVisual(image), zIndex = -100)
+                        +Renderable(ImageVisual(assets[GameAssets.Image.Background]))
                     }
 
                     entity {

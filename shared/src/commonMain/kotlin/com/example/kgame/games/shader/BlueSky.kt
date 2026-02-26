@@ -33,12 +33,12 @@ class BlueSky(
 
     @Language("AGSL")
     override val sksl: String = """
-        uniform float3 $RESOLUTION;
+        uniform vec2 $RESOLUTION;
         uniform float $TIME;
         uniform float $SCALE;
         uniform float2 $CLOUD_PARAMS; 
-        uniform vec3 $SKY_COLOR_TOP;
-        uniform vec3 $SKY_COLOR_HORIZON;
+        uniform vec4 $SKY_COLOR_TOP;
+        uniform vec4 $SKY_COLOR_HORIZON;
 
         float random(vec2 p) {
             return fract(sin(dot(p.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -75,7 +75,7 @@ class BlueSky(
             
             /* 2. Create the Sky Gradient */
             float gradient = smoothstep(-1.0, 1.0, uv.y);
-            vec3 skyColor = mix($SKY_COLOR_TOP, $SKY_COLOR_HORIZON, gradient);
+            vec3 skyColor = mix($SKY_COLOR_TOP.rgb, $SKY_COLOR_HORIZON.rgb, gradient);
 
             /* 3. Create Clouds (Simplified) */
             // Animate cloud movement
@@ -99,7 +99,7 @@ class BlueSky(
         }
     """
 
-    override fun MaterialEffect.onUpdate() {
+    override fun MaterialEffect.onSetup() {
         uniform(SCALE, scale)
         uniform(CLOUD_PARAMS, cloudCover, cloudSharpness)
         uniform(SKY_COLOR_TOP, skyColorTop)

@@ -73,7 +73,7 @@ class SystemConfiguration(
      *
      * @see add
      */
-    internal fun <T : IntervalSystem> SystemConfiguration.addIfAbsent(system: T) {
+    fun <T : IntervalSystem> SystemConfiguration.addIfAbsent(system: T) {
         if (systems.none { it::class == system::class }) {
             add(system)
         }
@@ -201,7 +201,7 @@ class WorldConfiguration(@PublishedApi internal val world: World) {
         }
 
         world.initAggregatedFamilyHooks()
-        world.systems.forEach { it.onInit() }
+        world.systems.forEach { it.onAwake() }
     }
 }
 

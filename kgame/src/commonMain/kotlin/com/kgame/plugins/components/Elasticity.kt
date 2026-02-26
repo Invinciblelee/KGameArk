@@ -10,7 +10,7 @@ import com.kgame.ecs.ComponentType
  */
 data class Elasticity(
     val stiffness: Float = 300f,
-    val damping: Float = 15f
+    val damping: Float = 20f
 ) : Component<Elasticity> {
     override fun type() = Elasticity
 

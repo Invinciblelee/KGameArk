@@ -114,8 +114,29 @@ fun RigidBody.applyImpulse(impulse: Offset) {
 }
 
 /**
- * Applies a reflection impulse to the rigid body based on a surface normal.
- * This is used for bouncing off boundaries or static obstacles.
+ * Applies an instantaneous impulse at a specific world position.
+ * This affects both linear velocity and angular velocity based on the point of impact.
+ *
+ * @param impulse The impulse vector to add (force * time).
+ * @param point The world position where the impulse is applied.
+ * @param center The world position of the body's center of mass.
+ */
+fun RigidBody.applyImpulseAtPosition(impulse: Offset, point: Offset, center: Offset) {
+    if (this.mass <= 0f || this.inertia <= 0f) return
+
+    // 1. Apply linear change: dv = I / m
+    this.applyImpulse(impulse)
+
+    // 2. Apply angular change: dw = (r x I) / inertia
+    // In 2D, the cross product of r(x,y) and impulse(x,y) is a scalar.
+    val r = point - center
+    val torqueImpulse = r.x * impulse.y - r.y * impulse.x
+    this.angularVelocity += torqueImpulse / this.inertia
+}
+
+/**
+ * Applies a reflection impulse based on a surface normal with a velocity threshold (slop).
+ * This prevents jittering when an object is resting on or sliding against a surface.
  *
  * @param normal The unit normal vector of the surface (must be normalized).
  * @param restitution The coefficient of restitution (0 = no bounce, 1 = perfect elastic).
@@ -126,17 +147,22 @@ fun RigidBody.applyReflectionImpulse(
 ) {
     if (this.mass <= 0f) return
 
-    // Calculate the velocity component along the normal (dot product)
-    val dot = this.velocity.x * normal.x + this.velocity.y * normal.y
+    // Relative velocity along the normal
+    val velAlongNormal = this.velocity.x * normal.x + this.velocity.y * normal.y
 
-    // Only apply impulse if the body is moving towards the surface
-    if (dot < 0f) {
-        // Change in velocity: dv = -v_n * (1 + e)
-        // Impulse: I = m * dv
-        val impulseMag = -dot * (1f + restitution) * this.mass
+    // Use a small epsilon (slop) to prevent micro-bounces at near-zero velocities
+    val slop = 0.1f
+
+    // Only respond if the body is moving towards the surface
+    if (velAlongNormal < -slop) {
+        val impulseMag = -velAlongNormal * (1f + restitution) * this.mass
         val impulse = normal * impulseMag
-
         this.applyImpulse(impulse)
+    } else if (velAlongNormal < 0f) {
+        // If moving very slowly into the surface, just zero out the normal velocity component
+        // to keep the body resting flatly against the surface.
+        val correctionImpulse = normal * (-velAlongNormal * this.mass)
+        this.applyImpulse(correctionImpulse)
     }
 }
 
@@ -428,9 +454,10 @@ fun RigidBody.isSleeping(linearThreshold: Float = 0.1f, angularThreshold: Float 
 }
 
 /**
- * Sets the velocity, acceleration, angular velocity, and angular acceleration of a rigid body to zero.
+ * Brings the body to an immediate stop by clearing velocity and acceleration.
+ * The body retains its physical properties (mass, inertia) and can be moved again by forces.
  */
-fun RigidBody.still() {
+fun RigidBody.standstill() {
     this.velocity = Velocity.Zero
     this.acceleration = Velocity.Zero
     this.angularVelocity = 0f
@@ -438,73 +465,146 @@ fun RigidBody.still() {
 }
 
 /**
- * Apply collision response between two rigid bodies.
- * @param r1 The first rigid body.
- * @param t1 The transform of the first rigid body.
- * @param r2 The second rigid body.
- * @param t2 The transform of the second rigid body.
- * @param separation The separation vector between the two rigid bodies.
- * @param impulseMag The magnitude of the impulse to apply.
+ * Completely immobilizes the body, stripping its ability to be moved by physics.
+ * It resets motion and sets mass/inertia to infinity to make it an "unmovable object".
  */
-fun RigidBody.Companion.applyCollision(
-    r1: RigidBody, t1: Transform,
-    r2: RigidBody, t2: Transform,
-    separation: Offset,
-    impulseMag: Float = 30f
+fun RigidBody.immobilize() {
+    // 1. Stop current motion
+    this.standstill()
+
+    // 2. Erase movement potential by making it infinitely heavy/stable
+    this.mass = Float.POSITIVE_INFINITY
+    this.inertia = Float.POSITIVE_INFINITY
+
+    // 3. Optional: Maximize drag to ensure it absorbs any subtle numerical jitter
+    this.drag = Float.MAX_VALUE
+    this.angularDrag = Float.MAX_VALUE
+}
+
+/**
+ * Re-enables the body's ability to move by restoring physical properties.
+ * This is the counterpart to [immobilize].
+ *
+ * @param mass New mass value.
+ * @param inertia New moment of inertia value.
+ * @param drag New linear drag.
+ * @param angularDrag New angular drag.
+ */
+fun RigidBody.mobilize(
+    mass: Float = 1f,
+    inertia: Float = 1f,
+    drag: Float = 2.0f,
+    angularDrag: Float = 5.0f
 ) {
-    val invM1 = if (r1.mass <= 0f) 0f else 1f / r1.mass
-    val invM2 = if (r2.mass <= 0f) 0f else 1f / r2.mass
-    val totalInv = invM1 + invM2
-    if (totalInv <= 0f) return
+    this.mass = mass
+    this.inertia = inertia
+    this.drag = drag
+    this.angularDrag = angularDrag
 
-    val corr = separation / totalInv
-    if (r1.mass > 0f) t1.position += corr * invM1
-    if (r2.mass > 0f) t2.position -= corr * invM2
-
-    val normal = separation.normalized()
-    val impulse = normal * impulseMag
-    r1.applyImpulse(impulse * invM1)
-    r2.applyImpulse(-impulse * invM2)
+    // Reset any potentially infinite or maxed values
+    if (this.maxSpeed <= 0f) this.maxSpeed = 1000f
 }
 
 /**
  * Physics integration: updates the Transform from the RigidBody’s velocity and acceleration.
- * This method completely replaces the core loop logic of PhysicsSystem.
+ * This version uses Semi-implicit Euler integration for better numerical stability.
+ *
  * @param transform The Transform component of the current entity.
- * @param deltaTime Time step for integration. */
+ * @param deltaTime Time step for integration (seconds).
+ */
 fun RigidBody.integrate(transform: Transform, deltaTime: Float) {
-    // --- Linear Motion ---
-    // 1. Apply linear drag to velocity
-    // v = v * e^(-drag * dt)
+    if (deltaTime <= 0f) return
+
+    // --- 1. Damping (Drag) ---
+    // Apply damping before adding new energy to ensure stability at high speeds.
     val dragFactor = exp(-this.drag * deltaTime)
     this.velocity *= dragFactor
 
-    // 2. Apply acceleration to velocity
-    // v += a * dt
-    this.velocity += this.acceleration * deltaTime
+    val angularDragFactor = exp(-this.angularDrag * deltaTime)
+    this.angularVelocity *= angularDragFactor
 
-    // 3. Limit max speed
+    // --- 2. Velocity Update (Before Position) ---
+    // Integrate acceleration into velocity first.
+    this.velocity += this.acceleration * deltaTime
+    this.angularVelocity += this.angularAcceleration * deltaTime
+
+    // --- 3. Speed Clamping ---
     val maxSpeedSq = this.maxSpeed * this.maxSpeed
     if (this.velocity.magnitudeSquared > maxSpeedSq) {
         this.velocity = this.velocity.normalized() * this.maxSpeed
     }
 
-    // 4. Update position based on the new velocity
-    // p += v * dt
+    // --- 4. Position & Rotation Update ---
+    // Use the NEW velocity to update position (this is why it's "Semi-implicit").
+    // This provides much better stability for orbits and oscillatory motion.
     transform.position += this.velocity.toOffset() * deltaTime
 
-    // --- Angular Motion ---
-    // 5. Apply angular drag to angular velocity
-    val angularDragFactor = exp(-this.angularDrag * deltaTime)
-    this.angularVelocity *= angularDragFactor
+    // Note: Angular velocity is in rad/s, transform.rotation is usually in degrees.
+    val radToDeg = (180f / PI.toFloat())
+    transform.rotation += (this.angularVelocity * radToDeg) * deltaTime
 
-    // 6. Apply angular acceleration to angular velocity
-    this.angularVelocity += this.angularAcceleration * deltaTime
-
-    // 7. Update rotation based on the new angular velocity
-    transform.rotation += this.angularVelocity * deltaTime
-
-    // 8. Reset both linear and angular accelerations for the next frame
+    // --- 5. Reset Forces ---
+    // Accelerations are reset every frame as they are results of forces applied during that frame.
     this.acceleration = Velocity.Zero
     this.angularAcceleration = 0f
+}
+
+/**
+ * Resolves collision between two rigid bodies using momentum conservation.
+ * @param r1 The first rigid body.
+ * @param t1 The transform of the first rigid body.
+ * @param r2 The second rigid body.
+ * @param t2 The transform of the second rigid body.
+ * @param separation The minimum translation vector (MTV) to resolve overlap.
+ * @param restitution The coefficient of restitution (0.0: plastic, 1.0: perfect elastic).
+ */
+fun RigidBody.Companion.applyCollision(
+    r1: RigidBody, t1: Transform,
+    r2: RigidBody, t2: Transform,
+    separation: Offset,
+    restitution: Float = 0.5f
+) {
+    val invM1 = if (r1.mass <= 0f) 0f else 1f / r1.mass
+    val invM2 = if (r2.mass <= 0f) 0f else 1f / r2.mass
+    val totalInvMass = invM1 + invM2
+
+    // Safety check: if both masses are infinite (static), no resolution occurs.
+    if (totalInvMass <= 0f) return
+
+    // --- 1. Position Projection (Resolving Penetration) ---
+    // Instantly separate the overlapping entities to prevent "sinking".
+    val percent = 0.8f // Projection percentage (usually between 0.2 and 0.8)
+    val slop = 0.01f   // Penetration allowance to prevent jittering
+    val overlapDistance = separation.getDistance()
+
+    if (overlapDistance > slop) {
+        val correction = (separation / totalInvMass) * percent
+        if (r1.mass > 0f) t1.position += correction * invM1
+        if (r2.mass > 0f) t2.position -= correction * invM2
+    }
+
+    // --- 2. Impulse Response (Resolving Velocity) ---
+    val normal = separation.normalized()
+
+    // Relative velocity: Vr = V1 - V2
+    val relativeVelocity = Offset(
+        r1.velocity.x - r2.velocity.x,
+        r1.velocity.y - r2.velocity.y
+    )
+
+    // Calculate velocity component along the normal (Dot Product)
+    val velAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y
+
+    // If objects are already separating, do not apply an impulse.
+    if (velAlongNormal > 0f) return
+
+    // Impulse magnitude (j) formula based on Newton's law of restitution:
+    // j = -(1 + e) * (Vr · n) / (1/m1 + 1/m2)
+    val j = -(1f + restitution) * velAlongNormal / totalInvMass
+
+    val impulse = normal * j
+
+    // Final change in velocity is applied as an impulse
+    r1.applyImpulse(impulse)
+    r2.applyImpulse(-impulse)
 }

@@ -5,7 +5,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.kgame.plugins.visuals.Visual.Companion.InfiniteRect
 
 abstract class Visual {
 
@@ -36,6 +35,7 @@ abstract class Visual {
         }
 
     private var _bounds: Rect = InfiniteRect
+
     /**
      * The visual bounding box in local coordinate space.
      * Defaults to [InfiniteRect] to represent unconstrained spatial volume.
@@ -46,7 +46,7 @@ abstract class Visual {
      * The resolved pixel dimensions derived from the latest geometry pass.
      * Note: Accessing this when bounds is [InfiniteRect] may yield infinite dimensions.
      */
-    val size: Size get() = _bounds.size
+    val size: Size get() = if (bounds.isInfinite) Size.Unspecified else bounds.size
 
     open var alpha: Float = 1.0f
 
@@ -80,8 +80,8 @@ abstract class Visual {
          * A sentinel value representing an unbounded rectangular area.
          */
         protected val InfiniteRect = Rect(
-            Float.NEGATIVE_INFINITY,
-            Float.NEGATIVE_INFINITY,
+            Float.POSITIVE_INFINITY,
+            Float.POSITIVE_INFINITY,
             Float.POSITIVE_INFINITY,
             Float.POSITIVE_INFINITY
         )

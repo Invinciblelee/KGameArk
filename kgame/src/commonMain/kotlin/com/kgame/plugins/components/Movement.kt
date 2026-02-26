@@ -4,7 +4,7 @@ import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
 
 /**
- * Motion component defines the autonomous movement capability of an entity.
+ * Movement component defines the autonomous movement capability of an entity.
  * It separates the base cruise speed from the current directional state
  * to ensure input logic doesn't erase the entity's movement potential.
  */
@@ -14,9 +14,9 @@ class Movement(
     /** The base speed magnitude when moving on the Y axis. */
     var cruiseY: Float = 0f,
     /** Current normalized direction on X axis (-1f, 0f, 1f). */
-    var dirX: Float = 0f,
+    var dirX: Float = 1f,
     /** Current normalized direction on Y axis (-1f, 0f, 1f). */
-    var dirY: Float = 0f
+    var dirY: Float = 1f
 ) : Component<Movement> {
 
     /** Computed instantaneous velocity on X axis. */
@@ -53,9 +53,43 @@ fun Movement.applyDirection(dx: Float? = null, dy: Float? = null) {
 }
 
 /**
- * Forcefully stops the motion on both axes.
+ * Brings the entity to a standstill by clearing its directional state.
+ * The potential cruise speed remains untouched.
  */
-fun Movement.stop() {
+fun Movement.standstill() {
     this.dirX = 0f
     this.dirY = 0f
+}
+
+/**
+ * Instantly stops all movement and clears the speed potential.
+ * Use this for permanent immobilization.
+ */
+fun Movement.immobilize() {
+    this.dirX = 0f
+    this.dirY = 0f
+    this.cruiseX = 0f
+    this.cruiseY = 0f
+}
+
+/**
+ * Restores the movement potential of the entity by re-assigning cruise speeds.
+ * This is the counterpart to [immobilize].
+ *
+ * @param cruiseX The base speed magnitude to restore on the X axis.
+ * @param cruiseY The base speed magnitude to restore on the Y axis.
+ */
+fun Movement.mobilize(cruiseX: Float, cruiseY: Float) {
+    this.cruiseX = cruiseX
+    this.cruiseY = cruiseY
+    // Note: We usually keep dirX/Y at 0f until new input arrives
+    // to prevent the entity from "teleporting" or sudden jerks.
+}
+
+/**
+ * Steps the movement forward by a given direction and time, automatically updating the transform.
+ */
+fun Movement.step(transform: Transform, dirX: Float, dirY: Float, deltaTime: Float) {
+    this.applyDirection(dirX, dirY)
+    transform.applyKinematicMovement(this, deltaTime)
 }

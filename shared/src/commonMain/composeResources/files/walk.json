@@ -169,7 +169,7 @@
   "meta": {
     "app": "custom_script",
     "version": "1.0",
-    "image": "Walk.png",
+    "image": "walk.png",
     "size": {
       "w": 1408,
       "h": 128

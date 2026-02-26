@@ -27,7 +27,7 @@ class SceneBuilderScope<T: Any>(
 
     private var world: GameWorld? = null
 
-    fun world(
+    fun onWorld(
         capacity: Int = 1024,
         builder: GameWorldBuilder.() -> Unit
     ) {

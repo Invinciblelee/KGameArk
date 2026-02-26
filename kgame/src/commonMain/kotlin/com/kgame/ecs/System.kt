@@ -58,7 +58,7 @@ abstract class IntervalSystem(
     /**
      * This function gets called when the [world configuration][WorldConfiguration.configure] is completed.
      */
-    open fun onInit() = Unit
+    open fun onAwake() = Unit
 
     /**
      * This function gets called whenever the system gets [enabled].

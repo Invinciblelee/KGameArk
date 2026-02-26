@@ -8,6 +8,7 @@ import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.engine.geometry.set
 import com.kgame.plugins.components.Hitbox
+import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.applyCollision
@@ -40,6 +41,9 @@ class CollisionSystem(priority: SystemPriority = SystemPriorityAnchors.Physics):
             val entity = family[index]
             val transform = entity[Transform]
             val hitbox = entity[Hitbox]
+
+            if (!hitbox.enabled) continue
+
             keys[count] = transform.position.x - hitbox.rect.width / 2f
             indices[count] = index
             count++

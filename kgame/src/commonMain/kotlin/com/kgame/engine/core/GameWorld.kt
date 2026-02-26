@@ -15,7 +15,7 @@ import com.kgame.plugins.systems.CameraSystem
 import com.kgame.plugins.systems.CleanupSystem
 import com.kgame.plugins.systems.CollisionSystem
 import com.kgame.plugins.systems.InvincibleSystem
-import com.kgame.plugins.systems.ParticleSystem
+import com.kgame.plugins.systems.ParticleRenderSystem
 import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.RenderSystem
 import com.kgame.plugins.systems.ScrollerDriveSystem
@@ -59,7 +59,6 @@ class GameWorldBuilder(
     private val scope: GameScope,
     private val entityCapacity: Int
 ) {
-
     private var useDefaultSystems = false
 
     private var configuration: WorldConfiguration.() -> Unit = {}
@@ -69,12 +68,12 @@ class GameWorldBuilder(
         useDefaultSystems = true
     }
 
-    fun configure(configuration: WorldConfiguration.() -> Unit) {
-        this.configuration = configuration
+    fun configure(block: WorldConfiguration.() -> Unit) {
+        this.configuration = block
     }
 
-    fun spawn(initWorld: World.() -> Unit) {
-        this.initWorld = initWorld
+    fun spawn(block: World.() -> Unit) {
+        this.initWorld = block
     }
 
     private fun configureDefaults(config: WorldConfiguration) {
@@ -116,7 +115,7 @@ class GameWorldBuilder(
                 addIfAbsent(TiledMapRenderSystem())
                 addIfAbsent(ScrollerRenderSystem())
                 addIfAbsent(RenderSystem())
-                addIfAbsent(ParticleSystem())
+                addIfAbsent(ParticleRenderSystem())
 
                 // --- Lifecycle Stage ---
                 addIfAbsent(CleanupSystem())

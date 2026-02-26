@@ -20,7 +20,7 @@ fun MutableRect.set(
     rect: Rect
 ) {
     if (rect.isInfinite) {
-        set(Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+        set(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
         return
     }
 

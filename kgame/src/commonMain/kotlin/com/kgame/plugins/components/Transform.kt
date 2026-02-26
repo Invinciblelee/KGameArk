@@ -106,6 +106,32 @@ fun Transform.applyElasticityFollow(
 }
 
 /**
+ * A lightweight version of elasticity follow that uses [Movement] instead of [RigidBody].
+ * Ideal for Cameras or UI elements that need spring physics without full physical simulation.
+ */
+fun Transform.applyElasticityFollow(
+    targetPosition: Offset,
+    elasticity: Elasticity,
+    movement: Movement,
+    deltaTime: Float,
+) {
+    // x = current - target
+    val dx = this.position.x - targetPosition.x
+    val dy = this.position.y - targetPosition.y
+
+    // F = -k * x - c * v (Assume mass = 1.0)
+    val ax = (-elasticity.stiffness * dx) - (elasticity.damping * movement.cruiseX)
+    val ay = (-elasticity.stiffness * dy) - (elasticity.damping * movement.cruiseY)
+
+    // Update velocity in Movement component
+    movement.cruiseX += ax * deltaTime
+    movement.cruiseY += ay * deltaTime
+
+    // Use your existing kinematic method to apply the movement
+    movement.step(this, 1f, 1f, deltaTime)
+}
+
+/**
  * Encapsulates linear-interpolation (Lerp) logic to move the Transform toward a target
  * position over time, controlled by a smoothness factor.
  *
@@ -118,8 +144,7 @@ fun Transform.applySmoothFollow(
     smooth: Smooth,
     deltaTime: Float,
 ) {
-    val tRaw = (smooth.lerpSpeed * deltaTime).coerceIn(0f, 1f)
-    val t    = tRaw * tRaw * (3 - 2 * tRaw)
+    val t = 1f - kotlin.math.exp(-smooth.lerpSpeed * deltaTime)
 
     val newX = lerp(position.x, targetPosition.x, t)
     val newY = lerp(position.y, targetPosition.y, t)

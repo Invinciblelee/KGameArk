@@ -3,10 +3,8 @@
 package com.example.kgame
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.kgame.games.aircraftwar.GameAircraftWarDemo
+import com.example.kgame.games.gomoku.GomokuGame
 
 @Composable
 expect fun AppTheme(content: @Composable () -> Unit)
@@ -14,6 +12,6 @@ expect fun AppTheme(content: @Composable () -> Unit)
 @Composable
 fun App() {
     AppTheme {
-        GameAircraftWarDemo()
+        GomokuGame()
     }
 }

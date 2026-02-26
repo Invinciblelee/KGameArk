@@ -290,7 +290,7 @@ private fun EntityCreateScope.spawnEnemy(isBoss: Boolean = false) {
 // --- 6. Main Game Entry ---
 
 @Composable
-fun PixelBattleGame() {
+fun PixelBattleGameDemo() {
     val sceneStack = rememberGameSceneStack("main")
     val scoreState = remember { ScoreState() }
 

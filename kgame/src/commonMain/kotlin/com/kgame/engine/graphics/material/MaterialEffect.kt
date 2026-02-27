@@ -13,6 +13,7 @@ import com.kgame.engine.graphics.material.Material.Companion.TIME
 /**
  * Describes a platform-independent shader effect
  */
+@ExperimentalMaterialVisuals
 abstract class MaterialEffect {
 
     protected abstract val material: Material

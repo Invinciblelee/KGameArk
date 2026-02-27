@@ -28,7 +28,7 @@ import com.kgame.plugins.components.Tween
 import com.kgame.plugins.visuals.shapes.RectangleVisual
 
 @Composable
-fun SimpleGameDemo() {
+fun SimpleSampleGame() {
     KSimpleGame(
         modifier = Modifier.fillMaxSize(),
     ) {

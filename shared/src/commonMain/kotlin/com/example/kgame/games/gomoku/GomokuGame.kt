@@ -237,7 +237,7 @@ private class GomokuSystem(
         }
 
         // Interaction Logic
-        val worldPos = camera.transformer.virtualToWorld(input.pointerPosition)
+        val worldPos = camera.transformer.virtualToWorld(input.getPointerPosition())
         val relX = worldPos.x - Config.BOARD_X
         val relY = worldPos.y - Config.BOARD_Y
         

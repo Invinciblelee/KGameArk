@@ -4,8 +4,6 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.center
-import androidx.compose.ui.text.font.FontVariation.width
 import com.kgame.ecs.Entity
 import com.kgame.ecs.EntityComponentContext
 import com.kgame.ecs.World
@@ -20,7 +18,6 @@ import com.kgame.plugins.components.CameraTarget
 import com.kgame.plugins.components.CameraTransition
 import com.kgame.plugins.components.Elasticity
 import com.kgame.plugins.components.Movement
-import com.kgame.plugins.components.RigidBody
 import com.kgame.plugins.components.Smooth
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.applyCameraTransition
@@ -29,6 +26,7 @@ import com.kgame.plugins.components.applySmoothFollow
 import com.kgame.plugins.components.clampToBounds
 import com.kgame.plugins.components.clampToViewport
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
@@ -79,8 +77,7 @@ class CameraDirector(
             } else if (camera.isActive && camera.isTracking) {
                 val target = entity.getOrNull(CameraTarget)
                 if (target != null) {
-                    updateFollow(entity, transform, target, deltaTime)
-                    clampToWorldBounds(camera, transform)
+                    updateFollow(entity, camera, transform, target, deltaTime)
                 }
             }
 
@@ -95,6 +92,7 @@ class CameraDirector(
 
     private fun updateFollow(
         entity: Entity,
+        camera: Camera,
         transform: Transform,
         target: CameraTarget,
         deltaTime: Float
@@ -145,6 +143,8 @@ class CameraDirector(
         }
 
         transform.position = newTargetPos
+
+        clampToWorldBounds(camera, transform)
     }
 
     private fun updateTransition(
@@ -171,26 +171,49 @@ class CameraDirector(
         }
     }
 
+    /**
+     * Updates camera shake state based on deterministic time-based sampling.
+     * Designed for zero-GC execution within the game loop.
+     */
+    /**
+     * Updates camera shake state with zero-allocation and non-synchronous jitter.
+     * Aligned with Zen Edition's high-performance requirements.
+     */
     private fun updateShake(
         shake: CameraShake,
         deltaTime: Float
     ) {
-        // Updates camera shake based on trauma value
-        if (shake.trauma > 0f) {
-            shake.trauma =
-                (shake.trauma - shake.trauma * shake.traumaDecay * deltaTime).coerceAtLeast(0f)
-            val shakeFactor = shake.trauma * shake.trauma
-
-            shake.shakeOffset = Offset(
-                (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor,
-                (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor
-            )
-            shake.shakeRotation =
-                (Random.nextFloat() * 2 - 1) * shake.maxShakeAngle * shakeFactor
-        } else {
-            shake.shakeOffset = Offset.Zero
-            shake.shakeRotation = 0f
+        if (shake.trauma <= 0f) {
+            // Strict reset to ensure clean state after shake completion
+            if (shake.shakeOffset != Offset.Zero || shake.shakeRotation != 0f) {
+                shake.shakeOffset = Offset.Zero
+                shake.shakeRotation = 0f
+                shake.trauma = 0f
+            }
+            return
         }
+
+        // Linear decay provides a predictable and "crisp" impact dissipation
+        shake.trauma = (shake.trauma - shake.traumaDecay * deltaTime).coerceAtLeast(0f)
+
+        // Performance threshold to avoid unnecessary calculations at imperceptible levels
+        if (shake.trauma < 0.005f) return
+
+        // Apply power curve for a more dynamic and punchy intensity response
+        val shakeFactor = shake.trauma * shake.trauma
+        val baseSeed = (shake.trauma * shake.frequency).toDouble()
+
+        // Adding phase constants to prevent axial synchronization, ensuring organic motion
+        val noiseX = sin(baseSeed + 1.12).toFloat()
+        val noiseY = sin(baseSeed + 2.84).toFloat()
+        val noiseR = sin(baseSeed + 5.37).toFloat()
+
+        // Final transformation results to be consumed by the rendering pipeline
+        shake.shakeOffset = Offset(
+            x = noiseX * shake.maxShakeOffset * shakeFactor,
+            y = noiseY * shake.maxShakeOffset * shakeFactor
+        )
+        shake.shakeRotation = noiseR * shake.maxShakeAngle * shakeFactor
     }
 
     private fun clampToWorldBounds(camera: Camera, transform: Transform) {
@@ -290,36 +313,38 @@ class CameraDirector(
     }
 
     /**
-     * Shakes the camera view by adding trauma.
+     * Triggers a camera shake by injecting trauma into the camera system.
      *
-     * @param trauma The trauma of shake (clamped between 0 and 1).
-     * @param traumaDecay The rate at which the trauma decays per second.
-     * @param maxOffset The maximum pixel offset for shake (optional, overrides default).
-     * @param maxAngle The maximum angle (in degrees) for shake (optional, overrides default).
-     * @param cameraName The optional name of the camera whose bounds should be used.
-     *                   If null, the currently main camera will be used.
+     * This implementation uses "Max-Energy" logic: the strongest impact currently
+     * active will take precedence, preventing minor jitters from overriding
+     * major explosive feedback.
+     *
+     * @param trauma The intensity of the impact. Recommended range [0.0, 1.0].
+     * @param traumaDecay The rate (units per second) at which the trauma dissipates.
+     * @param maxOffset Maximum pixel displacement for the translation shake.
+     * @param maxAngle Maximum rotation angle (in degrees) for the rotational shake.
+     * @param frequency The oscillation speed. Higher values feel "harder".
+     * @param cameraName Optional target camera name; defaults to the main camera.
      */
     fun shake(
         trauma: Float,
         traumaDecay: Float? = null,
         maxOffset: Float? = null,
         maxAngle: Float? = null,
+        frequency: Float? = null,
         cameraName: String? = null
     ) {
         val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return
         val shake = cameraEntity.getOrNull(CameraShake) ?: return
 
-        shake.trauma = trauma.coerceIn(0f, 1f)
+        // Maintain the highest intensity to ensure impact integrity
+        shake.trauma = max(shake.trauma, trauma.coerceAtLeast(0f))
 
-        if (traumaDecay != null) {
-            shake.traumaDecay = traumaDecay.coerceAtLeast(0.01f)
-        }
-        if (maxOffset != null) {
-            shake.maxShakeOffset = maxOffset.coerceAtLeast(0f)
-        }
-        if (maxAngle != null) {
-            shake.maxShakeAngle = maxAngle.coerceAtLeast(0f)
-        }
+        // Optional parameter overrides
+        traumaDecay?.let { shake.traumaDecay = it.coerceAtLeast(0.01f) }
+        maxOffset?.let { shake.maxShakeOffset = it.coerceAtLeast(0f) }
+        maxAngle?.let { shake.maxShakeAngle = it.coerceAtLeast(0f) }
+        frequency?.let { shake.frequency = it.coerceAtLeast(0.1f) }
     }
 
 }

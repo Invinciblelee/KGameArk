@@ -1,5 +1,3 @@
-@file:Suppress("ConvertTwoComparisonsToRangeCheck")
-
 package com.kgame.plugins.systems
 
 import androidx.collection.SimpleArrayMap
@@ -127,7 +125,6 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
         val cx = eb.center.x
         val bottomY = eb.bottom
 
-        // 关键点 1：获取上一帧的脚底位置
         val prevBottomY = bottomY - delta.y
 
         var bestSurfaceY = Float.MAX_VALUE
@@ -145,19 +142,13 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
             val minX = if (x1 < x2) x1 else x2
             val maxX = if (x1 > x2) x1 else x2
 
-            // 判定条件 A：玩家中心在水平范围内
             if (cx >= minX - 0.1f && cx <= maxX + 0.1f) {
                 val lDx = x2 - x1
                 if (abs(lDx) > 0.001f) {
                     val t = (cx - x1) / lDx
                     val surfaceY = y1 + t * (y2 - y1)
 
-                    // 关键点 2：单向通行逻辑
-                    // 只有当：上一帧脚底在表面之上，且这一帧脚底穿过了表面
-                    // 这样向上跳时，prevBottomY 在 surfaceY 之下，不满足条件，直接穿透
                     if (prevBottomY <= surfaceY + 1f && bottomY >= surfaceY) {
-                        // 关键点 3：距离判定
-                        // 防止角色从极高处掉落瞬间吸附到半空的平台（可选，通常设为 15-20）
                         if (abs(bottomY - surfaceY) < 20f) {
                             if (surfaceY < bestSurfaceY) {
                                 bestSurfaceY = surfaceY
@@ -169,7 +160,6 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
             }
         }
 
-        // --- 只进行垂直位置约束，彻底删除所有水平 Block 逻辑 ---
         if (foundFloor) {
             transform.offset(y = bestSurfaceY - bottomY)
             eb.set(transform, hitbox.rect)

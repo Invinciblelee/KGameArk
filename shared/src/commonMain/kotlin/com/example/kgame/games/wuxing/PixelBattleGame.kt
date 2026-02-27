@@ -304,7 +304,7 @@ fun PixelBattleGameDemo() {
                     systems {
                         +PlayerControlSystem()
                         +CombatSystem()
-                        +PhysicsSystem(gravity = Offset.Zero)
+                        +PhysicsSystem()
                         +ParticleRenderSystem()
                         +CameraSystem()
                         +AnimationSystem()
@@ -315,13 +315,11 @@ fun PixelBattleGameDemo() {
                 spawn {
                     entity {
                         +Transform(Offset(-2500f, -2500f))
-                        +Renderable(object : Visual(Size(5000f, 5000f)) {
-                            override fun DrawScope.draw() {
-                                val step = 100f
-                                for (i in 0..(size.width / step).toInt()) {
-                                    drawLine(Color.Cyan.copy(0.05f), Offset(i * step, 0f), Offset(i * step, size.height))
-                                    drawLine(Color.Cyan.copy(0.05f), Offset(0f, i * step), Offset(size.width, i * step))
-                                }
+                        +Renderable(Visual(5000f) {
+                            val step = 100f
+                            for (i in 0..(size.width / step).toInt()) {
+                                drawLine(Color.Cyan.copy(0.05f), Offset(i * step, 0f), Offset(i * step, size.height))
+                                drawLine(Color.Cyan.copy(0.05f), Offset(0f, i * step), Offset(size.width, i * step))
                             }
                         }, zIndex = -100)
                     }

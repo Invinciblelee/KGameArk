@@ -60,12 +60,12 @@ class World internal constructor(
      * Returns the number of active entities.
      */
     val entitySize: Int
-        get() = entityService.entitySize
+        get() = entityService.size
 
     /**
      * Returns the maximum capacity of active entities.
      */
-    val capacity: Int
+    val entityCapacity: Int
         get() = entityService.capacity
 
     // Internal mutable list of systems

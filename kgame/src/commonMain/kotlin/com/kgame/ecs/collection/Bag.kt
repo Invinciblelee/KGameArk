@@ -1,5 +1,3 @@
-@file:Suppress("ConvertTwoComparisonsToRangeCheck")
-
 package com.kgame.ecs.collection
 
 import kotlin.math.max
@@ -50,7 +48,7 @@ class Bag<T> @PublishedApi internal constructor(
     }
 
     operator fun get(index: Int): T {
-        if (index < 0 || index >= size) throw IndexOutOfBoundsException("$index is not valid for bag of size $size")
+        if (size == 0 || index < 0 || index >= size) throw IndexOutOfBoundsException("$index is not valid for bag of size $size")
         return values[index] ?: throw NoSuchElementException("Bag has no value at index $index")
     }
 
@@ -58,15 +56,15 @@ class Bag<T> @PublishedApi internal constructor(
      * Returns the element at position [index] or null if there is no element or if [index] is out of bounds
      */
     fun getOrNull(index: Int): T? {
-        return if (index >= 0 && index < size) values[index] else null
+        return if (size > 0 && index >= 0 && index < size) values[index] else null
     }
 
     fun hasNoValueAtIndex(index: Int): Boolean {
-        return index < 0 || index >= size || values[index] == null
+        return size == 0 || index < 0 || index >= size || values[index] == null
     }
 
     fun hasValueAtIndex(index: Int): Boolean {
-        return index >= 0 && index < size && values[index] != null
+        return size > 0 && index >= 0 && index < size && values[index] != null
     }
 
     fun removeAt(index: Int) {

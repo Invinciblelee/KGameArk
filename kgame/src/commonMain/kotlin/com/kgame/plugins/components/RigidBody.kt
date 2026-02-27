@@ -55,7 +55,7 @@ data class Arriver(
     var speed: Float = 200f,
     var stopDistance: Float = 1f,
     var arriveEnabled: Boolean = true,
-    val slowDownRadius: Float = 100f
+    var slowDownRadius: Float = 100f
 ) : Component<Arriver> {
     override fun type() = Arriver
 
@@ -71,20 +71,15 @@ data class Arriver(
  * @param radius The radius of the wander circle.
  * @param jitter The maximum amount of random change applied to the wander angle each frame.
  * @param maxForce The maximum steering force to apply for wandering.
+ * @param angle The current angle of the wander circle.
  */
 data class Wander(
-    val distance: Float = 150f,
-    val radius: Float = 100f,
-    val jitter: Float = 80f,
-    val maxForce: Float = 150f,
-    // Internal state for the wander calculation
-    internal var target: Offset = Offset.Zero,
-    internal var angle: Float = 0f
+    var distance: Float = 150f,
+    var radius: Float = 100f,
+    var jitter: Float = 80f,
+    var maxForce: Float = 150f,
+    var angle: Float = Random.nextFloat() * 360.0f
 ) : Component<Wander> {
-    init {
-        // Initialize with a random starting angle
-        angle = Random.nextFloat() * 360.0f
-    }
     override fun type() = Wander
     companion object : ComponentType<Wander>()
 }
@@ -344,19 +339,14 @@ fun RigidBody.applyWanderForce(wander: Wander) {
     }
     val circleCenter = circleCenterDirection * wander.distance
 
-    // 2. Calculate the random displacement on the circle
-    val displacement = Offset(0f, -1f) * wander.radius
-
     // Apply jitter to the angle for the next frame
     wander.angle += (Random.nextFloat() * 2f - 1f) * wander.jitter
 
-    // Rotate the displacement vector by the new jittered angle
+    // 2. Rotate the displacement vector by the new jittered angle
     val angleRad = wander.angle * (PI / 180f).toFloat()
-    val cos = cos(angleRad)
-    val sin = sin(angleRad)
     val rotatedDisplacement = Offset(
-        x = displacement.x * cos - displacement.y * sin,
-        y = displacement.x * sin + displacement.y * cos
+        x = cos(angleRad) * wander.radius,
+        y = sin(angleRad) * wander.radius
     )
 
     // 3. The final wander force is the sum of the circle center and the displacement

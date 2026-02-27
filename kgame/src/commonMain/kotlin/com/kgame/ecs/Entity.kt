@@ -295,7 +295,7 @@ interface EntityProvider {
     /**
      * Returns the total number of active [entities][Entity].
      */
-    fun entitySize(): Int
+    fun size(): Int
 
     /**
      * Creates a new [entity][Entity].
@@ -353,7 +353,7 @@ class DefaultEntityProvider(
     /**
      * Returns the total number of active [entities][Entity].
      */
-    override fun entitySize(): Int = nextId - recycledEntities.size
+    override fun size(): Int = nextId - recycledEntities.size
 
     /**
      * Bag of all currently active [entities][Entity].
@@ -461,8 +461,8 @@ class EntityService(
     /**
      * Returns the number of active entities.
      */
-    val entitySize: Int
-        get() = entityProvider.entitySize()
+    val size: Int
+        get() = entityProvider.size()
 
     /**
      * Returns the maximum capacity of active entities.

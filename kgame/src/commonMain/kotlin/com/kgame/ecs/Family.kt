@@ -99,7 +99,7 @@ data class Family(
     /**
      * Returns the [entities][Entity] that belong to this family.
      */
-    private val activeEntities = Bag<Entity>(world.capacity)
+    private val activeEntities = Bag<Entity>(world.entityCapacity)
     private var entityCount = 0
 
     /**

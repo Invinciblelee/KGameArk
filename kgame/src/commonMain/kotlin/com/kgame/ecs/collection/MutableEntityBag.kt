@@ -1,4 +1,4 @@
-@file:Suppress("OVERRIDE_BY_INLINE", "ConvertTwoComparisonsToRangeCheck")
+@file:Suppress("OVERRIDE_BY_INLINE")
 
 package com.kgame.ecs.collection
 

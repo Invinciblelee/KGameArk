@@ -1,7 +1,5 @@
 package com.kgame.plugins.services.particles
 
-import com.kgame.engine.graphics.material.MaterialEffect
-
 /**
  * High-performance Parser for emission patterns.
  * Directly uses the Context to resolve nodes, ensuring zero redundancy.

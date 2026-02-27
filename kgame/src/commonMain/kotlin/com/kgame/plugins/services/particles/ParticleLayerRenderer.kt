@@ -38,7 +38,11 @@ class ParticleLayerRenderer(
     fun render(drawScope: DrawScope, paint: Paint) {
         if (isDead) return
 
-        effect?.applyTo(drawScope.size, paint)
+        if (effect != null) {
+            effect.applyTo(drawScope.size, paint)
+        } else {
+            paint.shader = null
+        }
 
         drawScope.withTransform({
             translate(config.origin.x, config.origin.y)

@@ -12,8 +12,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 open class PolygonVisual(
-    var color: Color,
     size: Size,
+    var color: Color,
     val sides: Int,
     val style: DrawStyle = Fill,
 ) : Visual(size) {

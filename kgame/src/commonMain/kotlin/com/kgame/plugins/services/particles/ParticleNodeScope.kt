@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalMaterialVisuals::class)
+
 package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.geometry.Offset
+import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 
 /**

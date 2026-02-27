@@ -1,4 +1,4 @@
-@file:Suppress("ArrayInDataClass", "ConvertTwoComparisonsToRangeCheck")
+@file:Suppress("ArrayInDataClass")
 
 package com.kgame.engine.maps
 
@@ -41,7 +41,7 @@ data class TiledMapTileLayer(
      * Safely retrieves the Global ID at the given grid coordinates. Returns 0 if out of bounds.
      */
     fun getGid(x: Int, y: Int): Int {
-        if (x < 0 || x >= columns || y < 0 || y >= rows) return 0
+        if (x !in 0..<columns || y < 0 || y >= rows) return 0
         return data[y * columns + x]
     }
 

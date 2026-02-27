@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.draw
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toAndroidVertexMode
 
@@ -18,7 +19,7 @@ actual fun DrawScope.drawVertices(
 ) {
     drawContext.canvas.nativeCanvas.drawVertices(
         vertexMode.toAndroidVertexMode(),
-        positions.size / 2,
+        positions.size,
         positions, 0,
         texCoords, 0,
         colors, 0,

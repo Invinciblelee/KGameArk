@@ -29,57 +29,50 @@ fun interface KeyInterceptor {
     }
 }
 
+/**
+ * High-performance Input API for Zen Edition.
+ * Provides polling-based access to keyboard, mouse, and multi-touch states.
+ */
 interface InputManager {
-    /** The virtual position of the pointer (mouse/touch) after resolution scaling. */
-    val pointerPosition: Offset
+    /** Number of active pointers (fingers/mouse buttons) currently pressed down. */
+    val pointerCount: Int
 
-    /** The scroll wheel or trackpad delta for the current frame. */
-    val scrollDelta: Offset
-
-    /** Whether any pointer (mouse button 0 or touch) is currently active. */
+    /** Global check: returns true if any pointer is currently pressed. */
     val isPointerDown: Boolean
 
-    /** Whether ANY keyboard key is currently being held down. */
+    /** Global check: returns true if any physical keyboard key is being held. */
     val isKeyDown: Boolean
 
-    /** Register an interceptor to block specific keys from reaching the game. */
-    fun intercept(interceptor: KeyInterceptor)
+    /** Displacement of the mouse scroll wheel in the current frame. */
+    val scrollDelta: Offset
 
-    /** Manually inject a key press (useful for virtual on-screen buttons). */
-    fun simulateKey(key: Key)
-
-    /** Entry point for Compose Multiplatform pointer events. */
-    fun onPointerEvent(event: PointerEvent)
-
-    /** Entry point for Compose Multiplatform keyboard events. */
-    fun onKeyEvent(event: KeyEvent): Boolean
+    // --- Pointer Polling (Multi-touch 0-9) ---
+    fun getPointerPosition(index: Int = 0): Offset
+    fun isPointerDown(index: Int = 0): Boolean
+    fun isPointerJustPressed(index: Int = 0): Boolean
+    fun isPointerMoved(index: Int = 0): Boolean
+    fun isPointerUp(index: Int = 0): Boolean
+    fun getPointerId(index: Int): Long
 
     // --- Keyboard Polling ---
-
-    /** Checks if a specific key is currently held down. */
     fun isKeyDown(key: Key): Boolean
-
     fun isKeyJustPressed(key: Key): Boolean
-
     fun isKeyJustReleased(key: Key): Boolean
 
-    // --- Mouse Polling (0: Left, 1: Right, 2: Middle) ---
-
+    // --- Mouse Polling (Legacy Support) ---
     fun isMouseDown(button: Int = 0): Boolean
-
     fun isMouseJustPressed(button: Int = 0): Boolean
-
     fun isMouseJustReleased(button: Int = 0): Boolean
 
-    /**
-     * Helper to get a normalized axis value (-1.0 to 1.0).
-     */
+    // --- Utility Methods ---
     fun getAxis(positive: Key, negative: Key): Float
+    fun intercept(interceptor: KeyInterceptor)
+    fun simulateKey(key: Key)
 
-    /** Must be called at the very end of the game loop frame. */
+    // --- System Injection & Lifecycle ---
+    fun onPointerEvent(event: PointerEvent)
+    fun onKeyEvent(event: KeyEvent): Boolean
     fun endFrame()
-
-    /** Resets all input states. */
     fun clear()
 }
 
@@ -87,146 +80,233 @@ interface InputManager {
 class DefaultInputManager(private val resolution: ResolutionManager) : InputManager {
 
     private companion object {
-        const val MASK_IS_DOWN: Long = 1L shl 0
-        const val MASK_WAS_DOWN: Long = 1L shl 1
-        const val MASK_PENDING_UP: Long = 1L shl 2
+        const val MAX_POINTERS = 10
         const val MOUSE_BASE_ID = 1_000_000L
+
+        const val MASK_IS_DOWN = 1 shl 0
+        const val MASK_WAS_DOWN = 1 shl 1
+        const val MASK_MOVED = 1 shl 2
+        const val MASK_PENDING_UP = 1 shl 3
     }
+
+    // Parallel primitive arrays for 0-GC state tracking
+    private val pointerIds = LongArray(MAX_POINTERS) { -1L }
+    private val pointerPositions = Array(MAX_POINTERS) { Offset.Zero }
+    private val pointerStates = IntArray(MAX_POINTERS)
+
+    // Bitmask for O(active) traversal using KMP bitwise operations
+    private var activeBitmask: Int = 0
 
     private val keyStates = MutableLongLongMap()
     private var keyInterceptor: KeyInterceptor = KeyInterceptor
 
-    override var pointerPosition: Offset = Offset.Zero
+    override var pointerCount: Int = 0
         private set
 
     override var scrollDelta: Offset = Offset.Zero
         private set
 
-    override var isPointerDown: Boolean = false
-        private set
+    /** Corrected: Global isPointerDown now strictly tracks the 'pressed' state count. */
+    override val isPointerDown: Boolean get() = pointerCount > 0
 
     override val isKeyDown: Boolean
         get() {
             keyStates.forEach { code, state ->
-                if (code < MOUSE_BASE_ID && (state and MASK_IS_DOWN) != 0L) {
+                if (code < MOUSE_BASE_ID && (state.toInt() and MASK_IS_DOWN) != 0) {
                     return true
                 }
             }
             return false
         }
 
-    // --- Interceptor & Simulation ---
+    // --- Axis Support ---
 
-    override fun intercept(interceptor: KeyInterceptor) {
-        keyInterceptor = interceptor
+    override fun getAxis(positive: Key, negative: Key): Float {
+        var v = 0f
+        if (isKeyDown(positive)) v += 1f
+        if (isKeyDown(negative)) v -= 1f
+        return v
     }
 
-    override fun simulateKey(key: Key) {
-        val keyCode = key.keyCode
-        val currentState = keyStates.getOrDefault(keyCode, 0L)
-        keyStates.put(keyCode, currentState or MASK_IS_DOWN or MASK_PENDING_UP)
-    }
+    // --- Pointer Logic ---
 
-    // --- Event Handling ---
+    override fun onPointerEvent(event: PointerEvent) {
+        val changes = event.changes
+        val changeSize = changes.size
+        var eventMask = 0
+
+        var i = 0
+        while (i < changeSize) {
+            val change = changes[i]
+            val slot = findOrAssignSlot(change.id.value)
+
+            if (slot != -1) {
+                eventMask = eventMask or (1 shl slot)
+                activeBitmask = activeBitmask or (1 shl slot)
+
+                val virtualPos = resolution.actualToVirtual(change.position)
+                if (virtualPos != pointerPositions[slot]) {
+                    pointerStates[slot] = pointerStates[slot] or MASK_MOVED
+                    pointerPositions[slot] = virtualPos
+                }
+
+                if (change.pressed) {
+                    pointerStates[slot] = pointerStates[slot] or MASK_IS_DOWN
+                } else {
+                    internalPointerRelease(slot)
+                }
+            }
+            i++
+        }
+
+        // Implicit release check: traverse only the active bitmask
+        var tempMask = activeBitmask
+        var activeTotal = 0
+        while (tempMask != 0) {
+            val slot = tempMask.countTrailingZeroBits() // KMP standard extension
+            if ((eventMask and (1 shl slot)) == 0) {
+                internalPointerRelease(slot)
+            }
+            if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
+                activeTotal++
+            }
+            tempMask = tempMask and (tempMask - 1)
+        }
+        pointerCount = activeTotal
+
+        // Mouse buttons mapping (Polling)
+        val btns = event.buttons
+        updateKeyInternal(MOUSE_BASE_ID + 0, btns.isPrimaryPressed)
+        updateKeyInternal(MOUSE_BASE_ID + 1, btns.isSecondaryPressed)
+        updateKeyInternal(MOUSE_BASE_ID + 2, btns.isTertiaryPressed)
+        updateKeyInternal(MOUSE_BASE_ID + 3, btns.isBackPressed)
+        updateKeyInternal(MOUSE_BASE_ID + 4, btns.isForwardPressed)
+
+        // Mouse Scroll mapping
+        var sx = 0f; var sy = 0f; var k = 0
+        while (k < changeSize) {
+            val d = changes[k].scrollDelta
+            sx += d.x; sy += d.y; k++
+        }
+        scrollDelta = Offset(sx, sy)
+    }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        val keyCode = event.key.keyCode
-        updateInternalState(keyCode, event.type == KeyEventType.KeyDown)
+        updateKeyInternal(event.key.keyCode, event.type == KeyEventType.KeyDown)
         return keyInterceptor.shouldIntercept(event.key)
     }
 
-    /**
-     * Correct implementation based on Compose PointerEvent source.
-     */
-    override fun onPointerEvent(event: PointerEvent) {
-        // 1. Update Position & Scroll from changes
-        val changes = event.changes
+    private fun findOrAssignSlot(id: Long): Int {
         var i = 0
-        var accScroll = Offset.Zero
-        var pointerDown = false
-        while (i < changes.size) {
-            val change = changes[i]
-            if (change.pressed) pointerDown = true
-            if (i == 0) {
-                // Using the first pointer's position as the main pointerPosition
-                pointerPosition = resolution.actualToVirtual(change.position)
-            }
-            accScroll += change.scrollDelta
+        while (i < MAX_POINTERS) {
+            if (pointerIds[i] == id) return i
             i++
         }
-        scrollDelta = accScroll
-        isPointerDown = pointerDown
-
-        // 2. Update Mouse Button States using event.buttons mask
-        val buttons = event.buttons
-        updateInternalState(MOUSE_BASE_ID + 0, buttons.isPrimaryPressed)
-        updateInternalState(MOUSE_BASE_ID + 1, buttons.isSecondaryPressed)
-        updateInternalState(MOUSE_BASE_ID + 2, buttons.isTertiaryPressed)
-        updateInternalState(MOUSE_BASE_ID + 3, buttons.isBackPressed)
-        updateInternalState(MOUSE_BASE_ID + 4, buttons.isForwardPressed)
+        var j = 0
+        while (j < MAX_POINTERS) {
+            if (pointerIds[j] == -1L) {
+                pointerIds[j] = id
+                return j
+            }
+            j++
+        }
+        return -1
     }
 
-    /**
-     * Preserves original logic: Handles IS_DOWN and transitions to WAS_DOWN.
-     */
-    private fun updateInternalState(code: Long, isDown: Boolean) {
-        val currentState = keyStates.getOrDefault(code, 0L) and MASK_PENDING_UP.inv()
-        if (isDown) {
-            keyStates.put(code, currentState or MASK_IS_DOWN)
-        } else {
-            // Transition from DOWN to WAS_DOWN for JustReleased detection
-            if ((currentState and MASK_IS_DOWN) != 0L) {
-                keyStates.put(code, (currentState and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN)
-            }
+    private fun internalPointerRelease(slot: Int) {
+        if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
+            pointerStates[slot] = (pointerStates[slot] and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN
         }
     }
 
-    // --- Polling Methods ---
-
-    override fun isKeyDown(key: Key): Boolean = check(key.keyCode, MASK_IS_DOWN)
-    override fun isKeyJustPressed(key: Key): Boolean = checkJustPressed(key.keyCode)
-    override fun isKeyJustReleased(key: Key): Boolean = checkJustReleased(key.keyCode)
-
-    override fun isMouseDown(button: Int): Boolean = check(MOUSE_BASE_ID + button, MASK_IS_DOWN)
-    override fun isMouseJustPressed(button: Int): Boolean = checkJustPressed(MOUSE_BASE_ID + button)
-    override fun isMouseJustReleased(button: Int): Boolean = checkJustReleased(MOUSE_BASE_ID + button)
-
-    private fun check(code: Long, mask: Long): Boolean = (keyStates.getOrDefault(code, 0L) and mask) != 0L
-
-    private fun checkJustPressed(code: Long): Boolean {
-        val state = keyStates.getOrDefault(code, 0L)
-        return (state and MASK_WAS_DOWN) == 0L && (state and MASK_IS_DOWN) != 0L
+    private fun updateKeyInternal(code: Long, isDown: Boolean) {
+        val current = keyStates.getOrDefault(code, 0L).toInt() and MASK_PENDING_UP.inv()
+        if (isDown) {
+            keyStates.put(code, (current or MASK_IS_DOWN).toLong())
+        } else if ((current and MASK_IS_DOWN) != 0) {
+            keyStates.put(code, ((current and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN).toLong())
+        }
     }
 
-    private fun checkJustReleased(code: Long): Boolean {
-        val state = keyStates.getOrDefault(code, 0L)
-        return (state and MASK_WAS_DOWN) != 0L && (state and MASK_IS_DOWN) == 0L
+    // --- Polling Implementation ---
+
+    override fun getPointerPosition(index: Int): Offset = if (index in 0..<MAX_POINTERS) pointerPositions[index] else Offset.Zero
+    override fun isPointerDown(index: Int): Boolean = if (index in 0..<MAX_POINTERS) (pointerStates[index] and MASK_IS_DOWN) != 0 else false
+    override fun isPointerJustPressed(index: Int): Boolean {
+        if (index !in 0..<MAX_POINTERS) return false
+        val s = pointerStates[index]
+        return (s and MASK_IS_DOWN) != 0 && (s and MASK_WAS_DOWN) == 0
+    }
+    override fun isPointerMoved(index: Int): Boolean = if (index in 0..<MAX_POINTERS) (pointerStates[index] and MASK_MOVED) != 0 else false
+    override fun isPointerUp(index: Int): Boolean {
+        if (index !in 0..<MAX_POINTERS) return false
+        val s = pointerStates[index]
+        return (s and MASK_IS_DOWN) == 0 && (s and MASK_WAS_DOWN) != 0
+    }
+    override fun getPointerId(index: Int): Long = if (index in 0..<MAX_POINTERS) pointerIds[index] else -1L
+
+    override fun isKeyDown(key: Key): Boolean = (keyStates.getOrDefault(key.keyCode, 0L).toInt() and MASK_IS_DOWN) != 0
+    override fun isKeyJustPressed(key: Key): Boolean {
+        val s = keyStates.getOrDefault(key.keyCode, 0L).toInt()
+        return (s and MASK_IS_DOWN) != 0 && (s and MASK_WAS_DOWN) == 0
+    }
+    override fun isKeyJustReleased(key: Key): Boolean {
+        val s = keyStates.getOrDefault(key.keyCode, 0L).toInt()
+        return (s and MASK_IS_DOWN) == 0 && (s and MASK_WAS_DOWN) != 0
     }
 
-    override fun getAxis(positive: Key, negative: Key): Float {
-        var axisValue = 0f
-        if (isKeyDown(positive)) axisValue += 1f
-        if (isKeyDown(negative)) axisValue -= 1f
-        return axisValue
+    override fun isMouseDown(button: Int): Boolean = (keyStates.getOrDefault(MOUSE_BASE_ID + button, 0L).toInt() and MASK_IS_DOWN) != 0
+    override fun isMouseJustPressed(button: Int): Boolean {
+        val s = keyStates.getOrDefault(MOUSE_BASE_ID + button, 0L).toInt()
+        return (s and MASK_IS_DOWN) != 0 && (s and MASK_WAS_DOWN) == 0
+    }
+    override fun isMouseJustReleased(button: Int): Boolean {
+        val s = keyStates.getOrDefault(MOUSE_BASE_ID + button, 0L).toInt()
+        return (s and MASK_IS_DOWN) == 0 && (s and MASK_WAS_DOWN) != 0
     }
 
-    // --- Lifecycle ---
+    override fun simulateKey(key: Key) {
+        val c = key.keyCode
+        val s = keyStates.getOrDefault(c, 0L).toInt()
+        keyStates.put(c, (s or MASK_IS_DOWN or MASK_PENDING_UP).toLong())
+    }
+
+    override fun intercept(interceptor: KeyInterceptor) { keyInterceptor = interceptor }
+
+    // --- Lifecycle and Cleaning ---
 
     override fun endFrame() {
-        keyStates.forEach { keyCode, state ->
-            val nextState = if ((state and MASK_PENDING_UP) != 0L) {
-                ((state and MASK_IS_DOWN.inv()) and MASK_PENDING_UP.inv()) or MASK_WAS_DOWN
+        keyStates.forEach { code, state ->
+            val s = state.toInt()
+            val next = if ((s and MASK_PENDING_UP) != 0) {
+                ((s and MASK_IS_DOWN.inv()) and MASK_PENDING_UP.inv()) or MASK_WAS_DOWN
             } else {
-                if ((state and MASK_IS_DOWN) != 0L) (state or MASK_WAS_DOWN) else (state and MASK_WAS_DOWN.inv())
+                if ((s and MASK_IS_DOWN) != 0) (s or MASK_WAS_DOWN) else (s and MASK_WAS_DOWN.inv())
             }
-            keyStates.put(keyCode, nextState)
+            keyStates.put(code, next.toLong())
+        }
+
+        var tempMask = activeBitmask
+        while (tempMask != 0) {
+            val i = tempMask.countTrailingZeroBits()
+            val s = pointerStates[i]
+            pointerStates[i] = s and MASK_MOVED.inv()
+            if ((s and MASK_WAS_DOWN) != 0 && (s and MASK_IS_DOWN) == 0) {
+                pointerStates[i] = 0; pointerIds[i] = -1L; pointerPositions[i] = Offset.Zero
+                activeBitmask = activeBitmask and (1 shl i).inv()
+            } else if ((s and MASK_IS_DOWN) != 0) {
+                pointerStates[i] = pointerStates[i] or MASK_WAS_DOWN
+            }
+            tempMask = tempMask and (tempMask - 1)
         }
         scrollDelta = Offset.Zero
     }
 
     override fun clear() {
-        keyStates.clear()
-        pointerPosition = Offset.Zero
-        scrollDelta = Offset.Zero
+        keyStates.clear(); activeBitmask = 0; var i = 0
+        while (i < MAX_POINTERS) {
+            pointerIds[i] = -1L; pointerStates[i] = 0; pointerPositions[i] = Offset.Zero; i++
+        }
+        pointerCount = 0; scrollDelta = Offset.Zero
     }
 }

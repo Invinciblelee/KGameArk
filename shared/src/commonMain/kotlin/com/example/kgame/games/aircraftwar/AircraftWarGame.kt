@@ -1133,7 +1133,7 @@ private sealed interface Scenes {
 }
 
 @Composable
-fun GameAircraftWarDemo() {
+fun AircraftWarGame() {
     val sceneStack = rememberGameSceneStack<Any>(Scenes.Menu)
     KGame(
         sceneStack = sceneStack,
@@ -1164,8 +1164,6 @@ fun GameAircraftWarDemo() {
 
                 configure {
                     systems {
-                        +PhysicsSystem(gravity = Offset.Zero)
-
                         +AircraftControlSystem(priority = SystemPriorityAnchors.Input)
 
                         +AircraftCollisionSystem(priority = SystemPriorityAnchors.Physics after 1)

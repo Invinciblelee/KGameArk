@@ -11,19 +11,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kgame.ecs.*
-import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
-import com.kgame.engine.graphics.material.Material
-import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.Rectangle
@@ -31,9 +27,8 @@ import com.kgame.plugins.components.*
 import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.services.particles.ParticleNodeScope
 import com.kgame.plugins.services.particles.ParticleService
-import com.kgame.plugins.systems.*
 import com.kgame.plugins.visuals.Visual
-import org.intellij.lang.annotations.Language
+import com.kgame.plugins.visuals.shapes.CircleVisual
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -47,7 +42,7 @@ private data object ZenStoneTag : EntityTag()
 private class ZenRippleSystem(
     private val input: InputManager = inject(),
     private val camera: CameraService = inject(),
-    private val particles: ParticleService = inject()
+    private val particle: ParticleService = inject()
 ) : IntervalSystem() {
 
     private val dustFamily = world.family { all(DustTag, RigidBody) }
@@ -55,7 +50,7 @@ private class ZenRippleSystem(
 
     override fun onTick(deltaTime: Float) {
         if (input.isMouseJustPressed(0)) {
-            val worldPos = camera.transformer.virtualToWorld(input.pointerPosition)
+            val worldPos = camera.transformer.virtualToWorld(input.getPointerPosition())
             
             // Clear old stones
             zenStoneFamily.forEach { it.remove() }
@@ -64,17 +59,15 @@ private class ZenRippleSystem(
             val stone = world.entity {
                 +ZenStoneTag
                 +Transform(worldPos)
-                +Renderable(object : Visual(Size(60f, 60f)) {
-                    override fun DrawScope.draw() {
-                        drawCircle(Color.White, radius = size.width / 2, style = Stroke(4f))
-                        drawCircle(Color.Cyan.copy(alpha = 0.2f), radius = size.width / 3)
-                    }
+                +Renderable(Visual(60f) {
+                    drawCircle(Color.White, radius = size.width / 2, style = Stroke(4f))
+                    drawCircle(Color.Cyan.copy(alpha = 0.2f), radius = size.width / 3)
                 }, zIndex = 10)
                 +ScaleAnimation("pulse", 0.8f, 1.2f, spec = InfiniteRepeatable(Tween(1f), RepeatMode.Reverse), autoPlay = true)
             }
 
             camera.director.shake(0.2f)
-            particles.emit { stoneRipple(worldPos) }
+            particle.emit { stoneRipple(worldPos) }
 
             // Order: All dusts follow the stone
             dustFamily.forEach { dust ->
@@ -120,7 +113,6 @@ fun ZenRippleGame() {
 
                 configure {
                     systems {
-                        +PhysicsSystem(gravity = Offset.Zero)
                         +ZenRippleSystem()
                     }
                 }
@@ -132,17 +124,15 @@ fun ZenRippleGame() {
                             +Transform(Offset((0f..800f).random(), (0f..800f).random()))
                             +RigidBody(drag = 1.5f, maxSpeed = 400f)
                             +Wander(distance = 150f, radius = 100f, jitter = 80f)
-                            +Renderable(object : Visual(Size(8f, 8f)) {
-                                val col = Color(
-                                    red = (0.5f..1f).random(),
-                                    green = (0.8f..1f).random(),
-                                    blue = 1f,
-                                    alpha = (0.4f..0.8f).random()
-                                )
-                                override fun DrawScope.draw() {
-                                    drawCircle(col)
-                                }
-                            })
+
+                            val col = Color(
+                                red = (0.5f..1f).random(),
+                                green = (0.8f..1f).random(),
+                                blue = 1f,
+                                alpha = (0.4f..0.8f).random()
+                            )
+
+                            +Renderable(CircleVisual(8f, col))
                         }
                     }
 

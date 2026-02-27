@@ -9,11 +9,18 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import com.kgame.plugins.visuals.Visual
 
 open class RectangleVisual(
-    var color: Color,
     size: Size,
-    val cornerRadius: CornerRadius = CornerRadius.Zero,
+    var color: Color,
     val style: DrawStyle = Fill,
+    val cornerRadius: CornerRadius = CornerRadius.Zero,
 ) : Visual(size) {
+
+    constructor(
+        size: Float,
+        color: Color,
+        style: DrawStyle = Fill,
+        cornerRadius: CornerRadius = CornerRadius.Zero
+    ): this(Size(size, size), color, style, cornerRadius)
 
     override fun DrawScope.draw() {
         if (cornerRadius.isZero()) {

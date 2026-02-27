@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import com.kgame.plugins.visuals.Visual.Companion.InfiniteRect
 
 abstract class Visual {
 
@@ -14,9 +15,9 @@ abstract class Visual {
         this.preferredSize = size
     }
 
-    constructor(size: Float): this(Size(size, size))
+    constructor(size: Float) : this(Size(size, size))
 
-    constructor(width: Float, height: Float): this(Size(width, height))
+    constructor(width: Float, height: Float) : this(Size(width, height))
 
     private var isReady = false
 
@@ -86,4 +87,54 @@ abstract class Visual {
             Float.POSITIVE_INFINITY
         )
     }
+}
+
+fun Visual(
+    size: Size,
+    onDraw: DrawScope.() -> Unit
+) = object : Visual(size) {
+    override fun DrawScope.draw() = onDraw()
+}
+
+fun <T> Visual(
+    size: Size,
+    onCreate: () -> T,
+    onDraw: DrawScope.(T) -> Unit
+) = object : Visual(size) {
+    val instance = onCreate()
+    override fun DrawScope.draw() = onDraw(instance)
+}
+
+fun Visual(
+    size: Float,
+    onDraw: DrawScope.() -> Unit
+) = object : Visual(size) {
+    override fun DrawScope.draw() = onDraw()
+}
+
+fun <T> Visual(
+    size: Float,
+    onCreate: () -> T,
+    onDraw: DrawScope.(T) -> Unit
+) = object : Visual(size) {
+    val instance = onCreate()
+    override fun DrawScope.draw() = onDraw(instance)
+}
+
+fun Visual(
+    width: Float,
+    height: Float,
+    onDraw: DrawScope.() -> Unit
+) = object : Visual(width, height) {
+    override fun DrawScope.draw() = onDraw()
+}
+
+fun <T> Visual(
+    width: Float,
+    height: Float,
+    onCreate: () -> T,
+    onDraw: DrawScope.(T) -> Unit
+) = object : Visual(width, height) {
+    val instance = onCreate()
+    override fun DrawScope.draw() = onDraw(instance)
 }

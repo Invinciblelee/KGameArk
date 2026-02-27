@@ -35,31 +35,10 @@ data class Transform(
 }
 
 /**
- * Copies all transform properties (position, size, rotation, scale, pivots)
- * into the supplied [transform] instance.
- * Useful for applying the same transform to another entity without allocating
- * a new object.
- */
-fun Transform.copyTo(transform: Transform) {
-    transform.position      = this.position
-    transform.rotation      = this.rotation
-    transform.rotationPivot = this.rotationPivot
-    transform.scale         = this.scale
-    transform.scalePivot    = this.scalePivot
-}
-
-/**
  *
  */
 fun Transform.offset(x: Float = 0f, y: Float = 0f) {
     position += Offset(x, y)
-}
-
-/**
- *
- */
-fun Transform.position(x: Float = position.x, y: Float = position.y) {
-    position = Offset(x, y)
 }
 
 /**

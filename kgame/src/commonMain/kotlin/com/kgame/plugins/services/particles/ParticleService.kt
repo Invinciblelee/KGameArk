@@ -5,9 +5,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 
 class ParticleService(val capacity: Int = 64) {
     private val particleRenderers = ArrayList<List<ParticleLayerRenderer>>(capacity)
-    private val paint = Paint().apply {
-        isAntiAlias = false
-    }
+    private val paint = Paint()
 
     fun emit(block: ParticleNodeScope.() -> Unit) {
         if (particleRenderers.size >= capacity) {

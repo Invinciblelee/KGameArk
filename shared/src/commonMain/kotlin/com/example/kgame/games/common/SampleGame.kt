@@ -148,7 +148,7 @@ private class SilkBounds(
 private class EnemyVisual(private val enemyTag: EnemyTag, val color: Color, size: Size) :
     Visual(size) {
 
-    private val delegate = PolygonVisual(color, size, 8)
+    private val delegate = PolygonVisual(size, color, 8)
 
 
     override fun DrawScope.draw() {
@@ -222,7 +222,7 @@ private class SilkPhysicsSystem(
     override fun onTick(deltaTime: Float) {
         val player = playerFamily.firstOrNull() ?: return
         val rootWorldPos = player[Transform].position
-        val targetWorldPos = cameraService.transformer.virtualToWorld(input.pointerPosition)
+        val targetWorldPos = cameraService.transformer.virtualToWorld(input.getPointerPosition())
         val isPointerDown = input.isPointerDown
 
 
@@ -549,7 +549,7 @@ private data class Battle(val value: String)
 private data class GameState(var score: Int)
 
 @Composable
-fun GameDemo() {
+fun SampleGame() {
     val sceneStack = rememberGameSceneStack<Any>(Menu)
     KGame(sceneStack = sceneStack) {
         scene<Menu> {
@@ -583,7 +583,7 @@ fun GameDemo() {
                         +PlayerControlSystem()
                         +SilkControlSystem()
                         +SteeringSystem()
-                        +PhysicsSystem(gravity = Offset.Zero)
+                        +PhysicsSystem()
                         +SilkPhysicsSystem()
                         +SilkCollisionSystem()
                         +TiledMapCollisionSystem()
@@ -599,7 +599,6 @@ fun GameDemo() {
                     val worldBounds = Rect(-640f, -600f, 640f, 600f)
 
                     entity {
-                        +WorldBounds(worldBounds)
                         +TiledMap(assets[GameAssets.TiledMap.Example])
                     }
 
@@ -621,7 +620,7 @@ fun GameDemo() {
                     entity {
                         +Transform(position = Offset(0f, -100f))
                         +Elasticity(stiffness = 80f, damping = 10f)
-                        +RigidBody()
+                        +Movement()
                         +CameraTarget(player)
                         +CameraShake()
                         +Camera("player", isMain = true, bounds = worldBounds)

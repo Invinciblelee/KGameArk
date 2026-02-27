@@ -14,7 +14,7 @@ import com.kgame.plugins.components.integrate
  * The PhysicsSystem is responsible for updating all entities with rigid bodies.
  */
 class PhysicsSystem(
-    val gravity: Offset = Offset(0f, 980f),
+    val gravity: Offset = Offset.Zero,
     priority: SystemPriority = SystemPriorityAnchors.Physics
 ) : IteratingSystem(
     family = family { all(Transform, RigidBody) },

@@ -10,16 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kgame.ecs.*
-import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
+import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
@@ -27,53 +25,81 @@ import com.kgame.engine.math.random
 import com.kgame.engine.ui.Rectangle
 import com.kgame.plugins.components.*
 import com.kgame.plugins.services.CameraService
+import com.kgame.plugins.services.particles.ParticleContext
 import com.kgame.plugins.services.particles.ParticleNodeScope
 import com.kgame.plugins.services.particles.ParticleService
-import com.kgame.plugins.systems.*
-import com.kgame.plugins.visuals.Visual
+import com.kgame.plugins.visuals.shapes.CircleVisual
 import org.intellij.lang.annotations.Language
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 
-// --- 1. Custom Components ---
+// --- 2. Components & State ---
 
 private data object AllyTag : EntityTag()
 private data object EnemyTag : EntityTag()
 
-class NeonState {
-    var score by mutableIntStateOf(0)
-    var alliesAlive by mutableIntStateOf(0)
-    var isGameOver by mutableStateOf(false)
-    var pendingReset by mutableStateOf(false)
+/**
+ * Using internal var for angle as a pragmatic state management approach.
+ */
+private class OrbitPersonality(
+    val radius: Float = (40f..160f).random(),
+    val speed: Float = (1.5f..4f).random(),
+    var angle: Float = (0f..360f).random()
+) : Component<OrbitPersonality> {
+    override fun type() = OrbitPersonality
+    companion object : ComponentType<OrbitPersonality>()
 }
 
-// --- 2. Shaders ---
+class SwarmState {
+    var score by mutableIntStateOf(0)
+    var units by mutableIntStateOf(0)
+    var isGameOver by mutableStateOf(false)
+    var pendingReset by mutableStateOf(false)
+    var chargePower by mutableStateOf(0f)
+}
 
-class GlowMaterial(val color: Color) : Material {
+// --- 3. Shaders & Visuals ---
+class ShockwaveMaterial(val baseColor: Color, val context: ParticleContext) : Material {
     @Language("AGSL")
     override val sksl: String = """
+        uniform float uProgress;
         uniform vec4 uColor;
+        
         vec4 main(vec2 uv) {
             vec2 st = uv * 2.0 - 1.0;
             float d = length(st);
-            float glow = exp(-d * 4.0);
-            return vec4(uColor.rgb * glow, glow * uColor.a);
+            float thickness = max(0.01, 0.1 * (1.0 - uProgress));
+            float distDiff = abs(d - 0.9);
+            float ring = 1.0 - smoothstep(0.0, thickness, distDiff);
+            float fade = pow(1.0 - uProgress, 2.0);
+            float alpha = ring * fade * uColor.a;
+            return vec4(uColor.rgb * alpha, alpha);
         }
     """.trimIndent()
-    override fun MaterialEffect.onSetup() { uniform(Material.COLOR, color) }
+
+    override fun MaterialEffect.onSetup() {
+        uniform(Material.COLOR, baseColor)
+    }
+
+    override fun MaterialEffect.onUpdate() {
+        uniform(Material.PROGRESS, context.progress)
+    }
 }
 
-// --- 3. Systems ---
+// --- 4. Refactored Systems ---
 
 private class SwarmSystem(
-    private val state: NeonState = inject(),
+    private val state: SwarmState = inject(),
     private val input: InputManager = inject(),
     private val camera: CameraService = inject(),
-    private val particles: ParticleService = inject()
+    private val particle: ParticleService = inject()
 ) : IntervalSystem() {
 
-    private val allies = world.family { all(AllyTag, Transform, RigidBody) }
-    private val enemies = world.family { all(EnemyTag, Transform, RigidBody) }
+    private val allies = world.family { all(AllyTag, Transform, OrbitPersonality) }
+    private val enemies = world.family { all(EnemyTag, Transform) }
 
     override fun onTick(deltaTime: Float) {
         if (state.pendingReset) {
@@ -84,57 +110,62 @@ private class SwarmSystem(
 
         if (state.isGameOver) return
 
-        val targetPos = camera.transformer.virtualToWorld(input.pointerPosition)
-        
-        // 1. Allies follow mouse
+        val targetPos = camera.transformer.virtualToWorld(input.getPointerPosition())
+        val isPressing = input.isPointerDown
+
+        // 1. Player Charge Logic
+        if (isPressing) {
+            state.chargePower = (state.chargePower + deltaTime * 1.5f).coerceAtMost(1f)
+        } else {
+            if (state.chargePower > 0.2f) triggerBurst(targetPos)
+            state.chargePower = 0f
+        }
+
+        // 2. Swarm Movement Logic
         allies.forEach { ally ->
-            ally.configure {
-                +ArriveTarget(targetPos)
-            }
+            val orbit = ally[OrbitPersonality]
+            orbit.angle += orbit.speed * deltaTime * (1f + state.chargePower * 2f)
+            val currentRadius = if (isPressing) 20f + (1f - state.chargePower) * orbit.radius else orbit.radius
+            val orbitOffset = Offset(cos(orbit.angle), sin(orbit.angle)) * currentRadius
+            ally.configure { +ArriveTarget(targetPos + orbitOffset) }
         }
-        state.alliesAlive = allies.size
+        state.units = allies.entitySize
 
-        // 2. Enemy Spawning (Simple Logic)
-        if (enemies.size < 15 && (0f..1f).random() < 0.05f) {
-            spawnEnemy()
-        }
-
-        // 3. Simple AI & Collision
+        // 3. Collision Logic with Safety Return
         enemies.forEach { enemy ->
             val ePos = enemy[Transform].position
-            // Enemies chase the center of the swarm
             enemy.configure { +ArriveTarget(targetPos) }
 
-            // Collision with allies
             allies.forEach { ally ->
-                val aPos = ally[Transform].position
-                if ((ePos - aPos).getDistance() < 20f) {
-                    particles.emit { explosion(aPos, Color.Cyan) }
-                    camera.director.shake(0.1f)
-                    ally.remove()
+                if ((ePos - ally[Transform].position).getDistance() < 25f) {
+                    particle.emit { boom(ePos, Color.Red) }
+                    camera.director.shake(0.08f)
                     enemy.remove()
-                    state.score += 10
+                    ally.remove()
+                    state.score += 5
+                    return@forEach // Prevent "ghost" collisions in the same frame
                 }
             }
         }
 
-        if (state.alliesAlive <= 0 && !state.isGameOver) {
-            state.isGameOver = true
-        }
+        if (state.units <= 0 && !state.isGameOver) state.isGameOver = true
     }
 
-    private fun spawnEnemy() {
-        world.entity {
-            +EnemyTag
-            +Transform(Offset((0f..800f).random(), (0f..800f).random()))
-            +RigidBody(drag = 0.5f, maxSpeed = 200f)
-            +Arriver(speed = 150f, slowDownRadius = 50f)
-            +Renderable(object : Visual(Size(24f, 24f)) {
-                override fun DrawScope.draw() {
-                    drawRect(Color.Red, style = Stroke(2f))
-                    drawRect(Color.Red.copy(0.2f))
-                }
-            })
+    @OptIn(ExperimentalMaterialVisuals::class)
+    private fun triggerBurst(center: Offset) {
+        camera.director.shake(0.8f)
+        particle.emit {
+            layer("shock", center) {
+                config { duration = 0.5f; material = ShockwaveMaterial(Color.Cyan, context) }
+                size = scalar(10f) + env.progress * 700f
+            }
+        }
+        enemies.forEach { enemy ->
+            if ((enemy[Transform].position - center).getDistance() < 350f) {
+                particle.emit { boom(enemy[Transform].position, Color.Red) }
+                enemy.remove()
+                state.score += 25
+            }
         }
     }
 
@@ -144,12 +175,11 @@ private class SwarmSystem(
         repeat(150) {
             world.entity {
                 +AllyTag
-                +Transform(Offset((300f..500f).random(), (300f..500f).random()))
-                +RigidBody(drag = 1.2f, maxSpeed = 600f)
-                +Arriver(speed = 400f, slowDownRadius = 150f)
-                +Renderable(object : Visual(Size(10f, 10f)) {
-                    override fun DrawScope.draw() { drawCircle(Color.Cyan) }
-                })
+                +OrbitPersonality()
+                +Transform(Offset(400f, 400f))
+                +RigidBody(drag = 1.4f, maxSpeed = 800f)
+                +Arriver(speed = 600f, slowDownRadius = 120f)
+                +Renderable(CircleVisual(10f, Color.Cyan), zIndex = 10)
             }
         }
         state.isGameOver = false
@@ -157,36 +187,65 @@ private class SwarmSystem(
     }
 }
 
-private fun ParticleNodeScope.explosion(pos: Offset, color: Color) {
-    layer("boom", pos) {
-        config { count = 20; duration = 0.5f }
-        val angle = math.random(0f, 360f)
-        val rad = math.toRadians(angle)
-        val speed = math.random(100f, 300f)
-        position = vec2(math.cos(rad) * speed * env.progress, math.sin(rad) * speed * env.progress)
-        size = scalar(10f) * (1f - env.progress)
-        this.color = color(color.red, color.green, color.blue, 1f - env.progress)
+private class EnemySpawnSystem(
+    private val state: SwarmState = inject()
+) : IntervalSystem(interval = Fixed(0.6f)) {
+    override fun onTick(deltaTime: Float) {
+        if (state.isGameOver) return
+        if (world.family { all(EnemyTag) }.entitySize < 35) {
+            val edge = (0..3).random()
+            val pos = when(edge) {
+                0 -> Offset((0f..800f).random(), -50f)
+                1 -> Offset((0f..800f).random(), 850f)
+                2 -> Offset(-50f, (0f..800f).random())
+                else -> Offset(850f, (0f..800f).random())
+            }
+            world.entity {
+                +EnemyTag
+                +Transform(pos)
+                +RigidBody(drag = 0.7f, maxSpeed = 220f)
+                +Arriver(speed = 190f, slowDownRadius = 40f)
+                +Renderable(CircleVisual(28f, Color.Red))
+            }
+        }
     }
 }
 
-// --- 4. Scene ---
+private fun ParticleNodeScope.boom(pos: Offset, col: Color) {
+    layer("bits", pos) {
+        config { count = 8; duration = 0.5f }
+        val angle = (0f..360f).random()
+        val rad = angle * (PI.toFloat() / 180f)
+        val dist = (50f..250f).random()
+        position = vec2(cos(rad) * dist * env.progress, sin(rad) * dist * env.progress)
+        size = scalar(8f) * (1f - env.progress)
+        color = color(col.red, col.green, col.blue, 1f - env.progress)
+    }
+}
+
+// --- 5. Entry Point ---
+
+
 
 @Composable
 fun SwarmBattleGame() {
-    val sceneStack = rememberGameSceneStack<String>("main")
-    val state = remember { NeonState() }
+    val sceneStack = rememberGameSceneStack("play")
+    val state = remember { SwarmState() }
 
     KGame(sceneStack = sceneStack, virtualSize = Size(800f, 800f)) {
-        scene("main") {
-            world {
+        scene("play") {
+            onWorld {
                 useDefaultSystems()
                 configure {
                     injectables { +state }
-                    systems { +SwarmSystem() }
+                    systems {
+                        +SwarmSystem()
+                        +EnemySpawnSystem()
+                    }
                 }
                 spawn {
                     entity {
-                        +Transform(Offset(400f, 400f))
+                        +Transform()
                         +Camera("main", isMain = true)
                         +CameraShake()
                     }
@@ -194,22 +253,37 @@ fun SwarmBattleGame() {
                 }
             }
 
-            onBackgroundUI { Rectangle(Color(0xFF05070A)) }
+            onBackgroundUI { Rectangle(Color(0xFF030508)) }
 
             onForegroundUI {
-                Box(Modifier.fillMaxSize().padding(30.dp)) {
+                Box(Modifier.fillMaxSize().padding(24.dp)) {
                     Column {
-                        Text("NEON SWARM", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                        Text("Score: ${state.score}", color = Color.Cyan, fontSize = 18.sp)
-                        Text("Units: ${state.alliesAlive}", color = Color.Gray, fontSize = 14.sp)
+                        Text("NEON SWARM", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                        Text("SCORE: ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            progress = { state.chargePower },
+                            modifier = Modifier.width(140.dp).height(6.dp),
+                            color = Color.Yellow,
+                            trackColor = Color.White.copy(0.1f)
+                        )
                     }
 
                     if (state.isGameOver) {
-                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("CORE DISRUPTED", color = Color.Red, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(20.dp))
-                            Button(onClick = { state.pendingReset = true }) {
-                                Text("REBOOT SYSTEM")
+                        Surface(
+                            modifier = Modifier.align(Alignment.Center),
+                            color = Color.Black.copy(0.8f),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("CORE CRITICAL", color = Color.Red, fontSize = 32.sp, fontWeight = FontWeight.Black)
+                                Spacer(Modifier.height(20.dp))
+                                Button(
+                                    onClick = { state.pendingReset = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Cyan, contentColor = Color.Black)
+                                ) {
+                                    Text("REBOOT SWARM", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

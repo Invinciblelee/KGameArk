@@ -66,7 +66,7 @@ private class MovementSystem(
 private val EaseOutOvershoot = CubicBezierEasing(0.4f, 1.5f, 0.8f, 1.0f)
 
 @Composable
-fun GameCollisionDemo() {
+fun CollisionGame() {
     KSimpleGame(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -94,7 +94,7 @@ fun GameCollisionDemo() {
                     +Transform(bounds.randomOffset())
                     +RigidBody(Velocity(velX, velY), mass = mass)
                     +Hitbox(Rect(-20f, -20f, 20f, 20f))
-                    +Renderable(CircleVisual(color, 40f), zIndex = 1)
+                    +Renderable(CircleVisual(40f, color), zIndex = 1)
                 }
 
                 // 创建一个静态墙体来验证分离逻辑 (mass = 0f)

@@ -5,8 +5,8 @@ import com.kgame.ecs.ComponentType
 import com.kgame.ecs.Entity
 
 data class Scroller(
-    val speed: Float = 120f,
-    val axis: Axis = Axis.Y
+    val axis: Axis = Axis.Y,
+    var speed: Float = 120f
 ) : Component<Scroller> {
     override fun type() = Scroller
     companion object Companion : ComponentType<Scroller>()
@@ -20,7 +20,7 @@ enum class Axis { X, Y }
  */
 data class ScrollerTarget(
     val entity: Entity,
-    val intensity: Float = 0.5f
+    var intensity: Float = 0.5f
 ) : Component<ScrollerTarget> {
     override fun type() = ScrollerTarget
     companion object Companion : ComponentType<ScrollerTarget>()

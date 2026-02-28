@@ -35,12 +35,12 @@ data class CameraDeadZone(
  */
 data class CameraShake(
     var trauma: Float = 0f,
-    var traumaDecay: Float = 3.2f,
+    var traumaDecay: Float = 3.5f,
     var maxShakeOffset: Float = 24f,
-    var maxShakeAngle: Float = 1.8f,
+    var maxShakeAngle: Float = 2.0f,
     var shakeOffset: Offset = Offset.Zero,
     var shakeRotation: Float = 0f,
-    var frequency: Float = 25f,
+    var frequency: Float = 15f,
 ): Component<CameraShake> {
     override fun type() = CameraShake
 

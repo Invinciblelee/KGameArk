@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTime::class)
+@file:OptIn(ExperimentalTime::class, ExperimentalMaterialVisuals::class)
 
 package com.example.kgame.games.aircraftwar
 
@@ -33,6 +33,7 @@ import com.kgame.engine.asset.AssetsManager
 import com.kgame.engine.audio.AudioManager
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
+import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
@@ -138,7 +139,7 @@ fun ParticleNodeScope.explosion(center: Offset) {
     // 1. Explosion Core: The hot, dense center
     layer("explosion_core", center) {
         config {
-            count = 800
+            count = 400
             duration = 1.0f
             material = PlasmaFireMaterial(
                 baseColor = Color(red = 1.0f, green = 0.5f, blue = 0.0f),
@@ -175,7 +176,7 @@ fun ParticleNodeScope.explosion(center: Offset) {
     // 2. Explosion Blast: High-velocity sparks and debris
     layer("explosion_blast", center) {
         config {
-            count = 2500
+            count = 800
             duration = 1.5f
             material = PlasmaFireMaterial(
                 baseColor = Color(red = 1.0f, green = 0.95f, blue = 0.8f),
@@ -1082,7 +1083,7 @@ private class AircraftCollisionSystem(
                         bullet.configure { +CleanupTag }
 
                         particleService.emit {
-                            quantumCollapse(ePos)
+                            explosion(ePos)
                         }
 //                        world.entity {
 //                            +Transform(position = ePos)
@@ -1115,7 +1116,7 @@ private class AircraftCollisionSystem(
 
                     animationService.play(player, "flash")
 
-                    cameraService.director.shake(0.5f)
+                    cameraService.director.shake(1.5f)
                     enemy.configure { +CleanupTag }
                 }
             }

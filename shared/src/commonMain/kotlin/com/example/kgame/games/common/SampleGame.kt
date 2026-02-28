@@ -647,7 +647,7 @@ fun SampleGame() {
                         +Movement()
                         +CameraTarget(enemy)
                         +CameraShake()
-                        +Camera("enemy")
+                        +Camera("enemy", bounds = worldBounds)
                     }
 
 //                entities(100) {

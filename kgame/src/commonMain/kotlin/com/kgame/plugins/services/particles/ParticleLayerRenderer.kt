@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterialVisuals::class)
+
 package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.graphics.BlendMode
@@ -6,6 +8,7 @@ import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.kgame.engine.graphics.drawscope.drawVertices
+import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.MaterialEffect
 
 class ParticleLayerRenderer(

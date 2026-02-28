@@ -24,11 +24,12 @@ class SteeringSystem(priority: SystemPriority = SystemPriorityAnchors.Logic) : I
 
         // 1. Check for one-shot "ArriveTarget" command first.
         val arriveTarget = entity.getOrNull(ArriveTarget)
-        if (arriveTarget != null) {
-            val distanceToTarget = (arriveTarget.position - transform.position).getDistance()
+        if (arriveTarget != null && arriveTarget.enabled) {
+            val distSq = transform.distanceSquaredTo(arriveTarget.position)
+            val stopSq = arriveTarget.stopDistance * arriveTarget.stopDistance
             // Check if we have arrived (e.g., within a small threshold)
-            if (distanceToTarget < 10f) { // 10 pixels is our arrival threshold
-                entity.configure { -ArriveTarget } // Remove the component to stop the behavior.
+            if (distSq <= stopSq) { // 10 pixels is our arrival threshold
+                arriveTarget.enabled = false
             } else {
                 // We still need an Arriver component to define *how* to arrive.
                 entity.getOrNull(Arriver)?.let { arriver ->
@@ -40,8 +41,15 @@ class SteeringSystem(priority: SystemPriority = SystemPriorityAnchors.Logic) : I
 
         // 2. Check for persistent "FollowTarget" behavior.
         val followTarget = entity.getOrNull(FollowTarget)
-        if (followTarget != null) {
-            val targetPosition = followTarget.entity[Transform].position
+        if (followTarget != null && followTarget.enabled) {
+            val targetPosition = followTarget.actor[Transform].position
+            val distSq = transform.distanceSquaredTo(targetPosition)
+            val minSq = followTarget.minDistance * followTarget.minDistance
+
+            if (distSq <= minSq) {
+                followTarget.enabled = false
+                return
+            }
 
             entity.getOrNull(Arriver)?.let { arriver ->
                 rigidBody.applyArriverForce(transform, arriver, targetPosition)

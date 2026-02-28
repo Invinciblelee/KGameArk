@@ -11,7 +11,6 @@ import com.kgame.engine.maps.TiledMapShape
 import com.kgame.plugins.components.Hitbox
 import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
-import com.kgame.plugins.components.offset
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -132,12 +131,9 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
 
         var i = 0
         while (i < count) {
-            val p1 = points[i];
-            val p2 = points[i + 1]; i++
-            val x1 = p1.x + pos.x;
-            val y1 = p1.y + pos.y
-            val x2 = p2.x + pos.x;
-            val y2 = p2.y + pos.y
+            val p1 = points[i]; val p2 = points[i + 1]; i++
+            val x1 = p1.x + pos.x; val y1 = p1.y + pos.y
+            val x2 = p2.x + pos.x; val y2 = p2.y + pos.y
 
             val minX = if (x1 < x2) x1 else x2
             val maxX = if (x1 > x2) x1 else x2
@@ -161,7 +157,7 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
         }
 
         if (foundFloor) {
-            transform.offset(y = bestSurfaceY - bottomY)
+            transform.y += bestSurfaceY - bottomY
             eb.set(transform, hitbox.rect)
         }
     }
@@ -179,21 +175,17 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
 
         var idx = 0
         while (idx < edgeCount) {
-            val p1 = points[idx++];
-            val p2 = points[idx % count]
-            val x1 = p1.x + pos.x;
-            val x2 = p2.x + pos.x
-            val y1 = p1.y + pos.y;
-            val y2 = p2.y + pos.y
-            val dx = x2 - x1;
-            val dy = y2 - y1
+            val p1 = points[idx++]; val p2 = points[idx % count]
+            val x1 = p1.x + pos.x; val x2 = p2.x + pos.x
+            val y1 = p1.y + pos.y; val y2 = p2.y + pos.y
+            val dx = x2 - x1; val dy = y2 - y1
 
             // Vertical resolve
             if (entityBounds.center.x in min(x1, x2)..max(x1, x2)) {
                 val t = if (abs(dx) < 0.001f) 0.5f else (entityBounds.center.x - x1) / dx
                 val surfaceY = y1 + t * dy
                 if (abs(entityBounds.center.y - surfaceY) < entityBounds.height * 0.5f) {
-                    transform.offset(y = if (entityBounds.center.y < surfaceY) surfaceY - entityBounds.bottom else surfaceY - entityBounds.top)
+                    transform.y += if (entityBounds.center.y < surfaceY) surfaceY - entityBounds.bottom else surfaceY - entityBounds.top
                     entityBounds.set(transform, hitbox.rect)
                 }
             }
@@ -203,7 +195,7 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
                 val ty = if (abs(dy) < 0.001f) 0.5f else (entityBounds.center.y - y1) / dy
                 val surfaceX = x1 + ty * dx
                 if (abs(entityBounds.center.x - surfaceX) < entityBounds.width * 0.5f) {
-                    transform.offset(x = if (entityBounds.center.x < surfaceX) surfaceX - entityBounds.right else surfaceX - entityBounds.left)
+                    transform.x += if (entityBounds.center.x < surfaceX) surfaceX - entityBounds.right else surfaceX - entityBounds.left
                     entityBounds.set(transform, hitbox.rect)
                 }
             }
@@ -220,28 +212,26 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
 
         if (cx in (h - a)..(h + a)) {
             val dy = b * sqrt(1f - ((cx - h) / a).pow(2))
-            val topY = k - dy;
-            val botY = k + dy
+            val topY = k - dy; val botY = k + dy
             val halfH = entityBounds.height * 0.5f
             if (abs(cy - botY) < halfH) {
-                transform.offset(y = if (cy < botY) botY - entityBounds.bottom else botY - entityBounds.top)
+                transform.y += if (cy < botY) botY - entityBounds.bottom else botY - entityBounds.top
                 entityBounds.set(transform, hitbox.rect)
             } else if (abs(cy - topY) < halfH) {
-                transform.offset(y = if (cy < topY) topY - entityBounds.bottom else topY - entityBounds.top)
+                transform.y += if (cy < topY) topY - entityBounds.bottom else topY - entityBounds.top
                 entityBounds.set(transform, hitbox.rect)
             }
         }
 
         if (cy in (k - b)..(k + b)) {
             val dx = a * sqrt(1f - ((cy - k) / b).pow(2))
-            val leftX = h - dx;
-            val rightX = h + dx
+            val leftX = h - dx; val rightX = h + dx
             val halfW = entityBounds.width * 0.5f
             if (abs(cx - rightX) < halfW) {
-                transform.offset(x = if (cx < rightX) rightX - entityBounds.right else rightX - entityBounds.left)
+                transform.x += if (cx < rightX) rightX - entityBounds.right else rightX - entityBounds.left
                 entityBounds.set(transform, hitbox.rect)
             } else if (abs(cx - leftX) < halfW) {
-                transform.offset(x = if (cx < leftX) leftX - entityBounds.right else leftX - entityBounds.left)
+                transform.y += if (cx < leftX) leftX - entityBounds.right else leftX - entityBounds.left
                 entityBounds.set(transform, hitbox.rect)
             }
         }
@@ -253,8 +243,8 @@ class TiledMapCollisionSystem(priority: SystemPriority = SystemPriorityAnchors.P
         val ox = (entityBounds.width + target.width) * 0.5f - abs(dx)
         val oy = (entityBounds.height + target.height) * 0.5f - abs(dy)
         if (ox > 0 && oy > 0) {
-            if (ox < oy) transform.offset(x = if (dx > 0) ox else -ox)
-            else transform.offset(y = if (dy > 0) oy else -oy)
+            if (ox < oy) transform.x += if (dx > 0) ox else -ox
+            else transform.y += if (dy > 0) oy else -oy
             entityBounds.set(transform, hitbox.rect)
         }
     }

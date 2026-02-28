@@ -127,17 +127,24 @@ private class SwarmSystem(
             orbit.angle += orbit.speed * deltaTime * (1f + state.chargePower * 2f)
             val currentRadius = if (isPressing) 20f + (1f - state.chargePower) * orbit.radius else orbit.radius
             val orbitOffset = Offset(cos(orbit.angle), sin(orbit.angle)) * currentRadius
-            ally.configure { +ArriveTarget(targetPos + orbitOffset) }
+            ally.configure {
+                val target = addIfAbsent(ArriveTarget) { ArriveTarget(Offset.Zero) }
+                target.assign(targetPos + orbitOffset)
+            }
         }
         state.units = allies.entitySize
 
         // 3. Collision Logic with Safety Return
         enemies.forEach { enemy ->
-            val ePos = enemy[Transform].position
-            enemy.configure { +ArriveTarget(targetPos) }
+            val eTransform = enemy[Transform]
+            val ePos = eTransform.position
+            enemy.configure {
+                val target = addIfAbsent(ArriveTarget) { ArriveTarget(Offset.Zero) }
+                target.assign(targetPos)
+            }
 
             allies.forEach { ally ->
-                if ((ePos - ally[Transform].position).getDistance() < 25f) {
+                if (eTransform.distanceTo(ally[Transform]) < 25f) {
                     particle.emit { boom(ePos, Color.Red) }
                     camera.director.shake(0.08f)
                     enemy.remove()
@@ -161,7 +168,7 @@ private class SwarmSystem(
             }
         }
         enemies.forEach { enemy ->
-            if ((enemy[Transform].position - center).getDistance() < 350f) {
+            if (enemy[Transform].distanceTo(center) < 350f) {
                 particle.emit { boom(enemy[Transform].position, Color.Red) }
                 enemy.remove()
                 state.score += 25
@@ -190,19 +197,45 @@ private class SwarmSystem(
 private class EnemySpawnSystem(
     private val state: SwarmState = inject()
 ) : IntervalSystem(interval = Fixed(0.6f)) {
+
+    private val enemyFamily = world.family { all(EnemyTag) }
+
     override fun onTick(deltaTime: Float) {
         if (state.isGameOver) return
-        if (world.family { all(EnemyTag) }.entitySize < 35) {
-            val edge = (0..3).random()
-            val pos = when(edge) {
-                0 -> Offset((0f..800f).random(), -50f)
-                1 -> Offset((0f..800f).random(), 850f)
-                2 -> Offset(-50f, (0f..800f).random())
-                else -> Offset(850f, (0f..800f).random())
+
+        // 1. 严格限制单次 Tick 的生成，防止 IntervalSystem 累积补偿导致的瞬间爆兵
+        val currentCount = enemyFamily.entitySize
+        val maxEnemies = 100
+
+        if (currentCount < maxEnemies) {
+            // 2. 将生成范围控制在 [50, 750] 之间，确保在 800x800 的边界内
+            val padding = 50f
+            val spawnX: Float
+            val spawnY: Float
+
+            // 随机选择从哪一侧的内沿生成
+            when ((0..3).random()) {
+                0 -> { // 顶边内沿
+                    spawnX = (padding..800f - padding).random()
+                    spawnY = padding
+                }
+                1 -> { // 底边内沿
+                    spawnX = (padding..800f - padding).random()
+                    spawnY = 800f - padding
+                }
+                2 -> { // 左边内沿
+                    spawnX = padding
+                    spawnY = (padding..800f - padding).random()
+                }
+                else -> { // 右边内沿
+                    spawnX = 800f - padding
+                    spawnY = (padding..800f - padding).random()
+                }
             }
+
             world.entity {
                 +EnemyTag
-                +Transform(pos)
+                +Transform(Offset(spawnX, spawnY))
                 +RigidBody(drag = 0.7f, maxSpeed = 220f)
                 +Arriver(speed = 190f, slowDownRadius = 40f)
                 +Renderable(CircleVisual(28f, Color.Red))
@@ -213,13 +246,34 @@ private class EnemySpawnSystem(
 
 private fun ParticleNodeScope.boom(pos: Offset, col: Color) {
     layer("bits", pos) {
-        config { count = 8; duration = 0.5f }
-        val angle = (0f..360f).random()
-        val rad = angle * (PI.toFloat() / 180f)
-        val dist = (50f..250f).random()
-        position = vec2(cos(rad) * dist * env.progress, sin(rad) * dist * env.progress)
-        size = scalar(8f) * (1f - env.progress)
-        color = color(col.red, col.green, col.blue, 1f - env.progress)
+        config { count = 50; duration = 0.5f }
+
+        val angle = math.random(0f, 360f)
+        val rad = math.toRadians(angle)
+        val dist = math.random(50f, 250f)
+
+        // 1. 爆发感优化：使用立方曲线 (1 - (1-p)^3)，让粒子先极速喷射再缓慢停止
+        val easeOut = 1f - math.pow(1f - env.progress, 3f)
+
+        // 2. 路径抖动：给每个粒子加一点点基于时间的波浪，让爆炸更生动
+        val noise = math.sin(env.progress * 10f + angle) * 5f * (1f - env.progress)
+
+        position = vec2(
+            math.cos(rad) * dist * easeOut + noise,
+            math.sin(rad) * dist * easeOut + noise
+        )
+
+        // 利用重载，直接进行标量与节点的运算
+        size = 8f * math.pow(1f - env.progress, 2f)
+
+        // 颜色也可以加入瞬间闪白的效果
+        val flash = math.pow(1f - env.progress, 5f)
+        color = color(
+            col.red + flash,
+            col.green + flash,
+            col.blue + flash,
+            1f - env.progress
+        )
     }
 }
 

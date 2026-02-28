@@ -1,6 +1,7 @@
 package com.kgame.plugins.services.particles
 
 import com.kgame.engine.geometry.Vector2
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.atan2
@@ -20,6 +21,19 @@ import kotlin.math.tan
  * Each closure generated here is a functional equivalent of the recursive resolver.
  */
 class ParticleNodeCompiler {
+
+    companion object {
+        private const val TABLE_SIZE = 2048
+        private const val INDEX_MASK = TABLE_SIZE - 1
+        private const val TWO_PI = (PI * 2.0).toFloat()
+        private const val RAD_TO_INDEX = TABLE_SIZE / TWO_PI
+        private const val COS_OFFSET = TABLE_SIZE / 4
+
+        private val SIN_TABLE = FloatArray(TABLE_SIZE) { i ->
+            sin(i * (TWO_PI / TABLE_SIZE))
+        }
+    }
+
 
     // =========================================================================
     // Public Entry Points
@@ -77,11 +91,13 @@ class ParticleNodeCompiler {
 
             // --- Trigonometric Functions ---
             is ParticleNode.Sin -> {
-                val n = traverseScalar(node.node); ScalarExec { ctx -> sin(n.eval(ctx)) }
+                val n = traverseScalar(node.node)
+                ScalarExec { ctx -> ParticleLut.fastSin(n.eval(ctx)) }
             }
 
             is ParticleNode.Cos -> {
-                val n = traverseScalar(node.node); ScalarExec { ctx -> cos(n.eval(ctx)) }
+                val n = traverseScalar(node.node)
+                ScalarExec { ctx -> ParticleLut.fastCos(n.eval(ctx)) }
             }
 
             is ParticleNode.Tan -> {
@@ -106,7 +122,8 @@ class ParticleNodeCompiler {
             }
 
             is ParticleNode.Exp -> {
-                val n = traverseScalar(node.node); ScalarExec { ctx -> exp(n.eval(ctx)) }
+                val n = traverseScalar(node.node)
+                ScalarExec { ctx -> ParticleLut.fastExp(n.eval(ctx)) }
             }
 
             is ParticleNode.Sqrt -> {
@@ -529,11 +546,11 @@ class ParticleNodeCompiler {
 
     private fun iHash(x: Int): Float {
         var h = x
-        h = h xor (h ushr 16)
-        h *= -0x7a143595
-        h = h xor (h ushr 13)
-        h *= -0x3d4d51cb
-        h = h xor (h ushr 16)
+        h = (h xor 61) xor (h ushr 16)
+        h += (h shl 3)
+        h = h xor (h ushr 4)
+        h *= 0x27d4eb2d
+        h = h xor (h ushr 15)
         return (h and 0x7FFFFFFF) * 4.656613E-10f
     }
 }

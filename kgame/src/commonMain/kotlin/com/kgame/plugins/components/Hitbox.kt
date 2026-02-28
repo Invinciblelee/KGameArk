@@ -10,7 +10,7 @@ import com.kgame.ecs.ComponentType
  * @param rect The hitbox area in local space.
  */
 data class Hitbox(
-    val rect: Rect,
+    var rect: Rect,
     var enabled: Boolean = true
 ): Component<Hitbox> {
     override fun type() = Hitbox

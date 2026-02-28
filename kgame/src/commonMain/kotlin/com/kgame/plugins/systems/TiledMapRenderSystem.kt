@@ -10,14 +10,19 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.roundToIntSize
+import androidx.compose.ui.unit.toIntSize
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.geometry.roundToIntOffset
+import com.kgame.engine.geometry.toIntOffset
 import com.kgame.engine.graphics.drawscope.withCameraTransform
+import com.kgame.engine.graphics.drawscope.withCenteredTransform
 import com.kgame.engine.maps.AnimatedTiledMapTile
 import com.kgame.engine.maps.TiledMapData
 import com.kgame.engine.maps.TiledMapGroupLayer
@@ -83,7 +88,9 @@ class TiledMapRenderSystem(
                 super.onRender(this)
             }
         } else {
-            super.onRender(drawScope)
+            drawScope.withCenteredTransform {
+                super.onRender(this)
+            }
         }
     }
 
@@ -171,12 +178,7 @@ class TiledMapRenderSystem(
             return
         }
 
-        drawImage(
-            image = layer.image,
-            dstOffset = boundsRect.topLeft.roundToIntOffset(),
-            dstSize = boundsRect.size.roundToIntSize(),
-            alpha = layer.opacity
-        )
+        drawTiledMapImage(layer.image, srcRect = null, dstRect = boundsRect, alpha = layer.opacity)
     }
 
     private fun DrawScope.drawTiledMapObjectLayer(
@@ -238,16 +240,7 @@ class TiledMapRenderSystem(
         val vFlip = TiledMapData.isFlippedVertically(gid)
         val dFlip = TiledMapData.isFlippedDiagonally(gid)
 
-        if (!hFlip && !vFlip && !dFlip) {
-            drawImage(
-                image = image,
-                srcOffset = clipRect.topLeft.roundToIntOffset(),
-                srcSize = clipRect.size.roundToIntSize(),
-                dstOffset = boundsRect.topLeft.roundToIntOffset(),
-                dstSize = boundsRect.size.roundToIntSize(),
-                alpha = alpha
-            )
-        } else {
+        if (hFlip || vFlip || dFlip) {
             withTransform({
                 val center = Offset(
                     x = boundsRect.left + boundsRect.width / 2f,
@@ -262,16 +255,30 @@ class TiledMapRenderSystem(
                 if (hFlip) scale(scaleX = -1f, scaleY = 1f, pivot = center)
                 if (vFlip) scale(scaleX = 1f, scaleY = -1f, pivot = center)
             }) {
-                drawImage(
-                    image = image,
-                    srcOffset = clipRect.topLeft.roundToIntOffset(),
-                    srcSize = clipRect.size.roundToIntSize(),
-                    dstOffset = boundsRect.topLeft.roundToIntOffset(),
-                    dstSize = boundsRect.size.roundToIntSize(),
-                    alpha = alpha
-                )
+                drawTiledMapImage(image, srcRect = clipRect, dstRect = boundsRect, alpha = alpha)
             }
+        } else {
+            drawTiledMapImage(image, srcRect = clipRect, dstRect = boundsRect, alpha = alpha)
         }
+    }
+
+    private fun DrawScope.drawTiledMapImage(
+        image: ImageBitmap,
+        srcRect: MutableRect?,
+        dstRect: MutableRect,
+        alpha: Float
+    ) {
+        drawImage(
+            image = image,
+            srcOffset = srcRect?.topLeft?.roundToIntOffset() ?: IntOffset.Zero,
+            srcSize = srcRect?.size?.roundToIntSize() ?: IntSize(image.width, image.height),
+            dstOffset = dstRect.topLeft.toIntOffset(),
+            dstSize = IntSize(
+                (dstRect.width + 1f).toInt(),
+                (dstRect.height + 1f).toInt()
+            ),
+            alpha = alpha
+        )
     }
 
     private fun DrawScope.drawTiledMapShapeObject(

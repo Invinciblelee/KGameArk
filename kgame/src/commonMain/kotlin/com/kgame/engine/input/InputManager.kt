@@ -50,8 +50,6 @@ interface InputManager {
     fun getPointerPosition(index: Int = 0): Offset
     fun isPointerDown(index: Int = 0): Boolean
     fun isPointerJustPressed(index: Int = 0): Boolean
-    fun isPointerMoved(index: Int = 0): Boolean
-    fun isPointerUp(index: Int = 0): Boolean
     fun getPointerId(index: Int): Long
 
     // --- Keyboard Polling ---
@@ -85,16 +83,17 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
 
         const val MASK_IS_DOWN = 1 shl 0
         const val MASK_WAS_DOWN = 1 shl 1
-        const val MASK_MOVED = 1 shl 2
-        const val MASK_PENDING_UP = 1 shl 3
+        const val MASK_PENDING_UP = 1 shl 2
     }
 
-    // Parallel primitive arrays for 0-GC state tracking
     private val pointerIds = LongArray(MAX_POINTERS) { -1L }
-    private val pointerPositions = Array(MAX_POINTERS) { Offset.Zero }
+    private val pointerPositions = LongArray(MAX_POINTERS)
     private val pointerStates = IntArray(MAX_POINTERS)
 
-    // Bitmask for O(active) traversal using KMP bitwise operations
+    // Dynamic arrays to prevent key state update drops when exceeding 64 keys
+    private var keyUpdateCodes = LongArray(64)
+    private var keyUpdateStates = LongArray(64)
+
     private var activeBitmask: Int = 0
 
     private val keyStates = MutableLongLongMap()
@@ -106,7 +105,6 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
     override var scrollDelta: Offset = Offset.Zero
         private set
 
-    /** Corrected: Global isPointerDown now strictly tracks the 'pressed' state count. */
     override val isPointerDown: Boolean get() = pointerCount > 0
 
     override val isKeyDown: Boolean
@@ -119,16 +117,12 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
             return false
         }
 
-    // --- Axis Support ---
-
     override fun getAxis(positive: Key, negative: Key): Float {
         var v = 0f
         if (isKeyDown(positive)) v += 1f
         if (isKeyDown(negative)) v -= 1f
         return v
     }
-
-    // --- Pointer Logic ---
 
     override fun onPointerEvent(event: PointerEvent) {
         val changes = event.changes
@@ -145,28 +139,37 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
                 activeBitmask = activeBitmask or (1 shl slot)
 
                 val virtualPos = resolution.actualToVirtual(change.position)
-                if (virtualPos != pointerPositions[slot]) {
-                    pointerStates[slot] = pointerStates[slot] or MASK_MOVED
-                    pointerPositions[slot] = virtualPos
+                if (virtualPos.packedValue != pointerPositions[slot]) {
+                    pointerPositions[slot] = virtualPos.packedValue
                 }
 
                 if (change.pressed) {
                     pointerStates[slot] = pointerStates[slot] or MASK_IS_DOWN
                 } else {
-                    internalPointerRelease(slot)
+                    if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
+                        pointerStates[slot] = (pointerStates[slot] and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN
+                    }
                 }
             }
             i++
         }
 
-        // Implicit release check: traverse only the active bitmask
         var tempMask = activeBitmask
         var activeTotal = 0
         while (tempMask != 0) {
-            val slot = tempMask.countTrailingZeroBits() // KMP standard extension
-            if ((eventMask and (1 shl slot)) == 0) {
-                internalPointerRelease(slot)
+            val slot = tempMask.countTrailingZeroBits()
+            val bit = 1 shl slot
+
+            if ((eventMask and bit) == 0) {
+                if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
+                    pointerStates[slot] = (pointerStates[slot] and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN
+                } else if (pointerStates[slot] == 0) {
+                    // Free the slot if a hover pointer leaves the screen to prevent slot exhaustion
+                    pointerIds[slot] = -1L
+                    activeBitmask = activeBitmask and bit.inv()
+                }
             }
+
             if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
                 activeTotal++
             }
@@ -174,7 +177,6 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         }
         pointerCount = activeTotal
 
-        // Mouse buttons mapping (Polling)
         val btns = event.buttons
         updateKeyInternal(MOUSE_BASE_ID + 0, btns.isPrimaryPressed)
         updateKeyInternal(MOUSE_BASE_ID + 1, btns.isSecondaryPressed)
@@ -182,18 +184,12 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         updateKeyInternal(MOUSE_BASE_ID + 3, btns.isBackPressed)
         updateKeyInternal(MOUSE_BASE_ID + 4, btns.isForwardPressed)
 
-        // Mouse Scroll mapping
         var sx = 0f; var sy = 0f; var k = 0
         while (k < changeSize) {
             val d = changes[k].scrollDelta
             sx += d.x; sy += d.y; k++
         }
         scrollDelta = Offset(sx, sy)
-    }
-
-    override fun onKeyEvent(event: KeyEvent): Boolean {
-        updateKeyInternal(event.key.keyCode, event.type == KeyEventType.KeyDown)
-        return keyInterceptor.shouldIntercept(event.key)
     }
 
     private fun findOrAssignSlot(id: Long): Int {
@@ -206,6 +202,7 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         while (j < MAX_POINTERS) {
             if (pointerIds[j] == -1L) {
                 pointerIds[j] = id
+                pointerStates[j] = 0
                 return j
             }
             j++
@@ -213,35 +210,17 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         return -1
     }
 
-    private fun internalPointerRelease(slot: Int) {
-        if ((pointerStates[slot] and MASK_IS_DOWN) != 0) {
-            pointerStates[slot] = (pointerStates[slot] and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN
-        }
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        updateKeyInternal(event.key.keyCode, event.type == KeyEventType.KeyDown)
+        return keyInterceptor.shouldIntercept(event.key)
     }
 
-    private fun updateKeyInternal(code: Long, isDown: Boolean) {
-        val current = keyStates.getOrDefault(code, 0L).toInt() and MASK_PENDING_UP.inv()
-        if (isDown) {
-            keyStates.put(code, (current or MASK_IS_DOWN).toLong())
-        } else if ((current and MASK_IS_DOWN) != 0) {
-            keyStates.put(code, ((current and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN).toLong())
-        }
-    }
-
-    // --- Polling Implementation ---
-
-    override fun getPointerPosition(index: Int): Offset = if (index in 0..<MAX_POINTERS) pointerPositions[index] else Offset.Zero
+    override fun getPointerPosition(index: Int): Offset = if (index in 0..<MAX_POINTERS) Offset(pointerPositions[index]) else Offset.Zero
     override fun isPointerDown(index: Int): Boolean = if (index in 0..<MAX_POINTERS) (pointerStates[index] and MASK_IS_DOWN) != 0 else false
     override fun isPointerJustPressed(index: Int): Boolean {
         if (index !in 0..<MAX_POINTERS) return false
         val s = pointerStates[index]
         return (s and MASK_IS_DOWN) != 0 && (s and MASK_WAS_DOWN) == 0
-    }
-    override fun isPointerMoved(index: Int): Boolean = if (index in 0..<MAX_POINTERS) (pointerStates[index] and MASK_MOVED) != 0 else false
-    override fun isPointerUp(index: Int): Boolean {
-        if (index !in 0..<MAX_POINTERS) return false
-        val s = pointerStates[index]
-        return (s and MASK_IS_DOWN) == 0 && (s and MASK_WAS_DOWN) != 0
     }
     override fun getPointerId(index: Int): Long = if (index in 0..<MAX_POINTERS) pointerIds[index] else -1L
 
@@ -265,6 +244,15 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
         return (s and MASK_IS_DOWN) == 0 && (s and MASK_WAS_DOWN) != 0
     }
 
+    private fun updateKeyInternal(code: Long, isDown: Boolean) {
+        val current = keyStates.getOrDefault(code, 0L).toInt() and MASK_PENDING_UP.inv()
+        if (isDown) {
+            keyStates.put(code, (current or MASK_IS_DOWN).toLong())
+        } else if ((current and MASK_IS_DOWN) != 0) {
+            keyStates.put(code, ((current and MASK_IS_DOWN.inv()) or MASK_WAS_DOWN).toLong())
+        }
+    }
+
     override fun simulateKey(key: Key) {
         val c = key.keyCode
         val s = keyStates.getOrDefault(c, 0L).toInt()
@@ -273,9 +261,20 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
 
     override fun intercept(interceptor: KeyInterceptor) { keyInterceptor = interceptor }
 
-    // --- Lifecycle and Cleaning ---
+    // Ensures arrays are large enough to handle all keys currently tracked
+    private fun ensureKeyUpdateCapacity(requiredSize: Int) {
+        if (keyUpdateCodes.size < requiredSize) {
+            var newSize = keyUpdateCodes.size * 2
+            while (newSize < requiredSize) newSize *= 2
+            keyUpdateCodes = keyUpdateCodes.copyOf(newSize)
+            keyUpdateStates = keyUpdateStates.copyOf(newSize)
+        }
+    }
 
     override fun endFrame() {
+        ensureKeyUpdateCapacity(keyStates.size)
+
+        var updateCount = 0
         keyStates.forEach { code, state ->
             val s = state.toInt()
             val next = if ((s and MASK_PENDING_UP) != 0) {
@@ -283,19 +282,29 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
             } else {
                 if ((s and MASK_IS_DOWN) != 0) (s or MASK_WAS_DOWN) else (s and MASK_WAS_DOWN.inv())
             }
-            keyStates.put(code, next.toLong())
+
+            keyUpdateCodes[updateCount] = code
+            keyUpdateStates[updateCount] = next.toLong()
+            updateCount++
+        }
+
+        var i = 0
+        while (i < updateCount) {
+            keyStates.put(keyUpdateCodes[i], keyUpdateStates[i])
+            i++
         }
 
         var tempMask = activeBitmask
         while (tempMask != 0) {
-            val i = tempMask.countTrailingZeroBits()
-            val s = pointerStates[i]
-            pointerStates[i] = s and MASK_MOVED.inv()
+            val slot = tempMask.countTrailingZeroBits()
+            val s = pointerStates[slot]
+
             if ((s and MASK_WAS_DOWN) != 0 && (s and MASK_IS_DOWN) == 0) {
-                pointerStates[i] = 0; pointerIds[i] = -1L; pointerPositions[i] = Offset.Zero
-                activeBitmask = activeBitmask and (1 shl i).inv()
+                pointerStates[slot] = 0
+                pointerIds[slot] = -1L
+                activeBitmask = activeBitmask and (1 shl slot).inv()
             } else if ((s and MASK_IS_DOWN) != 0) {
-                pointerStates[i] = pointerStates[i] or MASK_WAS_DOWN
+                pointerStates[slot] = pointerStates[slot] or MASK_WAS_DOWN
             }
             tempMask = tempMask and (tempMask - 1)
         }
@@ -305,7 +314,7 @@ class DefaultInputManager(private val resolution: ResolutionManager) : InputMana
     override fun clear() {
         keyStates.clear(); activeBitmask = 0; var i = 0
         while (i < MAX_POINTERS) {
-            pointerIds[i] = -1L; pointerStates[i] = 0; pointerPositions[i] = Offset.Zero; i++
+            pointerIds[i] = -1L; pointerStates[i] = 0; pointerPositions[i] = 0L; i++
         }
         pointerCount = 0; scrollDelta = Offset.Zero
     }

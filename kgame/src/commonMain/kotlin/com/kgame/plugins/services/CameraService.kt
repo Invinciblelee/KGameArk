@@ -26,6 +26,8 @@ import com.kgame.plugins.components.applySmoothFollow
 import com.kgame.plugins.components.clampToBounds
 import com.kgame.plugins.components.clampToViewport
 import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
@@ -87,6 +89,8 @@ class CameraDirector(
                     updateShake(shake, deltaTime)
                 }
             }
+
+
         }
     }
 
@@ -127,24 +131,26 @@ class CameraDirector(
             targetPos
         }
 
-        val smooth = entity.getOrNull(Smooth)
-        if (smooth != null) {
-            transform.applySmoothFollow(newTargetPos, smooth, deltaTime)
-            return
-        }
-
-        val elasticity = entity.getOrNull(Elasticity)
-        if (elasticity != null) {
-            val movement = entity.getOrNull(Movement)
-            if (movement != null) {
-                transform.applyElasticityFollow(newTargetPos, elasticity, movement, deltaTime)
+        try {
+            val smooth = entity.getOrNull(Smooth)
+            if (smooth != null) {
+                transform.applySmoothFollow(newTargetPos, smooth, deltaTime)
                 return
             }
+
+            val elasticity = entity.getOrNull(Elasticity)
+            if (elasticity != null) {
+                val movement = entity.getOrNull(Movement)
+                if (movement != null) {
+                    transform.applyElasticityFollow(newTargetPos, elasticity, movement, deltaTime)
+                    return
+                }
+            }
+
+            transform.position = newTargetPos
+        } finally {
+            clampToWorldBounds(camera, transform)
         }
-
-        transform.position = newTargetPos
-
-        clampToWorldBounds(camera, transform)
     }
 
     private fun updateTransition(
@@ -172,48 +178,42 @@ class CameraDirector(
     }
 
     /**
-     * Updates camera shake state based on deterministic time-based sampling.
-     * Designed for zero-GC execution within the game loop.
-     */
-    /**
-     * Updates camera shake state with zero-allocation and non-synchronous jitter.
-     * Aligned with Zen Edition's high-performance requirements.
+     * Modern high-impact camera shake.
+     * Combines the raw energy of Random with a bit of persistence to prevent "ghosting".
      */
     private fun updateShake(
         shake: CameraShake,
         deltaTime: Float
     ) {
         if (shake.trauma <= 0f) {
-            // Strict reset to ensure clean state after shake completion
-            if (shake.shakeOffset != Offset.Zero || shake.shakeRotation != 0f) {
-                shake.shakeOffset = Offset.Zero
-                shake.shakeRotation = 0f
-                shake.trauma = 0f
-            }
+            shake.shakeOffset = Offset.Zero
+            shake.shakeRotation = 0f
             return
         }
 
-        // Linear decay provides a predictable and "crisp" impact dissipation
+        // 1. Nonlinear trauma decay (More "punchy" feedback)
         shake.trauma = (shake.trauma - shake.traumaDecay * deltaTime).coerceAtLeast(0f)
-
-        // Performance threshold to avoid unnecessary calculations at imperceptible levels
-        if (shake.trauma < 0.005f) return
-
-        // Apply power curve for a more dynamic and punchy intensity response
         val shakeFactor = shake.trauma * shake.trauma
-        val baseSeed = (shake.trauma * shake.frequency).toDouble()
 
-        // Adding phase constants to prevent axial synchronization, ensuring organic motion
-        val noiseX = sin(baseSeed + 1.12).toFloat()
-        val noiseY = sin(baseSeed + 2.84).toFloat()
-        val noiseR = sin(baseSeed + 5.37).toFloat()
+        // 2. Dynamic Smoothness (Lerp Factor)
+        // Instead of 0.8f, we use: 1 - exp(-frequency * deltaTime)
+        // This makes the shake frame-rate independent.
+        // Higher frequency = more raw/random (closer to 1.0)
+        // Lower frequency = more heavy/sluggish
+        val lerpFactor = (1f - exp(-shake.frequency * deltaTime)).coerceIn(0f, 1f)
 
-        // Final transformation results to be consumed by the rendering pipeline
+        // 3. Generate Random Targets
+        val targetX = (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor
+        val targetY = (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor
+        val targetR = (Random.nextFloat() * 2 - 1) * shake.maxShakeAngle * shakeFactor
+
+        // 4. Apply Physical Interpolation
+        // The camera "tries" to catch up to the random target points
         shake.shakeOffset = Offset(
-            x = noiseX * shake.maxShakeOffset * shakeFactor,
-            y = noiseY * shake.maxShakeOffset * shakeFactor
+            x = shake.shakeOffset.x + (targetX - shake.shakeOffset.x) * lerpFactor,
+            y = shake.shakeOffset.y + (targetY - shake.shakeOffset.y) * lerpFactor
         )
-        shake.shakeRotation = noiseR * shake.maxShakeAngle * shakeFactor
+        shake.shakeRotation += (targetR - shake.shakeRotation) * lerpFactor
     }
 
     private fun clampToWorldBounds(camera: Camera, transform: Transform) {

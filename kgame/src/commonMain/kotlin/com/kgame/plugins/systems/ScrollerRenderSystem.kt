@@ -7,11 +7,18 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
+import com.kgame.ecs.World.Companion.inject
+import com.kgame.engine.graphics.drawscope.withCameraTransform
+import com.kgame.engine.graphics.drawscope.withCenteredTransform
 import com.kgame.engine.graphics.drawscope.withLocalTransform
 import com.kgame.plugins.components.Axis
+import com.kgame.plugins.components.Camera
+import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.Transform
+import com.kgame.plugins.services.CameraService
+import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
@@ -25,7 +32,10 @@ import kotlin.math.floor
  * The entire rendering process is allocation-free (0-GC) within the main loop to ensure
  * optimal performance.
  */
-class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Render) :
+class ScrollerRenderSystem(
+    private val cameraService: CameraService = inject(),
+    priority: SystemPriority = SystemPriorityAnchors.Render
+) :
     IteratingSystem(
         family = family { all(Scroller, Renderable, Transform) },
         priority = priority
@@ -36,6 +46,24 @@ class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Rend
      * This transform is configured for each tile before it's drawn.
      */
     private val tileTransform = Transform()
+
+    override fun onRender(drawScope: DrawScope) {
+        val cameraEntity = cameraService.mainCameraEntity
+        if (cameraEntity != null) {
+            val camera = cameraEntity[Camera]
+            val camTrans = cameraEntity[Transform]
+            val camShake = cameraEntity.getOrNull(CameraShake)
+
+            drawScope.withCameraTransform(camera, camTrans, camShake) {
+                // Call super.onRender() which will trigger onRenderEntity for each map.
+                super.onRender(this)
+            }
+        } else {
+            drawScope.withCenteredTransform {
+                super.onRender(this)
+            }
+        }
+    }
 
     override fun onRenderEntity(entity: Entity, drawScope: DrawScope) {
         val renderable = entity[Renderable]
@@ -48,13 +76,13 @@ class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Rend
         val scale = when (scroller.axis) {
             Axis.X -> drawScope.size.height / renderable.size.height
             Axis.Y -> drawScope.size.width / renderable.size.width
-        }
+        } * 1.1f
 
         // Calculate the actual size of a single tile in the scrolling direction after scaling.
         val scaledTileSize = when (scroller.axis) {
             Axis.X -> renderable.size.width * scale
             Axis.Y -> renderable.size.height * scale
-        } - 1f
+        }
 
         // Avoid division by zero if the tile size is invalid.
         if (scaledTileSize <= 0f) return
@@ -100,8 +128,8 @@ class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Rend
             // Set the position for the current tile.
             tileTransform.position = when (scroller.axis) {
                 // For horizontal scrolling, Y is centered. For vertical, X is centered.
-                Axis.X -> Offset(currentDrawPos, drawScope.size.height / 2f)
-                Axis.Y -> Offset(drawScope.size.width / 2f, currentDrawPos)
+                Axis.X -> Offset(currentDrawPos, 0f)
+                Axis.Y -> Offset(0f, currentDrawPos)
             }
 
             // Use withLocalTransform to apply the tile's position, scale, and rotation.
@@ -110,7 +138,7 @@ class ScrollerRenderSystem(priority: SystemPriority = SystemPriorityAnchors.Rend
             }
 
             // Advance to the position of the next tile.
-            currentDrawPos += scaledTileSize
+            currentDrawPos += (scaledTileSize - 1f)
         }
     }
 }

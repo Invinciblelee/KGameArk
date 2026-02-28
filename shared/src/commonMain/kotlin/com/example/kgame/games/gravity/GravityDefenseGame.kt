@@ -2,7 +2,6 @@
 
 package com.example.kgame.games.gravity
 
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,20 +11,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kgame.ecs.*
-import com.kgame.ecs.World.Companion.family
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.graphics.material.Material
-import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.Rectangle
@@ -123,12 +117,12 @@ private class GravitySystem(
             // 数据驱动：通过修改 FollowTarget 切换引力目标，不再每帧 new Arriver
             val follow = matter[FollowTarget]
             if (isPulling && distToShip < 280f) {
-                if (follow.entity != ship) {
+                if (follow.actor != ship) {
                     matter.configure { +FollowTarget(ship) }
                 }
                 matter[Arriver].speed = 750f
             } else {
-                if (follow.entity != core) {
+                if (follow.actor != core) {
                     matter.configure { +FollowTarget(core) }
                 }
                 matter[Arriver].speed = 130f

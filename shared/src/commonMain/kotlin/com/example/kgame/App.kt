@@ -4,8 +4,12 @@ package com.example.kgame
 
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
+import com.example.kgame.games.aircraftwar.AircraftWarGame
+import com.example.kgame.games.common.SampleGame
 import com.example.kgame.games.gravity.GravityDefenseGame
+import com.example.kgame.games.prism.PrismArenaGame
 import com.example.kgame.games.rpg.StarCollectorGame
+import com.example.kgame.games.snake.NeonSnakeGame
 import com.example.kgame.games.swarm.SwarmBattleGame
 import com.example.kgame.games.zenripple.ZenRippleGame
 
@@ -15,6 +19,6 @@ expect fun AppTheme(content: @Composable () -> Unit)
 @Composable
 fun App() {
     AppTheme {
-        SwarmBattleGame()
+        AircraftWarGame()
     }
 }

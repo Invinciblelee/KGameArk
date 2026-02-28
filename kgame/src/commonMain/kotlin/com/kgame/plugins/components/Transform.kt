@@ -10,6 +10,8 @@ import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
 import com.kgame.engine.geometry.toOffset
 import com.kgame.engine.geometry.toVelocity
+import com.kgame.engine.math.degrees
+import kotlin.math.atan2
 
 data class Transform(
     var position: Offset = Offset.Zero,
@@ -32,13 +34,78 @@ data class Transform(
         set(value) {
             position = position.copy(y = value)
         }
+
+    operator fun plusAssign(offset: Offset) {
+        position += offset
+    }
+
+    operator fun minusAssign(offset: Offset) {
+        position -= offset
+    }
 }
 
 /**
- *
+ * Calculate distance to another Transform
  */
-fun Transform.offset(x: Float = 0f, y: Float = 0f) {
-    position += Offset(x, y)
+fun Transform.distanceTo(target: Transform): Float = (target.position - this.position).getDistance()
+
+/**
+ * Calculate distance to a specific position
+ */
+fun Transform.distanceTo(target: Offset): Float = (target - this.position).getDistance()
+
+/**
+ * Squared distance is faster for comparisons (avoiding sqrt)
+ */
+fun Transform.distanceSquaredTo(target: Transform): Float = (target.position - this.position).getDistanceSquared()
+
+/**
+ * Squared distance is faster for comparisons (avoiding sqrt)
+ */
+fun Transform.distanceSquaredTo(target: Offset): Float = (target - this.position).getDistanceSquared()
+
+
+/**
+ * Calculate direction to another Transform
+ */
+fun Transform.directionTo(target: Transform): Offset = (target.position - this.position)
+
+/**
+ * Calculate direction to a specific position
+ */
+fun Transform.directionTo(target: Offset): Offset {
+    val diff = target - this.position
+    return if (diff.getDistance() > 0) diff / diff.getDistance() else Offset.Zero
+}
+
+/**
+ * Linear interpolation to target position
+ */
+fun Transform.lerp(target: Transform, fraction: Float) {
+    position = lerp(position, target.position, fraction)
+}
+
+/**
+ * Linear interpolation to target position
+ */
+fun Transform.lerp(target: Offset, fraction: Float) {
+    position = lerp(position, target, fraction)
+}
+
+/**
+ * Look at another Transform
+ */
+fun Transform.lookAt(target: Transform) {
+    val diff = target.position - position
+    rotation = degrees(atan2(diff.y.toDouble(), diff.x.toDouble())).toFloat()
+}
+
+/**
+ * Look at a specific position
+ */
+fun Transform.lookAt(target: Offset) {
+    val diff = target - position
+    rotation = degrees(atan2(diff.y.toDouble(), diff.x.toDouble())).toFloat()
 }
 
 /**

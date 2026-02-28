@@ -272,9 +272,7 @@ class EntityUpdateScope(
      * to assign it to the entity and return it.
      */
     inline fun <reified T : Component<T>> addIfAbsent(type: ComponentType<T>, add: () -> T): T {
-        return with(context) {
-            entity.addIfAbsent(type, add)
-        }
+        return with(context) { entity.addIfAbsent(type, add) }
     }
 
 }

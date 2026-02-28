@@ -14,7 +14,7 @@ import com.kgame.ecs.ComponentType
  * @property intel The intelligence of the entity.
  */
 data class CharacterStats(
-    val maxHp: Float = 100f,
+    var maxHp: Float = 100f,
     var hp: Float = maxHp,
 
     val maxMp: Float = 100f,

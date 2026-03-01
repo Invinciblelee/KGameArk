@@ -72,6 +72,11 @@ abstract class Visual {
     }
 
     /**
+     * Updates the visual.
+     */
+    open fun update(deltaTime: Float) = Unit
+
+    /**
      * Renders the visual content into the provided [DrawScope].
      */
     abstract fun DrawScope.draw()

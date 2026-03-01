@@ -161,10 +161,9 @@ private class GomokuState {
 // --- 5. Visuals ---
 
 private class BoardVisual : Visual(Size(Config.BOARD_SIZE + 40f, Config.BOARD_SIZE + 40f)) {
-    private val effect = MaterialEffect(BoardMaterial()).apply { setResolution(Size(Config.BOARD_SIZE + 40f, Config.BOARD_SIZE + 40f)) }
+    private val effect = MaterialEffect(BoardMaterial())
     override fun DrawScope.draw() {
-        if (effect.ready) drawRect(brush = effect.obtainBrush())
-        else drawRect(Color(0xFFD2B48C))
+        drawRect(brush = effect.obtainBrush(size))
         
         val lineCol = Color.Black.copy(0.35f)
         val offset = 20f
@@ -182,10 +181,9 @@ private class BoardVisual : Visual(Size(Config.BOARD_SIZE + 40f, Config.BOARD_SI
 }
 
 private class StoneVisual(val type: StoneType) : Visual(Size(Config.CELL_SIZE * Config.STONE_SCALE, Config.CELL_SIZE * Config.STONE_SCALE)) {
-    private val effect = MaterialEffect(StoneMaterial(type == StoneType.BLACK)).apply { setResolution(size) }
+    private val effect = MaterialEffect(StoneMaterial(type == StoneType.BLACK))
     override fun DrawScope.draw() {
-        if (effect.ready) drawCircle(brush = effect.obtainBrush())
-        else drawCircle(if (type == StoneType.BLACK) Color.Black else Color.White)
+        drawCircle(brush = effect.obtainBrush(size))
     }
 }
 

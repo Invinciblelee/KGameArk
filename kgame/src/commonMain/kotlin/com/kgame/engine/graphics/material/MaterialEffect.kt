@@ -1,13 +1,15 @@
 package com.kgame.engine.graphics.material
 
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
 import com.kgame.engine.graphics.material.Material.Companion.DELTA_TIME
-import com.kgame.engine.graphics.material.Material.Companion.RESOLUTION
 import com.kgame.engine.graphics.material.Material.Companion.TIME
 
 /**
@@ -21,24 +23,20 @@ abstract class MaterialEffect {
     /** Indicates if the current platform is supported*/
     open val supported: Boolean = true
 
-    /** Defines if the effect is ready to be displayed */
-    val ready: Boolean get() = !size.isEmpty()
-
     private var brush: Brush? = null
     private var isDirty: Boolean = true
     private var isInitialized: Boolean = false
 
+    private val colorBufferCache = mutableMapOf<String, FloatArray>()
+
     private val useTime by lazy { material.sksl.contains(TIME) }
     private val useDeltaTime by lazy { material.sksl.contains(DELTA_TIME) }
-    private val useResolution by lazy { material.sksl.contains(RESOLUTION) }
+
+    private var size: Size = Size.Unspecified
+    private val matrix: Matrix = Matrix()
 
     var elapsedTime: Float = 0f
         private set
-
-    var size: Size = Size.Unspecified
-        private set
-
-    private val colorBufferCache = mutableMapOf<String, FloatArray>()
 
     protected fun markDirty() {
         isDirty = true
@@ -104,13 +102,6 @@ abstract class MaterialEffect {
         uniform(name, finalBuffer)
     }
 
-    /** Updates the resolution uniform.*/
-    fun setResolution(size: Size) {
-        if (!useResolution || this.size == size || size.isEmpty()) return
-        this.size = size
-        uniform(RESOLUTION, size.width, size.height)
-    }
-
     /** Updates the time uniform. */
     fun update(deltaTime: Float) {
         elapsedTime += deltaTime
@@ -135,9 +126,34 @@ abstract class MaterialEffect {
         return brush!!
     }
 
+    fun obtainBrush(size: Size): Brush {
+        val dirty = isDirty
+        val brush = obtainBrush()
+
+        val sizeChanged = this.size != size
+        if (sizeChanged || dirty) {
+            if (sizeChanged) {
+                this.size = size
+                matrix.reset()
+                if (!size.isEmpty()) {
+                    matrix.scale(size.width, size.height)
+                }
+            }
+            if (brush is ShaderBrush) {
+                brush.transform = if (size.isEmpty()) {
+                    null
+                } else {
+                    matrix
+                }
+            }
+        }
+        return brush
+    }
+
     fun applyTo(size: Size, paint: Paint, alpha: Float = 1f) {
         obtainBrush().applyTo(size, paint, alpha)
     }
 }
 
+@ExperimentalMaterialVisuals
 expect fun MaterialEffect(material: Material): MaterialEffect

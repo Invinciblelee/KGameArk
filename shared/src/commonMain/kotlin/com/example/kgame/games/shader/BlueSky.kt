@@ -2,7 +2,6 @@ package com.example.kgame.games.shader
 
 import androidx.compose.ui.graphics.Color
 import com.kgame.engine.graphics.material.Material
-import com.kgame.engine.graphics.material.Material.Companion.RESOLUTION
 import com.kgame.engine.graphics.material.Material.Companion.TIME
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.graphics.material.MaterialMetadata
@@ -33,7 +32,6 @@ class BlueSky(
 
     @Language("AGSL")
     override val sksl: String = """
-        uniform vec2 $RESOLUTION;
         uniform float $TIME;
         uniform float $SCALE;
         uniform float2 $CLOUD_PARAMS; 
@@ -69,10 +67,7 @@ class BlueSky(
         }
 
         /* ---------- Main Render Function ---------- */
-        vec4 main(in vec2 fragCoord) {
-            // 1. Correctly calculate aspect-corrected UV coordinates
-            vec2 uv = (2.0 * fragCoord.xy - $RESOLUTION.xy) / min($RESOLUTION.x, $RESOLUTION.y);
-            
+        vec4 main(in vec2 uv) {
             /* 2. Create the Sky Gradient */
             float gradient = smoothstep(-1.0, 1.0, uv.y);
             vec3 skyColor = mix($SKY_COLOR_TOP.rgb, $SKY_COLOR_HORIZON.rgb, gradient);

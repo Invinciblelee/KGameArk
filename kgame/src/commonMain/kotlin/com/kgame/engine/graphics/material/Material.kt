@@ -28,7 +28,6 @@ data class MaterialMetadata(
 interface Material {
 
     companion object Companion {
-        const val RESOLUTION = "uResolution"
         const val TIME = "uTime"
         const val DURATION = "uDuration"
         const val PROGRESS = "uProgress"

@@ -215,9 +215,7 @@ private class NeonBoxVisual(
     private val trail: Trail? = null,
     private val currentTransform: Transform? = null
 ) : Visual(size) {
-    private val effect = MaterialEffect(NeonBoxMaterial(color)).apply {
-        setResolution(size)
-    }
+    private val effect = MaterialEffect(NeonBoxMaterial(color))
 
     override fun DrawScope.draw() {
         // 1. Draw High-Quality Segmented Trail (Tapered & Glow)
@@ -255,11 +253,7 @@ private class NeonBoxVisual(
         }
 
         // 2. Draw Main Body
-        if (effect.ready) {
-            drawRect(brush = effect.obtainBrush())
-        } else {
-            drawRect(color = color)
-        }
+        drawRect(brush = effect.obtainBrush(size))
     }
 }
 

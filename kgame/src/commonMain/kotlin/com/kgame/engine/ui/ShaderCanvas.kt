@@ -14,10 +14,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.toSize
+import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import kotlinx.coroutines.isActive
 
+
+@ExperimentalMaterialVisuals
 @Composable
 fun MaterialCanvas(
     material: Material,
@@ -26,15 +29,12 @@ fun MaterialCanvas(
 ) {
     val materialEffect = remember(material) { MaterialEffect(material) }
 
-    Canvas(modifier.onSizeChanged {
-        materialEffect.setResolution(it.toSize())
-    }) {
-        if (materialEffect.ready) {
-            onDraw(materialEffect.obtainBrush())
-        }
+    Canvas(modifier) {
+        onDraw(materialEffect.obtainBrush(size))
     }
 }
 
+@ExperimentalMaterialVisuals
 @Composable
 fun ActiveMaterialCanvas(
     material: Material,
@@ -70,14 +70,10 @@ fun ActiveMaterialCanvas(
         }
     }
 
-    Canvas(modifier.onSizeChanged {
-        materialEffect.setResolution(it.toSize())
-    }) {
+    Canvas(modifier) {
         materialState.signal()
 
-        if (materialEffect.ready) {
-            onDraw(materialEffect.obtainBrush())
-        }
+        onDraw(materialEffect.obtainBrush(size))
     }
 }
 

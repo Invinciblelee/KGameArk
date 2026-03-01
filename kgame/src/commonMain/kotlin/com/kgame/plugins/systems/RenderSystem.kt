@@ -26,7 +26,7 @@ class RenderSystem(
     private val cameraService: CameraService = inject(),
     priority: SystemPriority = SystemPriorityAnchors.Render
 ): IteratingSystem(
-    family = family { all(Transform, Renderable); none(Scroller) },
+    family = family { all(Transform, Renderable).none(Scroller) },
     comparator = compareEntityBy(Renderable),
     priority = priority
 ) {
@@ -35,6 +35,14 @@ class RenderSystem(
         var isDebugging = false
 
         private val DebugStroke = Stroke(2f)
+    }
+
+    override fun onUpdate(deltaTime: Float) {
+        super.onUpdate(deltaTime)
+
+        family.forEach {
+            it[Renderable].visual.update(deltaTime)
+        }
     }
 
     override fun onRender(drawScope: DrawScope) {

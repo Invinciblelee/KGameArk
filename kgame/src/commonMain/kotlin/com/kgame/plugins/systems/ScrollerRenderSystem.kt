@@ -35,17 +35,24 @@ import kotlin.math.floor
 class ScrollerRenderSystem(
     private val cameraService: CameraService = inject(),
     priority: SystemPriority = SystemPriorityAnchors.Render
-) :
-    IteratingSystem(
-        family = family { all(Scroller, Renderable, Transform) },
-        priority = priority
-    ) {
+) : IteratingSystem(
+    family = family { all(Scroller, Renderable, Transform) },
+    priority = priority
+) {
 
     /**
      * A reusable [Transform] object to avoid allocations within the render loop (0-GC).
      * This transform is configured for each tile before it's drawn.
      */
     private val tileTransform = Transform()
+
+    override fun onUpdate(deltaTime: Float) {
+        super.onUpdate(deltaTime)
+
+        family.forEach {
+            it[Renderable].visual.update(deltaTime)
+        }
+    }
 
     override fun onRender(drawScope: DrawScope) {
         val cameraEntity = cameraService.mainCameraEntity

@@ -70,7 +70,7 @@ class RenderSystem(
         val shouldDraw = cameraService.culler.overlaps(transform, renderable.bounds)
 
         if (shouldDraw) {
-            drawScope.withLocalTransform(transform, renderable.size) {
+            drawScope.withLocalTransform(transform, renderable.size, renderable.anchor) {
                 with(renderable.visual) { draw() }
             }
 

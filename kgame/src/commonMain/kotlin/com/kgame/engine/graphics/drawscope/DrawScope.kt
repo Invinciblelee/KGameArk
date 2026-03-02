@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
+import com.kgame.engine.geometry.Anchor
 import com.kgame.engine.geometry.ResolutionManager
 import com.kgame.engine.geometry.ResolutionScaleType
 import com.kgame.engine.geometry.toOffset
@@ -112,16 +113,19 @@ inline fun DrawScope.withCameraTransform(
  * be written simply, relative to an origin of (0, 0) and bounded by its size.
  *
  * @param transform The Transform component containing the entity's world position, rotation, and scale.
+ * @param size The size of the entity's bounding box in the world coordinate system.
+ * @param anchor The anchor point of the entity's bounding box.
  * @param block The entity's local drawing logic (e.g., drawCircle(Color.Red)).
  */
 inline fun DrawScope.withLocalTransform(
     transform: Transform,
     size: Size,
+    anchor: Anchor,
     block: DrawScope.() -> Unit
 ) {
     val oldSize = drawContext.size
     try {
-        val currentSize = size.let { if (it.isSpecified) it else oldSize }
+        val currentSize = if (size.isSpecified) size else oldSize
         drawContext.size = currentSize
 
         val halfW = currentSize.width / 2f
@@ -132,7 +136,24 @@ inline fun DrawScope.withLocalTransform(
         val scale = transform.scale
 
         withTransform({
-            translate(position.x - halfW, position.y - halfH)
+            // The pivot represents the offset from the top-left corner (0, 0) to the specified anchor.
+            // When translating, we subtract this pivot from the world position to ensure (0, 0)
+            // in the local block aligns with the entity's top-left corner.
+            val pivotX = when (anchor) {
+                Anchor.TopLeft, Anchor.CenterLeft, Anchor.BottomLeft -> 0f
+                Anchor.TopCenter, Anchor.Center, Anchor.BottomCenter -> halfW
+                Anchor.TopRight, Anchor.CenterRight, Anchor.BottomRight -> currentSize.width
+            }
+            val pivotY = when (anchor) {
+                Anchor.TopLeft, Anchor.TopCenter, Anchor.TopRight -> 0f
+                Anchor.CenterLeft, Anchor.Center, Anchor.CenterRight -> halfH
+                Anchor.BottomLeft, Anchor.BottomCenter, Anchor.BottomRight -> currentSize.height
+            }
+
+            // Translate to the world position and subtract the pivot to reach the local top-left.
+            // E.g., if anchor is Center, we translate to (position.x - halfW, position.y - halfH).
+            translate(position.x - pivotX, position.y - pivotY)
+
             if (rotation != 0f) {
                 rotate(rotation, currentSize.toOffset(transform.rotationPivot))
             }

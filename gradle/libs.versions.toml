@@ -21,6 +21,8 @@ composeMultiplatform = "1.10.1"
 composeMaterial3 = "1.11.0-alpha01"
 composeMaterialIcons = "1.7.3"
 
+skiko = "0.9.43"
+
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.31.0"
@@ -65,6 +67,10 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 compose-material-icons = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "composeMaterialIcons" }
+
+skiko = { module = "org.jetbrains.skiko:skiko", version.ref = "skiko" }
+skiko-android-runtime-arm64 = { module = "org.jetbrains.skiko:skiko-android-runtime-arm64", version.ref = "skiko" }
+skiko-android-runtime-x64 = { module = "org.jetbrains.skiko:skiko-android-runtime-x64", version.ref = "skiko" }
 
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }

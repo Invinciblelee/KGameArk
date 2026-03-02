@@ -17,7 +17,6 @@ import com.kgame.ecs.*
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
-import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager

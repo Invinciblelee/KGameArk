@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import com.kgame.engine.geometry.Anchor
 import com.kgame.plugins.visuals.Visual.Companion.InfiniteRect
 
 abstract class Visual {
@@ -48,6 +49,12 @@ abstract class Visual {
      * Note: Accessing this when bounds is [InfiniteRect] may yield infinite dimensions.
      */
     val size: Size get() = if (bounds.isInfinite) Size.Unspecified else bounds.size
+
+    /**
+     * The anchor of the visual in local coordinate space.
+     * Defaults to [Anchor.Center].
+     */
+    open var anchor: Anchor = Anchor.Center
 
     open var alpha: Float = 1.0f
 

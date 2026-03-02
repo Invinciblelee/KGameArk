@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidColorFilter
 
+
 private object AndroidFallbackMaterialEffect : MaterialEffect() {
 
     private var baseColor: Color = Color.White
@@ -19,8 +20,6 @@ private object AndroidFallbackMaterialEffect : MaterialEffect() {
     override val material: Material = object : Material {
         override val sksl: String = ""
     }
-
-    override val supported: Boolean = false
 
     override fun input(name: String, shader: Shader) = Unit
 

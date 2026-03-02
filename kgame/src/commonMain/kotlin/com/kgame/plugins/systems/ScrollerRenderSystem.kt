@@ -140,7 +140,7 @@ class ScrollerRenderSystem(
             }
 
             // Use withLocalTransform to apply the tile's position, scale, and rotation.
-            drawScope.withLocalTransform(tileTransform, renderable.size) {
+            drawScope.withLocalTransform(tileTransform, renderable.size, renderable.anchor) {
                 with(renderable.visual) { draw() }
             }
 

@@ -1,4 +1,6 @@
+import com.android.build.gradle.tasks.MergeSourceSetFolders
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -9,6 +11,28 @@ plugins {
     alias(libs.plugins.composeHotReload)
 }
 
+// Skiko Native Workaround
+val skikoNativeArm64: Configuration by configurations.creating
+val skikoNativeX64: Configuration by configurations.creating
+val skikoJniDir = "$projectDir/src/androidMain/jniLibs"
+
+val unzipSkikoNativeArm64 = tasks.register<Copy>("unzipSkikoNativeArm64") {
+    from(skikoNativeArm64.map { zipTree(it) })
+    into(file("$skikoJniDir/arm64-v8a"))
+    include("*.so")
+}
+
+val unzipSkikoNativeX64 = tasks.register<Copy>("unzipSkikoNativeX64") {
+    from(skikoNativeX64.map { zipTree(it) })
+    into(file("$skikoJniDir/x86_64"))
+    include("*.so")
+}
+
+project.tasks.withType<MergeSourceSetFolders>().configureEach {
+    dependsOn(unzipSkikoNativeArm64)
+    dependsOn(unzipSkikoNativeX64)
+}
+
 kotlin {
     androidLibrary {
         namespace = "com.kgame.engine"
@@ -16,32 +40,18 @@ kotlin {
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
 
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "KGameEngineKit"
-        }
+    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach {
+        it.binaries.framework { baseName = "KGameEngineKit" }
     }
 
     jvm()
-
-    js {
-        outputModuleName = "KGameEngineKit"
-        browser()
-    }
-
+    js { outputModuleName = "KGameEngineKit"; browser() }
     @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        outputModuleName = "KGameEngineKit"
-        browser()
-    }
+    wasmJs { outputModuleName = "KGameEngineKit"; browser() }
 
     compilerOptions {
-        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
-        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
+        languageVersion.set(KotlinVersion.KOTLIN_2_2)
+        apiVersion.set(KotlinVersion.KOTLIN_2_2)
         freeCompilerArgs.addAll(
             "-Xexpect-actual-classes",
             "-opt-in=kotlin.time.ExperimentalTime",
@@ -70,6 +80,7 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksoup)
+            implementation(libs.skiko)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
@@ -84,13 +95,15 @@ kotlin {
             implementation(libs.kotlin.browser)
             implementation(npm("pako", "2.1.0"))
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
+        commonTest.dependencies { implementation(libs.kotlin.test) }
         jvmTest.dependencies {
             implementation(libs.kotlin.testJunit)
             implementation(libs.junit)
         }
     }
+}
 
+dependencies {
+    skikoNativeArm64(libs.skiko.android.runtime.arm64)
+    skikoNativeX64(libs.skiko.android.runtime.x64)
 }

@@ -158,8 +158,8 @@ private class SnakeSystem(
         particles.emit {
             layer("pop", headFamily.first()[Transform].position) {
                 config { count = 15; duration = 0.5f }
-                val r = math.random(0f, 360f) * 0.017453292f
-                position = vec2(math.cos(r) * 150f * env.progress, math.sin(r) * 150f * env.progress)
+                val r = (0f..360f).random() * 0.017453292f
+                position = vec2(math.cos(scalar(r)) * 150f * env.progress, math.sin(scalar(r)) * 150f * env.progress)
                 size = scalar(10f) * (1f - env.progress)
                 color = color(0f, 1f, 0.5f, 1f - env.progress)
             }
@@ -294,10 +294,9 @@ fun NeonSnakeGame() {
                     Surface(
                         modifier = Modifier.align(Alignment.Center),
                         color = Color.Black.copy(0.8f),
-                        shape = MaterialTheme.shapes.large
-                    ) {
+                        shape = MaterialTheme.shapes.large) {
                         Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("GAME OVER", color = Color.Red, fontSize = 36.sp, fontWeight = FontWeight.Black)
+                            Text("GAME OVER", color = Color.Red, fontSize = 32.sp, fontWeight = FontWeight.Black)
                             Spacer(Modifier.height(16.dp))
                             Button(onClick = { state.pendingReset = true }) {
                                 Text("REBOOT")

@@ -21,10 +21,7 @@ data class MaterialMetadata(
 
 }
 
-/**
- * Interface to describe shaders supported by the [com.kgame.engine.ui.MaterialCanvas] Modifier.
- */
-@ExperimentalMaterialVisuals
+
 interface Material {
 
     companion object Companion {

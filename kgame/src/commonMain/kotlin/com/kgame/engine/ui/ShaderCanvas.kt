@@ -12,9 +12,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.toSize
-import com.kgame.engine.graphics.material.ExperimentalMaterialVisuals
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import kotlinx.coroutines.isActive

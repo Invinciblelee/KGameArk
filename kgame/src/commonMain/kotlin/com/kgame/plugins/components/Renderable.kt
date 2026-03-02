@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.util.lerp
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
+import com.kgame.engine.geometry.Anchor
 import com.kgame.plugins.visuals.Visual
 
 
@@ -51,6 +52,12 @@ data class Renderable(
      */
     val bounds: Rect
         get() = visual.bounds
+
+    /**
+     * Returns the anchor of [visual]
+     */
+    val anchor: Anchor
+        get() = visual.anchor
 
     /**
      * Returns the alpha of [visual]

@@ -11,15 +11,14 @@ import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.graphics.drawscope.withCameraTransform
 import com.kgame.engine.graphics.drawscope.withCenteredTransform
 import com.kgame.engine.graphics.drawscope.withLocalTransform
-import com.kgame.plugins.components.Axis
+import com.kgame.plugins.components.ScrollerAxis
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.Renderable
 import com.kgame.plugins.components.Scroller
+import com.kgame.plugins.components.ScrollerMode
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.services.CameraService
-import kotlin.math.ceil
-import kotlin.math.floor
 
 /**
  * Renders entities with a [Scroller] component, creating a seamless, infinitely repeating
@@ -80,15 +79,19 @@ class ScrollerRenderSystem(
         // --- 1. Calculate Scaling and Tile Dimensions ---
 
         // Determine the scale factor needed to fit the tile to the viewport's non-scrolling axis.
-        val scale = when (scroller.axis) {
-            Axis.X -> drawScope.size.height / renderable.size.height
-            Axis.Y -> drawScope.size.width / renderable.size.width
-        } * 1.1f
+        val scale = if (scroller.mode == ScrollerMode.Fill) {
+            when (scroller.axis) {
+                ScrollerAxis.X -> drawScope.size.height / renderable.size.height
+                ScrollerAxis.Y -> drawScope.size.width / renderable.size.width
+            } * 1.1f
+        } else {
+            1.0f
+        }
 
         // Calculate the actual size of a single tile in the scrolling direction after scaling.
         val scaledTileSize = when (scroller.axis) {
-            Axis.X -> renderable.size.width * scale
-            Axis.Y -> renderable.size.height * scale
+            ScrollerAxis.X -> renderable.size.width * scale
+            ScrollerAxis.Y -> renderable.size.height * scale
         }
 
         // Avoid division by zero if the tile size is invalid.
@@ -96,22 +99,22 @@ class ScrollerRenderSystem(
 
         // --- 2. Calculate Drawing Start Position and Loop Bounds ---
 
-        // Get the effective camera position along the scrolling axis from the scroller entity's transform.
-        val cameraPosition = when (scroller.axis) {
-            Axis.X -> scrollerTransform.position.x
-            Axis.Y -> scrollerTransform.position.y
+        // Get the effective position along the scrolling axis from the scroller entity's transform.
+        val position = when (scroller.axis) {
+            ScrollerAxis.X -> scrollerTransform.position.x
+            ScrollerAxis.Y -> scrollerTransform.position.y
         }
 
         // Get the size of the viewport along the scrolling axis.
         val viewportSize = when (scroller.axis) {
-            Axis.X -> drawScope.size.width
-            Axis.Y -> drawScope.size.height
+            ScrollerAxis.X -> drawScope.size.width
+            ScrollerAxis.Y -> drawScope.size.height
         }
 
         // Use the modulo operator to wrap the camera position within the range of a single tile.
         // This is the key to creating a seamless infinite loop.
         // The `(a % n + n) % n` formula ensures the result is always positive.
-        val wrappedOffset = (cameraPosition % scaledTileSize + scaledTileSize) % scaledTileSize
+        val wrappedOffset = (position % scaledTileSize + scaledTileSize) % scaledTileSize
 
         // Determine the starting position for the first tile to be drawn.
         // We start from the wrapped offset and repeatedly move backward by one tile size
@@ -135,8 +138,8 @@ class ScrollerRenderSystem(
             // Set the position for the current tile.
             tileTransform.position = when (scroller.axis) {
                 // For horizontal scrolling, Y is centered. For vertical, X is centered.
-                Axis.X -> Offset(currentDrawPos, 0f)
-                Axis.Y -> Offset(0f, currentDrawPos)
+                ScrollerAxis.X -> Offset(currentDrawPos, 0f)
+                ScrollerAxis.Y -> Offset(0f, currentDrawPos)
             }
 
             // Use withLocalTransform to apply the tile's position, scale, and rotation.

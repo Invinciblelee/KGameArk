@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTime::class, ExperimentalMaterialVisuals::class)
+@file:OptIn(ExperimentalTime::class)
 
 package com.example.kgame.games.aircraftwar
 
@@ -42,7 +42,7 @@ import com.kgame.engine.ui.Rectangle
 import com.kgame.engine.ui.applyJoypad
 import com.kgame.engine.utils.FpsCalculator
 import com.kgame.plugins.components.AlphaAnimation
-import com.kgame.plugins.components.Axis
+import com.kgame.plugins.components.ScrollerAxis
 import com.kgame.plugins.components.Boundary
 import com.kgame.plugins.components.BoundaryStrategy
 import com.kgame.plugins.components.Camera
@@ -62,6 +62,7 @@ import com.kgame.plugins.components.ScrollerTarget
 import com.kgame.plugins.components.SpriteAnimation
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.Movement
+import com.kgame.plugins.components.ScrollerMode
 import com.kgame.plugins.components.WorldBounds
 import com.kgame.plugins.components.step
 import com.kgame.plugins.services.AnimationService
@@ -70,7 +71,6 @@ import com.kgame.plugins.services.particles.ParticleContext
 import com.kgame.plugins.services.particles.ParticleNodeScope
 import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.services.play
-import com.kgame.plugins.systems.PhysicsSystem
 import com.kgame.plugins.systems.SystemPriorityAnchors
 import com.kgame.plugins.visuals.images.ImageVisual
 import com.kgame.plugins.visuals.images.SpriteVisual
@@ -1199,7 +1199,7 @@ fun AircraftWarGame() {
 
                     entity {
                         +Transform()
-                        +Scroller(speed = -120f, axis = Axis.Y)
+                        +Scroller(speed = -120f)
                         +ScrollerTarget(player)
                         +Renderable(ImageVisual(assets[GameAssets.Image.Background]))
                     }

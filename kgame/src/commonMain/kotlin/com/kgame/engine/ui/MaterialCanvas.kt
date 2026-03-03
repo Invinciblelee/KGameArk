@@ -12,15 +12,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.toSize
 import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import kotlinx.coroutines.isActive
 
-
-@ExperimentalMaterialVisuals
 @Composable
 fun MaterialCanvas(
     material: Material,
@@ -34,7 +29,6 @@ fun MaterialCanvas(
     }
 }
 
-@ExperimentalMaterialVisuals
 @Composable
 fun ActiveMaterialCanvas(
     material: Material,
@@ -47,26 +41,24 @@ fun ActiveMaterialCanvas(
 
     val materialState = remember { MaterialState() }
 
-    LaunchedEffect(materialEffect.supported) {
-        if (materialEffect.supported) {
-            var lastFrameMillis = -1L
-            while (isActive) {
-                onUpdate(materialEffect)
-                withInfiniteAnimationFrameMillis { frameTimeMillis ->
-                    if (lastFrameMillis < 0L) {
-                        lastFrameMillis = frameTimeMillis
-                        return@withInfiniteAnimationFrameMillis
-                    }
-
-                    val dt = (frameTimeMillis - lastFrameMillis) / 1000f
-                    val safeDt = dt.coerceIn(0f, 0.033f) * speed * material.speedModifier
-
-                    materialEffect.update(safeDt)
-
+    LaunchedEffect(Unit) {
+        var lastFrameMillis = -1L
+        while (isActive) {
+            onUpdate(materialEffect)
+            withInfiniteAnimationFrameMillis { frameTimeMillis ->
+                if (lastFrameMillis < 0L) {
                     lastFrameMillis = frameTimeMillis
+                    return@withInfiniteAnimationFrameMillis
                 }
-                materialState.invalidate()
+
+                val dt = (frameTimeMillis - lastFrameMillis) / 1000f
+                val safeDt = dt.coerceIn(0f, 0.033f) * speed * material.speedModifier
+
+                materialEffect.update(safeDt)
+
+                lastFrameMillis = frameTimeMillis
             }
+            materialState.invalidate()
         }
     }
 

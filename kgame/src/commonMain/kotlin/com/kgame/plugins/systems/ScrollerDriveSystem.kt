@@ -4,7 +4,7 @@ import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.family
-import com.kgame.plugins.components.Axis
+import com.kgame.plugins.components.ScrollerAxis
 import com.kgame.plugins.components.Scroller
 import com.kgame.plugins.components.ScrollerTarget
 import com.kgame.plugins.components.Transform
@@ -45,7 +45,7 @@ class ScrollerDriveSystem(priority: SystemPriority = SystemPriorityAnchors.Logic
         // 3. Final Coordinate Mapping
         // Use -(cruiseDistance + targetOffset)
         // This maintains the base flow but adds a small 'push' when moving.
-        if (scroller.axis == Axis.Y) {
+        if (scroller.axis == ScrollerAxis.Y) {
             transform.y = -(cruiseDistance + targetOffset)
         } else {
             transform.x = -(cruiseDistance + targetOffset)

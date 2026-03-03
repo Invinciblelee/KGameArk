@@ -12,26 +12,26 @@ plugins {
 }
 
 // Skiko Native Workaround
-val skikoNativeArm64: Configuration by configurations.creating
-val skikoNativeX64: Configuration by configurations.creating
-val skikoJniDir = "$projectDir/src/androidMain/jniLibs"
-
-val unzipSkikoNativeArm64 = tasks.register<Copy>("unzipSkikoNativeArm64") {
-    from(skikoNativeArm64.map { zipTree(it) })
-    into(file("$skikoJniDir/arm64-v8a"))
-    include("*.so")
-}
-
-val unzipSkikoNativeX64 = tasks.register<Copy>("unzipSkikoNativeX64") {
-    from(skikoNativeX64.map { zipTree(it) })
-    into(file("$skikoJniDir/x86_64"))
-    include("*.so")
-}
-
-project.tasks.withType<MergeSourceSetFolders>().configureEach {
-    dependsOn(unzipSkikoNativeArm64)
-    dependsOn(unzipSkikoNativeX64)
-}
+//val skikoNativeArm64: Configuration by configurations.creating
+//val skikoNativeX64: Configuration by configurations.creating
+//val skikoJniDir = "$projectDir/src/androidMain/jniLibs"
+//
+//val unzipSkikoNativeArm64 = tasks.register<Copy>("unzipSkikoNativeArm64") {
+//    from(skikoNativeArm64.map { zipTree(it) })
+//    into(file("$skikoJniDir/arm64-v8a"))
+//    include("*.so")
+//}
+//
+//val unzipSkikoNativeX64 = tasks.register<Copy>("unzipSkikoNativeX64") {
+//    from(skikoNativeX64.map { zipTree(it) })
+//    into(file("$skikoJniDir/x86_64"))
+//    include("*.so")
+//}
+//
+//project.tasks.withType<MergeSourceSetFolders>().configureEach {
+//    dependsOn(unzipSkikoNativeArm64)
+//    dependsOn(unzipSkikoNativeX64)
+//}
 
 kotlin {
     androidLibrary {
@@ -80,7 +80,7 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksoup)
-            implementation(libs.skiko)
+//            implementation(libs.skiko)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
@@ -103,7 +103,7 @@ kotlin {
     }
 }
 
-dependencies {
-    skikoNativeArm64(libs.skiko.android.runtime.arm64)
-    skikoNativeX64(libs.skiko.android.runtime.x64)
-}
+//dependencies {
+//    skikoNativeArm64(libs.skiko.android.runtime.arm64)
+//    skikoNativeX64(libs.skiko.android.runtime.x64)
+//}

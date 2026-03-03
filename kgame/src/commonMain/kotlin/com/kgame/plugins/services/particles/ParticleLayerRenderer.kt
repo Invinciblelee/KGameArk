@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterialVisuals::class)
-
 package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.graphics.BlendMode

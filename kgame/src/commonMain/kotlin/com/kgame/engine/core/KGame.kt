@@ -25,7 +25,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -36,13 +35,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation3.ui.NavDisplay
+import androidx.navigationevent.NavigationEventInfo
 import com.kgame.engine.asset.DefaultAssetsManager
 import com.kgame.engine.dsl.GameSceneProvider
 import com.kgame.engine.dsl.GameSceneProviderScope
 import com.kgame.engine.dsl.SceneBuilderScope
 import com.kgame.platform.LocalAssetsReader
 import com.kgame.platform.LocalPlatformContext
-import org.jetbrains.compose.resources.LocalResourceReader
 
 /**
  * The main entry point of the kgame.
@@ -242,6 +241,9 @@ private fun <T : Any> GameShell(
         )
     }
 }
+
+object CurrentInfo : NavigationEventInfo()
+object PreviousInfo : NavigationEventInfo()
 
 @Composable
 private fun <T : Any> ScaledGameViewport(

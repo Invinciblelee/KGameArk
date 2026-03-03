@@ -6,7 +6,6 @@ import com.kgame.engine.graphics.material.Material
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.plugins.visuals.Visual
 
-@ExperimentalMaterialVisuals
 class MaterialVisual(
     val material: Material,
     size: Size = Size.Unspecified

@@ -29,7 +29,6 @@ import com.kgame.plugins.services.particles.ParticleNodeScope
 import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.visuals.shapes.CircleVisual
 import org.intellij.lang.annotations.Language
-import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.ExperimentalTime
@@ -131,6 +130,7 @@ private class SwarmSystem(
                 target.assign(targetPos + orbitOffset)
             }
         }
+
         state.units = allies.entitySize
 
         // 3. Collision Logic with Safety Return
@@ -157,7 +157,6 @@ private class SwarmSystem(
         if (state.units <= 0 && !state.isGameOver) state.isGameOver = true
     }
 
-    @OptIn(ExperimentalMaterialVisuals::class)
     private fun triggerBurst(center: Offset) {
         camera.director.shake(0.8f)
         particle.emit {

@@ -21,13 +21,13 @@ composeMultiplatform = "1.10.1"
 composeMaterial3 = "1.11.0-alpha01"
 composeMaterialIcons = "1.7.3"
 
-skiko = "0.9.43"
+skiko = "0.9.47"
 
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.31.0"
-kotlinBrowser = "2026.2.18"
-kotlinCss = "2026.2.18"
+kotlinBrowser = "2026.3.1"
+kotlinCss = "2026.3.1"
 
 ktor = "3.4.0"
 

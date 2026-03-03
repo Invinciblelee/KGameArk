@@ -5,14 +5,17 @@ import com.kgame.ecs.ComponentType
 import com.kgame.ecs.Entity
 
 data class Scroller(
-    val axis: Axis = Axis.Y,
-    var speed: Float = 120f
+    var speed: Float = 120f,
+    val axis: ScrollerAxis = ScrollerAxis.Y,
+    val mode: ScrollerMode = ScrollerMode.Fill,
 ) : Component<Scroller> {
     override fun type() = Scroller
     companion object Companion : ComponentType<Scroller>()
 }
 
-enum class Axis { X, Y }
+enum class ScrollerMode { Fill, Original }
+
+enum class ScrollerAxis { X, Y }
 
 /**
  * Component that links a scroller to a target entity (usually the player).

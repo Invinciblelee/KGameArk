@@ -40,7 +40,7 @@ import kotlin.uuid.ExperimentalUuidApi
 // --- 1. Configuration ---
 private object Config {
     const val GRID_COUNT = 15
-    const val CELL_SIZE = 36f // 缩小格子，确保上下有足够留白
+    const val CELL_SIZE = 36f 
     const val BOARD_SIZE = (GRID_COUNT - 1) * CELL_SIZE 
     const val VIRTUAL_W = 800f
     const val VIRTUAL_H = 600f
@@ -239,7 +239,7 @@ private class GomokuSystem(
         val relX = worldPos.x - Config.BOARD_X
         val relY = worldPos.y - Config.BOARD_Y
         
-        // 精准计算行列索引 (0-14)
+        // Accurately calculate row and column indices (0-14)
         val gx = (relX / Config.CELL_SIZE).roundToInt() + 7
         val gy = (relY / Config.CELL_SIZE).roundToInt() + 7
 
@@ -282,7 +282,6 @@ private class GomokuSystem(
                 autoPlay = true)
         }
         
-        // 缩短震动时间感
         camera.director.shake(0.06f)
         particle.emit { ripple(worldPos, if (type == StoneType.BLACK) Color.DarkGray else Color.White) }
 
@@ -298,28 +297,27 @@ private class GomokuSystem(
 private fun ParticleNodeScope.ripple(c: Offset, col: Color) {
     layer("zen_ripple", c) {
         config {
-            count = 24 // 增加点数，让圆环更密
+            count = 24 
             duration = 0.4f
         }
 
-        // --- 极坐标逻辑 ---
-        // 直接使用 math.TAU (Float常量节点)，运算符重载会自动处理
+        // --- Polar Coordinates Logic ---
+        // Use math.TAU (constant node), operator overloading handles the rest
         val angle = (env.index / env.count) * ParticleNodeMath.TAU
 
-        // 扩散半径：直接进行 Float 运算
+        // Diffusion radius
         val radius = env.progress * 80f
 
-        // 位置映射：vec2 构造器接收 ParticleNode
+        // Position mapping: vec2 constructor receives ParticleNode
         position = vec2(math.cos(angle) * radius, math.sin(angle) * radius)
 
-        // --- 视觉动态 (利用 ops) ---
-        // 1.0f - env.progress 会触发你定义的 Float.minus(node)
+        // --- Visual Dynamics (utilizing ops) ---
         val invProgress = 1.0f - env.progress
 
-        // 使用 smoothstep 让粒子在扩张时优雅地变小并淡出
+        // Use smoothstep for graceful scaling and fading
         size = ops.smoothstep(1.0f, 0.0f, env.progress) * 5f
 
-        // 利用 mix 或直接乘法控制透明度
+        // Control transparency using mix or multiplication
         val alpha = invProgress * 0.5f
         color = color(col.red, col.green, col.blue, alpha)
     }
@@ -339,7 +337,7 @@ private fun ParticleNodeScope.victoryRain() {
 // --- 7. Entry ---
 
 @Composable
-fun GomokuGameDemo() {
+fun GomokuGame() {
     val sceneStack = rememberGameSceneStack("menu")
     val state = remember { GomokuState() }
 

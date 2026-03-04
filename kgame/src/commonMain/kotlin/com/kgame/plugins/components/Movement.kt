@@ -2,6 +2,11 @@ package com.kgame.plugins.components
 
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
+import com.kgame.engine.math.degrees
+import com.kgame.engine.math.radians
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Movement component defines the autonomous movement capability of an entity.
@@ -13,16 +18,32 @@ class Movement(
     var cruiseX: Float = 0f,
     /** The base speed magnitude when moving on the Y axis. */
     var cruiseY: Float = 0f,
-    /** Current normalized direction on X axis (-1f, 0f, 1f). */
+    /** Current normalized direction on X axis. */
     var dirX: Float = 1f,
-    /** Current normalized direction on Y axis (-1f, 0f, 1f). */
+    /** Current normalized direction on Y axis. */
     var dirY: Float = 1f
 ) : Component<Movement> {
 
+    private val directionLength: Float
+        get() = sqrt(dirX * dirX + dirY * dirY)
+
     /** Computed instantaneous velocity on X axis. */
-    val velocityX: Float get() = dirX * cruiseX
+    val velocityX: Float get() {
+        val len = directionLength
+        return if (len > 0f) (dirX / len) * cruiseX else 0f
+    }
     /** Computed instantaneous velocity on Y axis. */
-    val velocityY: Float get() = dirY * cruiseY
+    val velocityY: Float get() {
+        val len = directionLength
+        return if (len > 0f) (dirY / len) * cruiseY else 0f
+    }
+
+    constructor(cruiseX: Float, cruiseY: Float, degrees: Float) : this(
+        cruiseX,
+        cruiseY,
+        cos(radians(degrees)),
+        sin(radians(degrees))
+    )
 
     override fun type() = Movement
     companion object Companion : ComponentType<Movement>()
@@ -50,6 +71,18 @@ fun Movement.reverseY() {
 fun Movement.applyDirection(dx: Float? = null, dy: Float? = null) {
     dx?.let { this.dirX = it }
     dy?.let { this.dirY = it }
+}
+
+/**
+ * Updates the movement direction based on an angle in degrees.
+ * This implementation is safe because it modifies dirX/dirY instead of
+ * multiplying against the computed velocity, preventing "zero-lock".
+ * @param degrees The angle in degrees.
+ */
+fun Movement.applyAngle(degrees: Float) {
+    val radians = radians(degrees)
+    this.dirX = cos(radians)
+    this.dirY = sin(radians)
 }
 
 /**

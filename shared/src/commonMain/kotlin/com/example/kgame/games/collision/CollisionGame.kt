@@ -45,20 +45,20 @@ private class MovementSystem(
         val rb = entity[RigidBody]
         val rr = entity[Renderable]
 
-        /* 运动（复用基本类型） */
+        /* Movement (reuse basic types) */
         tf.position = tf.position.copy(
             x = tf.position.x + rb.velocity.x * deltaTime,
             y = tf.position.y + rb.velocity.y * deltaTime
         )
 
-        /* 边界反弹：一行调用你的封装（零临时对象） */
+        /* Boundary bounce: single line call to your encapsulation (zero temporary objects) */
         val clamped = cameraService.transformer.clampToViewport(tf.position, rr.size)
 
-        /* 若被 clamp → 反弹速度 */
+        /* If clamped -> Bounce velocity */
         if (clamped.x != tf.position.x) rb.velocity = rb.velocity.copy(x = -rb.velocity.x)
         if (clamped.y != tf.position.y) rb.velocity = rb.velocity.copy(y = -rb.velocity.y)
 
-        /* 写回最终位置（零临时对象） */
+        /* Write back final position */
         tf.position = clamped
     }
 }
@@ -90,14 +90,14 @@ fun CollisionGame() {
                     val mass = 1f + Random.nextFloat()
                     val color = Color.random()
 
-                    // 创建随机移动和碰撞的实体
+                    // Create entities with random movement and collision
                     +Transform(bounds.randomOffset())
                     +RigidBody(Velocity(velX, velY), mass = mass)
                     +Hitbox(Rect(-20f, -20f, 20f, 20f))
                     +Renderable(CircleVisual(40f, color), zIndex = 1)
                 }
 
-                // 创建一个静态墙体来验证分离逻辑 (mass = 0f)
+                // Create a static wall to verify separation logic (mass = 0f)
                 val e = entity {
                     +Transform()
                     +RigidBody(mass = 0f)

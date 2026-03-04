@@ -8,6 +8,8 @@ import androidx.compose.ui.layout.lerp
 import androidx.compose.ui.util.lerp
 import com.kgame.ecs.Component
 import com.kgame.ecs.ComponentType
+import com.kgame.engine.geometry.degreesTo
+import com.kgame.engine.geometry.radiansTo
 import com.kgame.engine.geometry.toOffset
 import com.kgame.engine.geometry.toVelocity
 import com.kgame.engine.math.degrees
@@ -77,6 +79,35 @@ fun Transform.directionTo(target: Offset): Offset {
     val diff = target - this.position
     return if (diff.getDistance() > 0) diff / diff.getDistance() else Offset.Zero
 }
+
+/**
+ * Calculate degrees to another Transform
+ */
+fun Transform.degreesTo(target: Transform): Float {
+    return position.degreesTo(target.position)
+}
+
+/**
+ * Calculate degrees to a specific position
+ */
+fun Transform.degreesTo(target: Offset): Float {
+    return position.degreesTo(target)
+}
+
+/**
+ * Calculate radians to another Transform
+ */
+fun Transform.radiansTo(target: Transform): Float {
+    return position.radiansTo(target.position)
+}
+
+/**
+ * Calculate radians to a specific position
+ */
+fun Transform.radiansTo(target: Offset): Float {
+    return position.radiansTo(target)
+}
+
 
 /**
  * Linear interpolation to target position

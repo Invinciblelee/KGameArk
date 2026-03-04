@@ -1,5 +1,20 @@
 @file:Suppress("OVERRIDE_BY_INLINE")
-
+/*
+ * Created by Quillraven
+ * Modified by [Lee] for KGameArk
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.kgame.ecs.collection
 
 import com.kgame.ecs.Entity
@@ -373,7 +388,7 @@ class MutableEntityBag(
     }
 
     /**
-     * Returns a [List] containing only [entities][Entity] matching the given [predicate].
+     * Returns a [EntityBag] containing only [entities][Entity] matching the given [predicate].
      */
     override inline fun filter(predicate: (Entity) -> Boolean): EntityBag {
         val result = MutableEntityBag((size * 0.25f).toInt())
@@ -388,7 +403,7 @@ class MutableEntityBag(
     }
 
     /**
-     * Returns a [List] containing all [entities][Entity] not matching the given [predicate].
+     * Returns a [EntityBag] containing all [entities][Entity] not matching the given [predicate].
      */
     override inline fun filterNot(predicate: (Entity) -> Boolean): EntityBag {
         val result = MutableEntityBag((size * 0.25f).toInt())
@@ -403,7 +418,7 @@ class MutableEntityBag(
     }
 
     /**
-     * Returns a [List] containing only [entities][Entity] matching the given [predicate].
+     * Returns a [EntityBag] containing only [entities][Entity] matching the given [predicate].
      */
     override inline fun filterIndexed(predicate: (index: Int, entity: Entity) -> Boolean): EntityBag {
         val result = MutableEntityBag((size * 0.25f).toInt())
@@ -965,7 +980,7 @@ class MutableEntityBag(
     }
 
     /**
-     * Returns a [List] containing the first [n][] [entities][Entity].
+     * Returns a [EntityBag] containing the first [n][] [entities][Entity].
      */
     override fun take(n: Int): EntityBag {
         val result = MutableEntityBag(max(min(n, size), 0))

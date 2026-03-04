@@ -52,8 +52,8 @@ import com.kgame.platform.LocalPlatformContext
  * data object Game
  *
  * val sceneStack = rememberGameSceneStack<Any>(Main)
- * KGame(context, sceneStack = sceneStack, virtualSize = Size(800f, 600f)) {
- *     scene<Main>() {
+ * KGame(sceneStack = sceneStack, virtualSize = Size(800f, 600f)) {
+ *     scene<Main> {
  *          onCreate {
  *              // Scene create: perform any one-time, potentially long-running initializations.
  *              // e.g., load extra resources, initialize complex states, or fetch data.
@@ -63,8 +63,8 @@ import com.kgame.platform.LocalPlatformContext
  *              // Scene start
  *          }
  *
- *          onDispose {
- *              // Scene dispose
+ *          onDestroy {
+ *              // Scene destroy
  *          }
  *
  *          onUpdate { dt ->
@@ -91,31 +91,35 @@ import com.kgame.platform.LocalPlatformContext
  *          }
  *     }
  *
- *     scene<Game>() {
- *          world(configuration = {
- *              injectables {
- *                  "key" + "value"
- *                  +ViewModel()
+ *     scene<Game> {
+ *          onWorld {
+ *              useDefaultSystems()
+ *              configure {
+ *                  injectables {
+ *                      "key" + "value"
+ *                      +ViewModel()
+ *                  }
+ *                  systems {
+ *                      +PhysicsSystem()
+ *                      +RenderSystem()
+ *                  }
  *              }
- *              systems {
- *                  +PhysicsSystem()
- *                  +RenderSystem()
- *              }
- *          }) {
- *              entity {
- *                  +Transform()
- *                  +Camera()
- *              }
+ *              spawn {
+ *                  entity {
+ *                      +Transform()
+ *                      +Camera()
+ *                  }
  *
- *              entities(100) {
- *                  +Transform()
- *                  +Renderable(Rectangle(Color.Red))
+ *                  entities(100) {
+ *                      +Transform()
+ *                      +Renderable(Rectangle(Color.Red))
+ *                  }
  *              }
  *          }
  *
  *          onUpdate { dt ->
  *              // Update logic
- *              if (input.isKeyUp(Key.Escape)) {
+ *              if (input.isKeyJustPressed(Key.Escape)) {
  *                  sceneStack.pop()
  *              }
  *          }
@@ -242,9 +246,6 @@ private fun <T : Any> GameShell(
     }
 }
 
-object CurrentInfo : NavigationEventInfo()
-object PreviousInfo : NavigationEventInfo()
-
 @Composable
 private fun <T : Any> ScaledGameViewport(
     engine: GameEngine,
@@ -290,4 +291,3 @@ private val DefaultContentTransform = ContentTransform(
     fadeIn(animationSpec = tween(700)),
     fadeOut(animationSpec = tween(700))
 )
-

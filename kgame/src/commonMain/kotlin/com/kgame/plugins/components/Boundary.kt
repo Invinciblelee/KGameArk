@@ -11,7 +11,7 @@ import com.kgame.ecs.EntityComponentContext
  * @property strategy The strategy to use when the entity exits the boundary.
  */
 data class Boundary(
-    val margin: Float = 100f,
+    val margin: Float = 0f,
     val strategy: BoundaryStrategy = BoundaryStrategy.Destroy
 ) : Component<Boundary> {
     override fun type() = Boundary

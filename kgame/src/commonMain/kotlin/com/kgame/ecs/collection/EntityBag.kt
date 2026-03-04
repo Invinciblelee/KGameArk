@@ -1,3 +1,19 @@
+/*
+ * Created by Quillraven
+ * Modified by [Lee] for KGameArk
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.kgame.ecs.collection
 
 import com.kgame.ecs.Entity
@@ -136,17 +152,17 @@ interface EntityBag {
     fun indexOfLast(predicate: (Entity) -> Boolean): Int
 
     /**
-     * Returns a [List] containing only [entities][Entity] matching the given [predicate].
+     * Returns a [EntityBag] containing only [entities][Entity] matching the given [predicate].
      */
     fun filter(predicate: (Entity) -> Boolean): EntityBag
 
     /**
-     * Returns a [List] containing all [entities][Entity] not matching the given [predicate].
+     * Returns a [EntityBag] containing all [entities][Entity] not matching the given [predicate].
      */
     fun filterNot(predicate: (Entity) -> Boolean): EntityBag
 
     /**
-     * Returns a [List] containing only [entities][Entity] matching the given [predicate].
+     * Returns a [EntityBag] containing only [entities][Entity] matching the given [predicate].
      */
     fun filterIndexed(predicate: (index: Int, Entity) -> Boolean): EntityBag
 
@@ -420,7 +436,7 @@ interface EntityBag {
     fun singleOrNull(predicate: (Entity) -> Boolean): Entity?
 
     /**
-     * Returns a [List] containing the first [n][] [entities][Entity].
+     * Returns a [EntityBag] containing the first [n][] [entities][Entity].
      */
     fun take(n: Int): EntityBag
 }

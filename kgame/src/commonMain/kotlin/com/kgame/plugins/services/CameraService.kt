@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.center
 import com.kgame.ecs.Entity
 import com.kgame.ecs.EntityComponentContext
 import com.kgame.ecs.World
@@ -367,7 +368,8 @@ class CoordinateTransformer(
         cameraName: String? = null
     ): Offset {
         // 1. Find the correct camera entity.
-        val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return position
+        val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName)
+            ?: return position - resolution.virtualSize.center
 
         // --- CRITICAL FIX: Get the camera's specific viewport ---
         val camera = cameraEntity.getOrNull(Camera) ?: return position
@@ -426,7 +428,8 @@ class CoordinateTransformer(
         cameraName: String? = null
     ): Offset {
         // 1. Find the correct camera entity.
-        val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName) ?: return position
+        val cameraEntity = cameraService.getCameraEntityOrDefault(cameraName)
+            ?: return position + resolution.virtualSize.center
 
         // --- CRITICAL FIX: Get the camera's specific viewport ---
         val camera = cameraEntity.getOrNull(Camera) ?: return position

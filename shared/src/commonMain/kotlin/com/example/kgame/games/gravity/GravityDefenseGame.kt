@@ -114,7 +114,7 @@ private class GravitySystem(
             val distToShip = (shipPos - mTrans.position).getDistance()
             val distToCore = (corePos - mTrans.position).getDistance()
 
-            // 数据驱动：通过修改 FollowTarget 切换引力目标，不再每帧 new Arriver
+            // Data-driven: switch gravity target by modifying FollowTarget, no new Arriver per frame
             val follow = matter[FollowTarget]
             if (isPulling && distToShip < 280f) {
                 if (follow.actor != ship) {
@@ -128,7 +128,7 @@ private class GravitySystem(
                 matter[Arriver].speed = 130f
             }
 
-            // 核心碰撞判定 (基于中心点距离)
+            // Core collision detection (based on center distance)
             if (distToCore < 50f) {
                 state.coreHealth -= 8f
                 camera.director.shake(trauma = 0.4f, traumaDecay = 8.0f)
@@ -168,8 +168,8 @@ private class MatterSpawnerSystem(
             +DarkMatterTag
             +Transform(startPos)
             +RigidBody(drag = 0.3f, maxSpeed = 500f)
-            +Arriver(speed = 130f, slowDownRadius = 0f) // 预设 Arriver，避免在 Tick 中 new
-            +FollowTarget(coreEntity) // 默认飞向核心
+            +Arriver(speed = 130f, slowDownRadius = 0f) // Preset Arriver to avoid new in Tick
+            +FollowTarget(coreEntity) // Default flies towards core
             +Hitbox(Rect(Offset(-12f, -12f), Size(24f, 24f)))
             +Renderable(Visual(24f) {
                 drawRect(Color(0xFFBB86FC), style = Stroke(3f))
@@ -205,8 +205,8 @@ fun GravityDefenseGame() {
                     systems {
                         +GravitySystem()
                         +MatterSpawnerSystem()
-                        +SteeringSystem() // 使用你的转向系统
-                        +CollisionSystem() // 使用你的物理碰撞系统
+                        +SteeringSystem() // Use your steering system
+                        +CollisionSystem() // Use your physics collision system
                     }
                 }
                 spawn {

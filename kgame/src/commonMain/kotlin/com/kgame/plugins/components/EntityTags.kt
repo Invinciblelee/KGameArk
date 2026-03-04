@@ -91,3 +91,8 @@ data class InvincibleTag(var duration: Float? = null) : Component<InvincibleTag>
 
     companion object : ComponentType<InvincibleTag>()
 }
+
+/**
+ * A tag for global entity.
+ */
+data object GlobalTag : EntityTag()

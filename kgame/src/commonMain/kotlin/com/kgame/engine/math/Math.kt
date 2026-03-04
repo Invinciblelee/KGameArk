@@ -8,8 +8,16 @@ fun radians(degrees: Double): Double {
     return degrees * PI / 180.0
 }
 
+fun radians(degrees: Float): Float {
+    return degrees * PI.toFloat() / 180.0f
+}
+
 fun degrees(radians: Double): Double {
     return radians * 180.0 / PI
+}
+
+fun degrees(radians: Float): Float {
+    return radians * 180.0f / PI.toFloat()
 }
 
 fun round(value: Double, precision: Int): Double {

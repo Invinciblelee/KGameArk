@@ -201,31 +201,31 @@ private class EnemySpawnSystem(
     override fun onTick(deltaTime: Float) {
         if (state.isGameOver) return
 
-        // 1. 严格限制单次 Tick 的生成，防止 IntervalSystem 累积补偿导致的瞬间爆兵
+        // 1. Strictly limit spawning in a single Tick to prevent IntervalSystem cumulative bursts
         val currentCount = enemyFamily.entitySize
         val maxEnemies = 100
 
         if (currentCount < maxEnemies) {
-            // 2. 将生成范围控制在 [50, 750] 之间，确保在 800x800 的边界内
+            // 2. Bound spawn range to [50, 750] within the 800x800 arena
             val padding = 50f
             val spawnX: Float
             val spawnY: Float
 
-            // 随机选择从哪一侧的内沿生成
+            // Randomly choose a side to spawn from
             when ((0..3).random()) {
-                0 -> { // 顶边内沿
+                0 -> { // Top edge
                     spawnX = (padding..800f - padding).random()
                     spawnY = padding
                 }
-                1 -> { // 底边内沿
+                1 -> { // Bottom edge
                     spawnX = (padding..800f - padding).random()
                     spawnY = 800f - padding
                 }
-                2 -> { // 左边内沿
+                2 -> { // Left edge
                     spawnX = padding
                     spawnY = (padding..800f - padding).random()
                 }
-                else -> { // 右边内沿
+                else -> { // Right edge
                     spawnX = 800f - padding
                     spawnY = (padding..800f - padding).random()
                 }
@@ -250,10 +250,10 @@ private fun ParticleNodeScope.boom(pos: Offset, col: Color) {
         val rad = math.toRadians(angle)
         val dist = math.random(50f, 250f)
 
-        // 1. 爆发感优化：使用立方曲线 (1 - (1-p)^3)，让粒子先极速喷射再缓慢停止
+        // 1. Burst feeling optimization: using cubic curve (1 - (1-p)^3) for fast blast and slow halt
         val easeOut = 1f - math.pow(1f - env.progress, 3f)
 
-        // 2. 路径抖动：给每个粒子加一点点基于时间的波浪，让爆炸更生动
+        // 2. Path jitter: subtle wave based on time for more vivid explosion
         val noise = math.sin(env.progress * 10f + angle) * 5f * (1f - env.progress)
 
         position = vec2(
@@ -261,10 +261,10 @@ private fun ParticleNodeScope.boom(pos: Offset, col: Color) {
             math.sin(rad) * dist * easeOut + noise
         )
 
-        // 利用重载，直接进行标量与节点的运算
+        // Leverage operator overloading for scalar and node operations
         size = 8f * math.pow(1f - env.progress, 2f)
 
-        // 颜色也可以加入瞬间闪白的效果
+        // Color flash effect
         val flash = math.pow(1f - env.progress, 5f)
         color = color(
             col.red + flash,

@@ -1,76 +1,111 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM).
+# KGameArk
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+KGameArk is a high-performance, lightweight cross-platform 2D game engine built on **Compose Multiplatform**. It combines a modern **ECS (Entity-Component-System)** architecture with the declarative UI power of Compose, providing a unified game development experience across Android, iOS, Web, and Desktop.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+## 🌟 Core Features
 
-### Build and Run Android Application
+- **Modern ECS Architecture**: Core logic modified from the open-source project [Fleks](https://github.com/Quillraven/Fleks), providing high-performance entity-component management and total decoupling of logic and data.
+- **Declarative Game DSL**: Minimalist syntax for defining Scenes, Worlds, and Entities.
+- **High-Performance Particle System**: Uses a mathematical computation graph, achieving high execution efficiency through pre-compiled closures.
+- **Intelligent Coordinate System**: Designed with a virtual resolution where the screen center is the origin `(0, 0)`, automatically handling multi-device adaptation and Anchor transformations.
+- **Deep Compose Integration**: Seamlessly blends Background/Foreground UI layers, allowing the use of standard Compose components for HUD development.
+- **High-Performance Input**: Supports multi-touch and keyboard axis polling with automatic world coordinate conversion.
+- **Tiled Map Support**: Native support for `.tmx` / `.json` map loading, layer rendering, and physics collision detection.
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+## 📐 Coordinate System
 
-### Build and Run Desktop (JVM) Application
+KGameArk uses a highly abstract coordinate design, which is key to understanding the engine logic:
+- **World Space**: The origin `(0, 0)` is located at the center of the viewport.
+- **Local Space**: Inside a `Renderable` draw block or a `Visual`, `(0, 0)` defaults to the entity's anchor center (usually `Anchor.Center`).
+- **Adaptation Mechanism**: The engine automatically scales the `Density` based on the `virtualSize`. The `.dp` units used in `onForegroundUI` will result in the same visual size across all devices regardless of resolution.
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+## 📂 Module Structure
 
-### Build and Run Web Application
+- `kgame`: **Engine Core**. Contains ECS scheduling, particle system, asset management, multi-platform adaptation layers, and rendering pipeline.
+- `shared`: **Game Logic Layer**. This is where developers write specific game scenes, systems, and components.
+- `androidApp` / `iosApp` / `desktopApp` / `webApp`: Platform-specific entry points.
 
-To build and run the development version of the web app, use the run configuration from the run widget
-in your IDE's toolbar or run it directly from the terminal:
-- for the Wasm target (faster, modern browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-- for the JS target (slower, supports older browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:jsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:jsBrowserDevelopmentRun
-    ```
+## 🚀 Quick Start (DSL Example)
 
-### Build and Run iOS Application
+```kotlin
+sealed class MyRoute {
+    data object Menu : MyRoute()
+    data object Level : MyRoute()
+}
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+@Composable
+fun MyGame() {
+    val sceneStack = rememberGameSceneStack<MyRoute>(MyRoute.Menu)
+
+    KGame(sceneStack = sceneStack, virtualSize = Size(1280f, 720f)) {
+        // --- 1. Menu Scene ---
+        scene<MyRoute.Menu> { _ ->
+            onForegroundUI {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Button(onClick = { sceneStack.push(MyRoute.Level) }) {
+                        Text("Start Game")
+                    }
+                }
+            }
+        }
+
+        // --- 2. Game Scene ---
+        scene<MyRoute.Level> { _ ->
+            onWorld(capacity = 2048) {
+                useDefaultSystems() // Enable built-in systems (Physics, Render, Camera, etc.)
+                configure {
+                    injectables { +MyGameData() } // Dependency Injection
+                    systems { +CustomSystem() }   // Register custom logic systems
+                }
+                spawn {
+                    entity {
+                        +Transform(position = Offset(0f, 0f)) // (0,0) is the center of the world
+                        +Renderable(CircleVisual(size = 40f, color = Color.Cyan))
+                    }
+                }
+            }
+
+            onUpdate { dt ->
+                // Global logic update
+                if (input.isKeyJustPressed(Key.Escape)) sceneStack.pop()
+            }
+
+            onForegroundUI {
+                // Develop HUD with Compose, auto-adapted to virtual resolution
+                Text("Score: ${data.score}", modifier = Modifier.padding(16.dp), color = Color.Yellow)
+            }
+        }
+    }
+}
+```
+
+## ⚠️ Important Notes
+
+- **Material System**: Due to underlying SkiaSL/AGSL limitations, the **Material effect system is not supported on Android versions below 13 (API 33)**. On older Android devices, the engine will automatically fallback to basic rendering modes.
+
+## 🛠 Build & Run
+
+### Android
+```shell
+./gradlew :androidApp:assembleDebug
+```
+
+### Desktop (JVM)
+```shell
+./gradlew :desktopApp:run
+```
+
+### Web (Wasm/JS)
+```shell
+./gradlew :webApp:wasmJsBrowserDevelopmentRun
+```
+
+### iOS
+Open `iosApp/iosApp.xcworkspace` in Xcode or run:
+```shell
+./gradlew :iosApp:iosDeploy
+```
 
 ---
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
-
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+Powered by **Compose Multiplatform** & **Kotlin Multiplatform**.
+Special thanks to the [Fleks](https://github.com/Quillraven/Fleks) project for the ECS architecture inspiration.

@@ -5,6 +5,7 @@ import com.kgame.ecs.IntervalSystem
 import com.kgame.ecs.SystemPriority
 import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.graphics.drawscope.withCameraTransform
+import com.kgame.engine.graphics.drawscope.withCenteredTransform
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
 import com.kgame.plugins.components.Transform
@@ -32,7 +33,9 @@ class ParticleRenderSystem(
                particleService.render(this)
             }
         } else {
-            particleService.render(drawScope)
+            drawScope.withCenteredTransform {
+                particleService.render(this)
+            }
         }
     }
 

@@ -33,8 +33,10 @@ import com.kgame.engine.maps.TiledMapShape
 import com.kgame.engine.maps.TiledMapShapeObject
 import com.kgame.engine.maps.TiledMapTileLayer
 import com.kgame.engine.maps.TiledMapTileObject
+import com.kgame.plugins.components.Boundary
 import com.kgame.plugins.components.Camera
 import com.kgame.plugins.components.CameraShake
+import com.kgame.plugins.components.GlobalTag
 import com.kgame.plugins.components.TiledMap
 import com.kgame.plugins.components.Transform
 import com.kgame.plugins.components.WorldBounds
@@ -65,6 +67,7 @@ class TiledMapRenderSystem(
 
     private val boundsRect = MutableRect(0f, 0f, 0f, 0f)
 
+    private val globalBoundsFamily = family { all(WorldBounds, GlobalTag) }
 
     /**
      * The onTick method is now used to update the timers for all active animations.
@@ -101,6 +104,8 @@ class TiledMapRenderSystem(
     override fun onRenderEntity(entity: Entity, drawScope: DrawScope) {
         val tiledMap = entity[TiledMap].data
         val worldBounds = entity.getOrNull(WorldBounds)
+            ?: globalBoundsFamily.firstOrNull()?.get(WorldBounds)
+
         val worldCenter = worldBounds?.rect?.center ?: Offset.Zero
 
         drawScope.translate(worldCenter.x, worldCenter.y) {

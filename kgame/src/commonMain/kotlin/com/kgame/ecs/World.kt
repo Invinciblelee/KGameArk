@@ -1,3 +1,19 @@
+/*
+ * Created by Quillraven
+ * Modified by [Lee] for KGameArk
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.kgame.ecs
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -165,6 +181,20 @@ class World internal constructor(
     inline fun entities(count: Int, configuration: EntityCreateScope.() -> Unit = {}) {
         repeat(count) { entityService.create(configuration) }
     }
+
+    /**
+     * Returns true if and only if the [entity] is not removed and is part of the [World].
+     */
+    operator fun contains(entity: Entity) = entityService.contains(entity)
+
+    /**
+     * Removes the given [entity] from the world. The [entity] will be recycled and reused for
+     * future calls to [World.entity].
+     */
+    operator fun minusAssign(entity: Entity) {
+        entityService -= entity
+    }
+
 
     /**
      * Removes all [entities][Entity] from the world. The entities will be recycled and reused for

@@ -1,3 +1,19 @@
+/*
+ * Created by Quillraven
+ * Modified by [Lee] for KGameArk
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.kgame.ecs.collection
 
 import com.kgame.ecs.Entity
@@ -6,7 +22,7 @@ import com.kgame.ecs.Entity
  * Creates an [EntityBagIterator] for the bag. If the bag gets updated
  * during iteration then [EntityBagIterator.reset] must be called to guarantee correct iterator behavior.
  */
-fun EntityBag.iterator(): EntityBagIterator = EntityBagIterator(this)
+operator fun EntityBag.iterator(): EntityBagIterator = EntityBagIterator(this)
 
 /**
  * An iterator over an [EntityBag]. Allows iterating in a forward and backward direction.
@@ -20,7 +36,7 @@ data class EntityBagIterator(private val bag: EntityBag) {
     /**
      * Returns **true** if and only if there is a next [entity][Entity] in the bag.
      */
-    fun hasNext(): Boolean = currentIdx < bag.size - 1
+    operator fun hasNext(): Boolean = currentIdx < bag.size - 1
 
     /**
      * Returns the next [entity][Entity] of the bag and moves the iterator forward.
@@ -36,6 +52,11 @@ data class EntityBagIterator(private val bag: EntityBag) {
 
         else -> Entity.NONE
     }
+
+    /**
+     * Returns the next [entity][Entity] of the bag and moves the iterator forward.
+     */
+    operator fun next(): Entity = next(false)
 
     /**
      * Returns **true** if and only if there is a previous [entity][Entity] in the bag.

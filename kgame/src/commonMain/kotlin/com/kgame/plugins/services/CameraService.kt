@@ -179,8 +179,9 @@ class CameraDirector(
     }
 
     /**
-     * Modern high-impact camera shake.
-     * Combines the raw energy of Random with a bit of persistence to prevent "ghosting".
+     * Updates the camera shake effect based on trauma level.
+     * Uses high-frequency random impulses with amplitude saturation to create
+     * a raw, visceral vibration rather than a smooth animation.
      */
     private fun updateShake(
         shake: CameraShake,
@@ -192,24 +193,26 @@ class CameraDirector(
             return
         }
 
-        // 1. Nonlinear trauma decay (More "punchy" feedback)
+        // 1. Nonlinear trauma decay
         shake.trauma = (shake.trauma - shake.traumaDecay * deltaTime).coerceAtLeast(0f)
-        val shakeFactor = shake.trauma * shake.trauma
 
-        // 2. Dynamic Smoothness (Lerp Factor)
-        // Instead of 0.8f, we use: 1 - exp(-frequency * deltaTime)
-        // This makes the shake frame-rate independent.
-        // Higher frequency = more raw/random (closer to 1.0)
-        // Lower frequency = more heavy/sluggish
-        val lerpFactor = (1f - exp(-shake.frequency * deltaTime)).coerceIn(0f, 1f)
+        // 2. Intensity mapping with saturation
+        // Even if trauma is high (e.g., 5.0), we cap the physical impact intensity.
+        // Higher trauma will primarily increase the duration and "roughness" of the shake.
+        val intensity = (shake.trauma * shake.trauma).coerceIn(0f, 1.2f)
 
-        // 3. Generate Random Targets
-        val targetX = (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor
-        val targetY = (Random.nextFloat() * 2 - 1) * shake.maxShakeOffset * shakeFactor
-        val targetR = (Random.nextFloat() * 2 - 1) * shake.maxShakeAngle * shakeFactor
+        // 3. Generate raw random targets (Unpredictable)
+        // We don't use sine waves here because vibration should feel "broken" and "noisy".
+        val targetX = (Random.nextFloat() * 2f - 1f) * shake.maxShakeOffset * intensity
+        val targetY = (Random.nextFloat() * 2f - 1f) * shake.maxShakeOffset * intensity
+        val targetR = (Random.nextFloat() * 2f - 1f) * shake.maxShakeAngle * intensity
 
-        // 4. Apply Physical Interpolation
-        // The camera "tries" to catch up to the random target points
+        // 4. Ultra-fast physical interpolation
+        // To achieve "vibration" instead of "movement", the camera must snap to
+        // random targets extremely quickly, creating a motion blur effect.
+        // We multiply frequency by a "shudder factor" (e.g., 5.0) for high-speed response.
+        val lerpFactor = (1f - exp(-shake.frequency * 5.0f * deltaTime)).coerceIn(0f, 1f)
+
         shake.shakeOffset = Offset(
             x = shake.shakeOffset.x + (targetX - shake.shakeOffset.x) * lerpFactor,
             y = shake.shakeOffset.y + (targetY - shake.shakeOffset.y) * lerpFactor

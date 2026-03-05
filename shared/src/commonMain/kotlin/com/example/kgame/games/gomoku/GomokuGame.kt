@@ -66,16 +66,27 @@ class BoardMaterial : Material {
 class StoneMaterial(val isBlack: Boolean) : Material {
     @Language("AGSL")
     override val sksl: String = """
-        uniform float uTime;
+        uniform vec4 uColor;
+        
         vec4 main(vec2 uv) {
             vec2 st = uv * 2.0 - 1.0;
             float d = length(st);
-            if (d > 1.0) return vec4(0.0);
+            float edgeAlpha = smoothstep(1.0, 0.97, d);
             float h = pow(max(0.0, 1.0 - length(st - vec2(-0.3, -0.3))), 5.0);
-            vec3 col = ${if (isBlack) "vec3(0.12)" else "vec3(0.96)"};
-            return vec4((col + h * 0.3) * smoothstep(1.0, 0.97, d), 1.0);
+            vec3 finalRGB = uColor.rgb + h * 0.3;
+            float finalAlpha = uColor.a * edgeAlpha;
+            return vec4(finalRGB * finalAlpha, finalAlpha);
         }
     """.trimIndent()
+
+    override fun MaterialEffect.onSetup() {
+        val color = if (isBlack) {
+            Color(0.12f, 0.12f, 0.12f, 1f)
+        } else {
+            Color(0.96f, 0.96f, 0.96f, 1f)
+        }
+        uniform("uColor", color)
+    }
 }
 
 // --- 3. Logic & AI Engine ---
@@ -282,7 +293,7 @@ private class GomokuSystem(
                 autoPlay = true)
         }
         
-        camera.director.shake(0.06f)
+        camera.director.shake(0.5f)
         particle.emit { ripple(worldPos, if (type == StoneType.BLACK) Color.DarkGray else Color.White) }
 
         if (engine.checkWin(state.board, x, y)) {

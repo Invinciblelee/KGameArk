@@ -308,7 +308,7 @@ private class GomokuSystem(
 private fun ParticleNodeScope.ripple(c: Offset, col: Color) {
     layer("zen_ripple", c) {
         config {
-            count = 24 
+            count = 24
             duration = 0.4f
         }
 

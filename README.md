@@ -106,6 +106,12 @@ Open `iosApp/iosApp.xcworkspace` in Xcode or run:
 ./gradlew :iosApp:iosDeploy
 ```
 
+## 📄 License
+
+KGameArk is licensed under the [Apache License 2.0](LICENSE). This includes the core ECS logic, which is a modified version of the [Fleks](https://github.com/Quillraven/Fleks) project (Copyright (c) 2021-2023 Quillraven).
+
 ---
 Powered by **Compose Multiplatform** & **Kotlin Multiplatform**.
 Special thanks to the [Fleks](https://github.com/Quillraven/Fleks) project for the ECS architecture inspiration.
+
+    

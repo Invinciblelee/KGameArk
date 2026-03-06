@@ -129,6 +129,7 @@ class PlasmaFireMaterial(val baseColor: Color, val context: ParticleContext) : M
     }
 
     override fun MaterialEffect.onUpdate() {
+        uniform("uTime", elapsedTime)
         uniform("uProgress", context.progress)
     }
 
@@ -334,7 +335,7 @@ private class EnemySpawnSystem(
                 +RigidBody(velocity = Velocity((-100f..100f).random(), 150f), drag = 0f) // Move slowly downward
                 +CharacterStats(maxHp = 20f)
                 +WorldBounds(worldBounds)
-                +Boundary(strategy = BoundaryStrategy.Cleanup)
+                +Boundary(margin = 200f, strategy = BoundaryStrategy.Cleanup)
                 +WeaponComponent(cooldown = 0.5f)
                 +EnemyTag
                 val name = if (Random.nextFloat() > 0.8) "stormplane_mob.png" else "stormplane_elite.png"

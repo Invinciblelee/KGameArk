@@ -103,6 +103,10 @@ class GemMaterial(val color: Color) : Material {
     override fun MaterialEffect.onSetup() {
         uniform("uColor", color)
     }
+
+    override fun MaterialEffect.onUpdate() {
+        uniform("uTime", elapsedTime)
+    }
 }
 
 // --- 2. Shared State ---

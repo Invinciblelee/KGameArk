@@ -20,6 +20,7 @@ import com.kgame.ecs.World.Companion.inject
 import com.kgame.engine.core.KGame
 import com.kgame.engine.core.rememberGameSceneStack
 import com.kgame.engine.graphics.material.Material
+import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.input.InputManager
 import com.kgame.engine.math.random
 import com.kgame.engine.ui.Rectangle
@@ -71,6 +72,10 @@ class BlackHoleMaterial : Material {
             return vec4(color, ring + hole);
         }
     """.trimIndent()
+
+    override fun MaterialEffect.onUpdate() {
+        uniform("uTime", elapsedTime)
+    }
 }
 
 // --- 3. Systems ---

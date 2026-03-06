@@ -24,16 +24,6 @@ data class MaterialMetadata(
 
 interface Material {
 
-    companion object Companion {
-        const val TIME = "uTime"
-        const val DURATION = "uDuration"
-        const val PROGRESS = "uProgress"
-        const val DELTA_TIME = "uDeltaTime"
-
-        const val COLOR = "uColor"
-        const val COLORS = "uColors"
-    }
-
     /**
      * Contains the metadata for this shader
      */

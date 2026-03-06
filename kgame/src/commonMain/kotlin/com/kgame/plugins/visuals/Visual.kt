@@ -5,6 +5,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.text.TextMeasurer
+import com.kgame.engine.core.GameGlobals
 import com.kgame.engine.geometry.Anchor
 import com.kgame.plugins.visuals.Visual.Companion.InfiniteRect
 
@@ -21,6 +23,9 @@ abstract class Visual {
     constructor(width: Float, height: Float) : this(Size(width, height))
 
     private var isReady = false
+
+    val textMeasurer: TextMeasurer
+        get() = GameGlobals.textMeasurer
 
     /**
      * The desired dimensions for this visual.

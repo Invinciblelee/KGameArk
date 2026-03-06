@@ -125,11 +125,11 @@ class PlasmaFireMaterial(val baseColor: Color, val context: ParticleContext) : M
     """.trimIndent()
 
     override fun MaterialEffect.onSetup() {
-        uniform(Material.COLOR, baseColor)
+        uniform("uColor", baseColor)
     }
 
     override fun MaterialEffect.onUpdate() {
-        uniform(Material.PROGRESS, context.progress)
+        uniform("uProgress", context.progress)
     }
 
 }

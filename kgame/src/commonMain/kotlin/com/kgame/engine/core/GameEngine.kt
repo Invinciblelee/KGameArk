@@ -67,6 +67,10 @@ class GameEngine(
 
     private var isFocused = true
 
+    init {
+        GameGlobals.setCurrentEngine(this)
+    }
+
     override fun enable() {
         if (isEnabled) return
         isEnabled = true
@@ -165,6 +169,7 @@ class GameEngine(
         audio.shutdown()
         assets.clear()
         input.clear()
+        GameGlobals.setCurrentEngine(null)
     }
 
 }

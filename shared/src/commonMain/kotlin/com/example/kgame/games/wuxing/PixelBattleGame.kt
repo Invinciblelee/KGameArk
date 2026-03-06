@@ -60,7 +60,7 @@ class NeonBoxMaterial(val baseColor: Color) : Material {
     """.trimIndent()
 
     override fun MaterialEffect.onSetup() {
-        uniform(Material.COLOR, baseColor)
+        uniform("uColor", baseColor)
     }
 }
 
@@ -85,10 +85,10 @@ class GlitchMaterial(val baseColor: Color, val context: ParticleContext) : Mater
     """.trimIndent()
 
     override fun MaterialEffect.onSetup() {
-        uniform(Material.COLOR, baseColor)
+        uniform("uColor", baseColor)
     }
     override fun MaterialEffect.onUpdate() {
-        uniform(Material.PROGRESS, context.progress)
+        uniform("uProgress", context.progress)
     }
 }
 

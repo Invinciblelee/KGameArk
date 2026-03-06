@@ -2,7 +2,6 @@ package com.example.kgame.games.shader
 
 import androidx.compose.ui.graphics.Color
 import com.kgame.engine.graphics.material.Material
-import com.kgame.engine.graphics.material.Material.Companion.TIME
 import com.kgame.engine.graphics.material.MaterialEffect
 import com.kgame.engine.graphics.material.MaterialMetadata
 import org.intellij.lang.annotations.Language
@@ -32,7 +31,7 @@ class BlueSky(
 
     @Language("AGSL")
     override val sksl: String = """
-        uniform float $TIME;
+        uniform float uTime;
         uniform float $SCALE;
         uniform float2 $CLOUD_PARAMS; 
         uniform vec4 $SKY_COLOR_TOP;
@@ -75,7 +74,7 @@ class BlueSky(
             /* 3. Create Clouds (Simplified) */
             // Animate cloud movement
             vec2 cloudUV = uv * $SCALE;
-            cloudUV.y -= $TIME * 0.1; // Cloud drift
+            cloudUV.y -= uTime * 0.1; // Cloud drift
             
             // Generate cloud noise
             float cloudNoise = fbm(cloudUV);

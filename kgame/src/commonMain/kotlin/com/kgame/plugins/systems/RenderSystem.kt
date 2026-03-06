@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextMeasurer
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.SystemPriority

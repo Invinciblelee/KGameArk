@@ -8,8 +8,6 @@ import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
-import com.kgame.engine.graphics.material.Material.Companion.DELTA_TIME
-import com.kgame.engine.graphics.material.Material.Companion.TIME
 
 abstract class MaterialEffect {
 
@@ -21,10 +19,7 @@ abstract class MaterialEffect {
     private var isDirty: Boolean = true
     private var isInitialized: Boolean = false
 
-    private val colorBufferCache = mutableMapOf<String, FloatArray>()
-
-    private val useTime by lazy { material.sksl.contains(TIME) }
-    private val useDeltaTime by lazy { material.sksl.contains(DELTA_TIME) }
+    private val colorBuffer = mutableMapOf<String, FloatArray>()
 
     private var size: Size = Size.Unspecified
     private val matrix: Matrix = Matrix()
@@ -70,7 +65,7 @@ abstract class MaterialEffect {
         val stride = 4
         val requiredSize = values.size * stride
 
-        val buffer = colorBufferCache.getOrPut(name) {
+        val buffer = colorBuffer.getOrPut(name) {
             FloatArray(requiredSize)
         }
 
@@ -78,7 +73,7 @@ abstract class MaterialEffect {
             buffer
         } else {
             val newBuffer = FloatArray(requiredSize)
-            colorBufferCache[name] = newBuffer
+            colorBuffer[name] = newBuffer
             newBuffer
         }
 
@@ -96,23 +91,25 @@ abstract class MaterialEffect {
         uniform(name, finalBuffer)
     }
 
-    /** Updates the time uniform. */
+    /**
+     * Updates the shader with the given delta time
+     */
     fun update(deltaTime: Float) {
-        elapsedTime += deltaTime
-        if (useTime) uniform(TIME, elapsedTime)
-        if (useDeltaTime) uniform(DELTA_TIME, deltaTime)
-    }
+        this.elapsedTime += deltaTime
 
-    protected abstract fun createBrush(): Brush
-
-    /** Obtains an updates ShaderBrush*/
-    fun obtainBrush(): Brush {
         if (!isInitialized) {
             with(material) { onSetup() }
             isInitialized = true
         }
 
         with(material) { onUpdate() }
+    }
+
+
+    protected abstract fun createBrush(): Brush
+
+    /** Obtains an updates ShaderBrush*/
+    fun obtainBrush(): Brush {
         if (isDirty || brush == null) {
             brush = createBrush()
             isDirty = false

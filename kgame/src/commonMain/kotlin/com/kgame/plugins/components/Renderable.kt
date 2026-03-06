@@ -22,11 +22,11 @@ data class Renderable(
 ) : Component<Renderable>, Comparable<Renderable> {
     override fun type() = Renderable
 
-    companion object : ComponentType<Renderable>()
-
     override fun compareTo(other: Renderable): Int {
         return zIndex.compareTo(other.zIndex)
     }
+
+    companion object : ComponentType<Renderable>()
 
     /**
      * Checks if the renderable is visible and has an alpha greater than 0.

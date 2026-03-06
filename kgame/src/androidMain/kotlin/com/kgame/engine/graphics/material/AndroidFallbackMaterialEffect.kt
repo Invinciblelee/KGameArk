@@ -35,7 +35,7 @@ internal object AndroidFallbackMaterialEffect : MaterialEffect() {
     override fun uniform(name: String, value1: Float, value2: Float, value3: Float) = Unit
 
     override fun uniform(name: String, value1: Float, value2: Float, value3: Float, value4: Float) {
-        if (name == Material.COLOR) {
+        if (name.contains("color", ignoreCase = true)) {
             baseColor = Color(value1, value2, value3, value4)
             markDirty()
         }

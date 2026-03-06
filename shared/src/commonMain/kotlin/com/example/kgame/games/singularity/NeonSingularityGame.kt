@@ -110,8 +110,8 @@ class ShockwaveShader(val context: ParticleContext) : Material {
             return vec4(uColor.rgb * alpha, alpha);
         }
     """.trimIndent()
-    override fun MaterialEffect.onSetup() { uniform(Material.COLOR, Color.White) }
-    override fun MaterialEffect.onUpdate() { uniform(Material.PROGRESS, context.progress) }
+    override fun MaterialEffect.onSetup() { uniform("uColor", Color.White) }
+    override fun MaterialEffect.onUpdate() { uniform("uProgress", context.progress) }
 }
 
 /** Intake effect: Glowing blue streaks converging to the center */
@@ -127,7 +127,7 @@ class IntakeMaterial(val context: ParticleContext) : Material {
             return vec4(color * mask * uProgress, mask * uProgress);
         }
     """.trimIndent()
-    override fun MaterialEffect.onUpdate() { uniform(Material.PROGRESS, context.progress) }
+    override fun MaterialEffect.onUpdate() { uniform("uProgress", context.progress) }
 }
 
 /** Debris effect: Sharp geometric fragments with high-energy initial flash */
@@ -147,8 +147,8 @@ class DebrisMaterial(val baseColor: Color, val context: ParticleContext) : Mater
             return vec4(color * mask * (1.0 - uProgress), mask * (1.0 - uProgress));
         }
     """.trimIndent()
-    override fun MaterialEffect.onSetup() { uniform(Material.COLOR, baseColor) }
-    override fun MaterialEffect.onUpdate() { uniform(Material.PROGRESS, context.progress) }
+    override fun MaterialEffect.onSetup() { uniform("uColor", baseColor) }
+    override fun MaterialEffect.onUpdate() { uniform("uProgress", context.progress) }
 }
 
 /** Custom visual for the Singularity: Reactive core and glowing rings */

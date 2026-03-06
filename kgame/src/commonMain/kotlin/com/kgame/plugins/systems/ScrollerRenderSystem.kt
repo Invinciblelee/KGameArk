@@ -3,6 +3,7 @@ package com.kgame.plugins.systems
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ScaleFactor
+import androidx.compose.ui.text.TextMeasurer
 import com.kgame.ecs.Entity
 import com.kgame.ecs.IteratingSystem
 import com.kgame.ecs.SystemPriority

@@ -47,7 +47,7 @@ internal object ParticleLut {
      * Fast Sine approximation.
      */
     @JvmStatic
-    inline fun fastSin(radians: Float): Float {
+    fun fastSin(radians: Float): Float {
         val idx = (radians * RAD_TO_INDEX).toInt() and SIN_MASK
         return SIN_TABLE[idx]
     }
@@ -56,7 +56,7 @@ internal object ParticleLut {
      * Fast Cosine approximation.
      */
     @JvmStatic
-    inline fun fastCos(radians: Float): Float {
+    fun fastCos(radians: Float): Float {
         val idx = ((radians * RAD_TO_INDEX).toInt() + COS_OFFSET) and SIN_MASK
         return SIN_TABLE[idx]
     }
@@ -66,7 +66,7 @@ internal object ParticleLut {
      * Special optimization for negative inputs (common in drag/fade logic).
      */
     @JvmStatic
-    inline fun fastExp(v: Float): Float {
+    fun fastExp(v: Float): Float {
         // If v is in range [-5.0, 0.0], use LUT
         if (v <= 0f && v > -EXP_MAX_INPUT) {
             val idx = (-v * EXP_TO_INDEX).toInt() and EXP_MASK

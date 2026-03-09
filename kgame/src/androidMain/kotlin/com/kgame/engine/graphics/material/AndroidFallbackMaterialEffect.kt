@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.SolidColor
 
 internal object AndroidFallbackMaterialEffect : MaterialEffect() {
 
-    private var baseColor: Color = Color.White
+    private val DefaultBrush = SolidColor(Color.White)
 
     override val material: Material = object : Material {
         override val sksl: String = ""
@@ -34,17 +34,10 @@ internal object AndroidFallbackMaterialEffect : MaterialEffect() {
 
     override fun uniform(name: String, value1: Float, value2: Float, value3: Float) = Unit
 
-    override fun uniform(name: String, value1: Float, value2: Float, value3: Float, value4: Float) {
-        if (name.contains("color", ignoreCase = true)) {
-            baseColor = Color(value1, value2, value3, value4)
-            markDirty()
-        }
-    }
+    override fun uniform(name: String, value1: Float, value2: Float, value3: Float, value4: Float) = Unit
 
     override fun uniform(name: String, values: FloatArray) = Unit
 
-    override fun createBrush(): Brush {
-        return SolidColor(baseColor)
-    }
+    override fun createBrush(): Brush = DefaultBrush
 
 }

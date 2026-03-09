@@ -30,16 +30,16 @@ fun Circle(brush: Brush, radius: Dp = Dp.Unspecified, modifier: Modifier = Modif
 }
 
 @Composable
-fun Circle(shader: Material, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
+fun Circle(material: Material, radius: Dp = Dp.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
-    MaterialCanvas(shader, modifier.then(sizeModifier)) {
+    MaterialCanvas(material, modifier.then(sizeModifier)) {
         drawCircle(it)
     }
 }
 
 @Composable
 fun ActiveCircle(
-    shader: Material,
+    material: Material,
     radius: Dp = Dp.Unspecified,
     speed: Float = 1f,
     modifier: Modifier = Modifier,
@@ -47,7 +47,7 @@ fun ActiveCircle(
 ) {
     val sizeModifier = if (radius.isUnspecified) Modifier.fillMaxSize() else Modifier.size(radius)
     ActiveMaterialCanvas(
-        material = shader,
+        material = material,
         speed = speed,
         modifier = modifier.then(sizeModifier),
         onUpdate = onUpdate
@@ -74,16 +74,16 @@ fun Rectangle(brush: Brush, size: DpSize = DpSize.Unspecified, modifier: Modifie
 }
 
 @Composable
-fun Rectangle(shader: Material, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
+fun Rectangle(material: Material, size: DpSize = DpSize.Unspecified, modifier: Modifier = Modifier) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
-    MaterialCanvas(shader, modifier.then(sizeModifier)) {
+    MaterialCanvas(material, modifier.then(sizeModifier)) {
         drawRect(it)
     }
 }
 
 @Composable
 fun ActiveRectangle(
-    shader: Material,
+    material: Material,
     size: DpSize = DpSize.Unspecified,
     speed: Float = 1f,
     modifier: Modifier = Modifier,
@@ -91,7 +91,7 @@ fun ActiveRectangle(
 ) {
     val sizeModifier = if (size.isUnspecified) Modifier.fillMaxSize() else Modifier.size(size)
     ActiveMaterialCanvas(
-        material = shader,
+        material = material,
         speed = speed,
         modifier = modifier.then(sizeModifier),
         onUpdate = onUpdate

@@ -11,6 +11,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import com.kgame.plugins.services.CameraService
 import com.kgame.plugins.services.particles.ParticleService
 import com.kgame.plugins.visuals.Visual
 import com.kgame.plugins.visuals.material.MaterialVisual
+import kotlinx.coroutines.delay
 import org.intellij.lang.annotations.Language
 
 // --- 1. Components & State ---
@@ -99,6 +101,8 @@ class FluxGameState {
     var health by mutableIntStateOf(10)
     var score by mutableIntStateOf(0)
     var isGameOver by mutableStateOf(false)
+
+    var message by mutableStateOf("")
 }
 
 // --- 2. Shaders ---
@@ -171,9 +175,13 @@ private class FluxControlSystem(
         val core = coreEntity[FluxCore]
         core.currentPos = worldPos
 
-        if (input.isPointerJustPressed() && state.gold >= 25) {
-            spawnSentry(worldPos)
-            state.gold -= 25
+        if (input.isPointerJustPressed()) {
+            if (state.gold > 25) {
+                spawnSentry(worldPos)
+                state.gold -= 25
+            } else {
+                state.message = "Not enough gold!"
+            }
         }
 
         sentryFamily.forEach { entity ->
@@ -197,7 +205,7 @@ private class FluxControlSystem(
                     }
                     
                     if (nearestEnemy != null) {
-                        spawnBolt(trans.position, nearestEnemy!!, sentry.baseColor)
+                        spawnBolt(trans.position, nearestEnemy, sentry.baseColor)
                         sentry.cooldown = sentry.fireRate
                         particle.emit { intakeParticles(trans.position, sentry.baseColor) }
                     }
@@ -364,14 +372,27 @@ fun GeometricTDGame() {
                     )
                 }
 
+                if (state.message.isNotEmpty()) {
+                    Text(
+                        text = state.message,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+
+                    LaunchedEffect(state.message) {
+                        delay(2000)
+                        state.message = ""
+                    }
+                }
+
                 if (!state.isGameOver) {
                     Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("POWER SENTRIES WITH YOUR RADIUS", color = Color.White.copy(0.4f), fontSize = 14.sp)
                         Text("TAP ANYWHERE TO BUILD", color = Color.White.copy(0.2f), fontSize = 12.sp)
                     }
-                }
-
-                if (state.isGameOver) {
+                } else {
                     Surface(Modifier.align(Alignment.Center), color = Color.Black.copy(0.92f)) {
                         Column(Modifier.padding(56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("FLUX COLLAPSED", color = Color.Red, fontSize = 36.sp, fontWeight = FontWeight.Black)

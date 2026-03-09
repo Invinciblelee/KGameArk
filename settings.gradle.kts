@@ -36,7 +36,7 @@ plugins {
 }
 
 include(":kgame")
-include(":shared")
+include(":sample")
 include(":androidApp")
 include(":desktopApp")
 include(":webApp")

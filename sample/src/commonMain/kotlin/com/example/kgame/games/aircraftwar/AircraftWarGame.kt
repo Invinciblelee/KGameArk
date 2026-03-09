@@ -4,7 +4,9 @@ package com.example.kgame.games.aircraftwar
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -423,14 +425,16 @@ fun AircraftWarGame() {
             }
 
             onForegroundUI {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    Text("=== Aircraft War Demo ===", style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = { sceneStack.push(Scenes.Battle) }) {
-                        Text("Start Battle")
+                Box(Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        Text("=== Aircraft War Demo ===", style = MaterialTheme.typography.titleLarge)
+                        Button(onClick = { sceneStack.push(Scenes.Battle) }) {
+                            Text("Start Battle")
+                        }
                     }
                 }
             }

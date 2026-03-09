@@ -22,8 +22,8 @@ class SceneBuilderScope<T: Any>(
     private var onUpdate: ((Float) -> Unit)? = null
     private var onRender: (DrawScope.() -> Unit)? = null
 
-    private var onForegroundUI: (@Composable BoxScope.() -> Unit)? = null
-    private var onBackgroundUI: (@Composable BoxScope.() -> Unit)? = null
+    private var onForegroundUI: (@Composable () -> Unit)? = null
+    private var onBackgroundUI: (@Composable () -> Unit)? = null
 
     private var world: GameWorld? = null
 
@@ -62,11 +62,11 @@ class SceneBuilderScope<T: Any>(
         onRender = block
     }
 
-    fun onForegroundUI(block: @Composable BoxScope.() -> Unit) {
+    fun onForegroundUI(block: @Composable () -> Unit) {
         onForegroundUI = block
     }
 
-    fun onBackgroundUI(block: @Composable BoxScope.() -> Unit) {
+    fun onBackgroundUI(block: @Composable () -> Unit) {
         onBackgroundUI = block
     }
 

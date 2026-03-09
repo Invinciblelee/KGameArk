@@ -21,12 +21,11 @@ kotlin {
     }
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "Shared"
+            baseName = "Sample"
             isStatic = true
             freeCompilerArgs += "-Xbinary=bundleId=com.example.kgame"
         }

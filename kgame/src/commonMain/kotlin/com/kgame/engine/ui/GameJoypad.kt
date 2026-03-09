@@ -17,12 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.Key.Companion.L
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kgame.engine.geometry.angleDegrees
 import com.kgame.engine.input.InputManager
+import com.kgame.engine.log.Logger
 import kotlinx.coroutines.isActive
 
 data class JoypadValue(
@@ -31,32 +33,50 @@ data class JoypadValue(
     val strength: Float = 0f
 )
 
+/**
+ * Processes joypad input and translates analog angles into discrete directional signals.
+ * This implementation supports diagonal movement by evaluating X and Y axes independently.
+ *
+ * Sector Mapping (Center ± 67.5°):
+ * - Right: [0, 67.5] ∪ [292.5, 360]
+ * - Down:  [22.5, 157.5]
+ * - Left:  [112.5, 247.5]
+ * - Up:    [202.5, 337.5]
+ */
 fun InputManager.applyJoypad(value: JoypadValue) {
+    // Dead-zone check: prevent stick drift from triggering unintended movement
     if (value.strength < 0.2f) return
 
     val angle = value.angle
-
-    // 将角度标准化到 0..360 范围内，方便判断
+    // Normalize angle to the standard [0, 360) range
     val normalizedAngle = (angle % 360f + 360f) % 360f
 
-    // 1. 左右判断 (X轴): 每个方向覆盖 90 度扇区
-    // 右: 315° ~ 360° 或 0° ~ 45°
-    if (normalizedAngle !in 45f..315f) {
+    /**
+     * 1. Horizontal Axis Detection (X-Axis)
+     * Note: Right direction spans across the 0/360 degree boundary.
+     */
+    val isRight = normalizedAngle in 0f..67.5f || normalizedAngle in 292.5f..360f
+    val isLeft = normalizedAngle in 112.5f..247.5f
+
+    /**
+     * 2. Vertical Axis Detection (Y-Axis)
+     */
+    val isDown = normalizedAngle in 22.5f..157.5f
+    val isUp = normalizedAngle in 202.5f..337.5f
+
+    // 3. Trigger Key Simulation
+    // Using independent IF blocks to allow simultaneous axis triggers (Diagonal movement)
+    if (isRight) {
         simulateKey(Key.DirectionRight)
     }
-    // 左: 135° ~ 225°
-    else if (normalizedAngle in 135f..225f) {
+    if (isLeft) {
         simulateKey(Key.DirectionLeft)
     }
-
-    // 2. 上下判断 (Y轴): 每个方向覆盖 90 度扇区
-    // 下: 45° ~ 135°
-    if (normalizedAngle in 45f..135f) {
+    if (isDown) {
         simulateKey(Key.DirectionDown)
     }
-    // 上: 225° ~ 315°
-    else if (normalizedAngle in 225f..315f) {
-        simulateKey(Key.Spacebar)
+    if (isUp) {
+        simulateKey(Key.DirectionUp)
     }
 }
 

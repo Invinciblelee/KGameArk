@@ -110,6 +110,10 @@ abstract class MaterialEffect {
 
     /** Obtains an updates ShaderBrush*/
     fun obtainBrush(): Brush {
+        if (!isInitialized) {
+            update(0f)
+        }
+
         if (isDirty || brush == null) {
             brush = createBrush()
             isDirty = false

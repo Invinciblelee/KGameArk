@@ -197,7 +197,7 @@ private class FluxControlSystem(
                     }
                     
                     if (nearestEnemy != null) {
-                        spawnBolt(trans.position, nearestEnemy!!, sentry.baseColor)
+                        spawnBolt(trans.position, nearestEnemy, sentry.baseColor)
                         sentry.cooldown = sentry.fireRate
                         particle.emit { intakeParticles(trans.position, sentry.baseColor) }
                     }

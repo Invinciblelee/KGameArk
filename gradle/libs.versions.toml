@@ -1,5 +1,5 @@
 [versions]
-agp = "9.0.1"
+agp = "9.1.0"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
@@ -9,34 +9,36 @@ junit = "4.13.2"
 
 annotations = "26.1.0"
 
-androidxActivity = "1.12.4"
-androidxLifecycle = "2.10.0-alpha07"
-androidxNavigation3UI = "1.1.0-alpha01"
+mavenPublish = "0.36.0"
+
+androidxActivity = "1.13.0"
+androidxLifecycle = "2.10.0-beta01"
+androidxNavigation3UI = "1.1.0-alpha04"
 androidxNavigationEvent = "1.0.1"
 androidxSavedstate = "1.4.0"
-androidxCollection = "1.5.0"
+androidxCollection = "1.6.0"
 
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.10.1"
-composeMaterial3 = "1.11.0-alpha01"
+composeMultiplatform = "1.11.0-alpha04"
+composeMaterial3 = "1.11.0-alpha04"
 composeMaterialIcons = "1.7.3"
 
-skiko = "0.9.47"
+skiko = "0.144.4"
 
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.31.0"
-kotlinBrowser = "2026.3.1"
-kotlinCss = "2026.3.1"
+kotlinBrowser = "2026.3.10"
+kotlinCss = "2026.3.10"
 
-ktor = "3.4.0"
+ktor = "3.4.1"
 
 logbackJvm = "1.5.32"
 logbackAndroid = "3.0.0"
 slf4jApi = "2.0.17"
 
 ksoup = "0.2.6"
-okio = "3.16.4"
+okio = "3.17.0"
 
 soundlibsMp3spi = "1.9.5.4"
 soundlibsTritonusShare = "0.3.7.4"
@@ -147,3 +149,4 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 atomicfu = { id = "org.jetbrains.kotlinx.atomicfu", version.ref = "kotlinxAtomicfu" }
+mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }

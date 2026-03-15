@@ -1,4 +1,4 @@
-import com.android.build.gradle.tasks.MergeSourceSetFolders
+import com.vanniktech.maven.publish.DeploymentValidation
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
@@ -8,44 +8,24 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.mavenPublish)
 }
 
-// Skiko Native Workaround
-//val skikoNativeArm64: Configuration by configurations.creating
-//val skikoNativeX64: Configuration by configurations.creating
-//val skikoJniDir = "$projectDir/src/androidMain/jniLibs"
-//
-//val unzipSkikoNativeArm64 = tasks.register<Copy>("unzipSkikoNativeArm64") {
-//    from(skikoNativeArm64.map { zipTree(it) })
-//    into(file("$skikoJniDir/arm64-v8a"))
-//    include("*.so")
-//}
-//
-//val unzipSkikoNativeX64 = tasks.register<Copy>("unzipSkikoNativeX64") {
-//    from(skikoNativeX64.map { zipTree(it) })
-//    into(file("$skikoJniDir/x86_64"))
-//    include("*.so")
-//}
-//
-//project.tasks.withType<MergeSourceSetFolders>().configureEach {
-//    dependsOn(unzipSkikoNativeArm64)
-//    dependsOn(unzipSkikoNativeX64)
-//}
-
 kotlin {
-    androidLibrary {
+    android {
         namespace = "com.kgame.engine"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
     }
 
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach {
+    listOf(iosArm64(), iosSimulatorArm64()).forEach {
         it.binaries.framework { baseName = "KGameEngineKit" }
     }
 
     jvm()
+
     js { outputModuleName = "KGameEngineKit"; browser() }
+
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { outputModuleName = "KGameEngineKit"; browser() }
 
@@ -80,7 +60,6 @@ kotlin {
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.ksoup)
-//            implementation(libs.skiko)
         }
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
@@ -103,7 +82,46 @@ kotlin {
     }
 }
 
-//dependencies {
-//    skikoNativeArm64(libs.skiko.android.runtime.arm64)
-//    skikoNativeX64(libs.skiko.android.runtime.x64)
-//}
+mavenPublishing {
+    publishToMavenCentral()
+
+    if (!project.gradle.startParameter.taskNames.any { it.contains("MavenLocal") }) {
+        signAllPublications()
+    }
+
+    coordinates(
+        groupId = "com.kgame",
+        artifactId = "kgame-engine",
+        version = "1.0.0-alpha01"
+    )
+
+    pom {
+        name = "KGame Engine"
+        description = "A Kotlin Multiplatform game engine built with Compose Multiplatform"
+        inceptionYear = "2026"
+        url = "https://github.com/Invinciblelee/KGameArk"
+
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+
+        developers {
+            developer {
+                id = "Invinciblelee"
+                name = "LiZhanPing"
+                url = "https://github.com/Invinciblelee"
+                email = "481314821@qq.com"
+            }
+        }
+
+        scm {
+            url = "https://github.com/Invinciblelee/KGameArk"
+            connection = "scm:git:git://github.com/Invinciblelee/KGameArk.git"
+            developerConnection = "scm:git:ssh://git@github.com:Invinciblelee/KGameArk.git"
+        }
+    }
+}

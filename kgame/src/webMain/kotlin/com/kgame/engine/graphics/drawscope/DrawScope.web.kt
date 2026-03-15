@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
+import androidx.compose.ui.graphics.skiaPaint
 
 actual fun DrawScope.drawVertices(
     vertexMode: VertexMode,
@@ -51,13 +53,13 @@ actual fun DrawScope.drawVertices(
         else -> org.jetbrains.skia.BlendMode.SRC_OVER
     }
 
-    drawContext.canvas.nativeCanvas.drawVertices(
+    drawContext.canvas.skiaCanvas.drawVertices(
         skiaVertexMode,
         positions,
         colors,
         texCoords,
         indices,
         skiaBlendMode,
-        paint.asFrameworkPaint()
+        paint.skiaPaint
     )
 }

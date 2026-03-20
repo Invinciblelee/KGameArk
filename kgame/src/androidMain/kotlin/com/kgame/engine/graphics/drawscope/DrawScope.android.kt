@@ -1,14 +1,11 @@
 package com.kgame.engine.graphics.drawscope
 
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.draw
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toAndroidVertexMode
-import androidx.compose.ui.text.TextPainter.paint
 
 private val internalPaint = android.graphics.Paint().apply {
     isAntiAlias = false

@@ -4,7 +4,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.asComposeShader
 import androidx.compose.ui.graphics.asSkiaColorFilter
+import androidx.compose.ui.graphics.skiaShader
 import org.jetbrains.skia.RuntimeEffect
 import org.jetbrains.skia.RuntimeShaderBuilder
 
@@ -13,7 +15,7 @@ private class WebMaterialEffect(override val material: Material) : MaterialEffec
     private val runtimeShaderBuilder = RuntimeShaderBuilder(runtimeEffect)
 
     override fun input(name: String, shader: Shader) {
-        runtimeShaderBuilder.child(name, shader)
+        runtimeShaderBuilder.child(name, shader.skiaShader)
         markDirty()
     }
 
@@ -68,7 +70,7 @@ private class WebMaterialEffect(override val material: Material) : MaterialEffec
     }
 
     override fun createBrush(): Brush {
-        return ShaderBrush(runtimeShaderBuilder.makeShader())
+        return ShaderBrush(runtimeShaderBuilder.makeShader().asComposeShader())
     }
 }
 

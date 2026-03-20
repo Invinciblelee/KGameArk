@@ -2,13 +2,11 @@ package com.kgame.plugins.services.particles
 
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import com.kgame.engine.graphics.drawscope.drawVertices
 import com.kgame.engine.graphics.material.MaterialEffect
-import com.kgame.plugins.services.particles.ParticleVertexParser.translate
 
 class ParticleLayerRenderer(
     val pattern: VertexPattern,

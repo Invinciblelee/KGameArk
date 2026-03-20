@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
+import androidx.compose.ui.graphics.skiaShader
 
 private val internalPaint = org.jetbrains.skia.Paint().apply {
     isAntiAlias = false
@@ -56,10 +58,10 @@ actual fun DrawScope.drawVertices(
         else -> org.jetbrains.skia.BlendMode.SRC_OVER
     }
 
-    internalPaint.shader = shader
+    internalPaint.shader = shader?.skiaShader
     internalPaint.setAlphaf(alpha)
 
-    drawContext.canvas.nativeCanvas.drawVertices(
+    drawContext.canvas.skiaCanvas.drawVertices(
         skiaVertexMode,
         positions,
         colors,

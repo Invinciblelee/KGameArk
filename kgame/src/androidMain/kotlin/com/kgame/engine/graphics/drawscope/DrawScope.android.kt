@@ -1,13 +1,15 @@
 package com.kgame.engine.graphics.drawscope
 
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.draw
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.nativePaint
 import androidx.compose.ui.graphics.toAndroidVertexMode
+
+private val internalPaint = android.graphics.Paint().apply {
+    isAntiAlias = false
+}
 
 actual fun DrawScope.drawVertices(
     vertexMode: VertexMode,
@@ -16,8 +18,12 @@ actual fun DrawScope.drawVertices(
     texCoords: FloatArray?,
     indices: ShortArray?,
     blendMode: BlendMode,
-    paint: Paint
+    shader: Shader?,
+    alpha: Float
 ) {
+    internalPaint.shader = shader
+    internalPaint.alpha = (alpha * 255).toInt()
+
     drawContext.canvas.nativeCanvas.drawVertices(
         vertexMode.toAndroidVertexMode(),
         positions.size,
@@ -26,6 +32,6 @@ actual fun DrawScope.drawVertices(
         colors, 0,
         indices, 0,
         indices?.size ?: 0,
-        paint.nativePaint
+        internalPaint
     )
 }

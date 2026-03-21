@@ -2,6 +2,7 @@ package com.example.kgame.games.common
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -92,17 +93,19 @@ fun SimpleSampleGame() {
         }
 
         onForegroundUI {
-            Button(
-                onClick = {
-                    visual.color =
-                        if (visual.color == Color.Red) Color.Yellow else Color.Red
-                },
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
-            ) {
-                Text(
-                    text = "Hello World",
-                    style = MaterialTheme.typography.titleLarge,
-                )
+            Box(Modifier.fillMaxSize()) {
+                Button(
+                    onClick = {
+                        visual.color =
+                            if (visual.color == Color.Red) Color.Yellow else Color.Red
+                    },
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 100.dp)
+                ) {
+                    Text(
+                        text = "Hello World",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                }
             }
         }
     }

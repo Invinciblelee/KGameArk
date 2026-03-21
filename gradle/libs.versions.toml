@@ -4,7 +4,7 @@ android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 
-kotlin = "2.3.10"
+kotlin = "2.3.20"
 junit = "4.13.2"
 
 annotations = "26.1.0"
@@ -12,7 +12,7 @@ annotations = "26.1.0"
 mavenPublish = "0.36.0"
 
 androidxActivity = "1.13.0"
-androidxLifecycle = "2.10.0-beta01"
+androidxLifecycle = "2.10.0"
 androidxNavigation3UI = "1.1.0-alpha04"
 androidxNavigationEvent = "1.0.1"
 androidxSavedstate = "1.4.0"
@@ -28,8 +28,8 @@ skiko = "0.144.4"
 kotlinxSerialization = "1.10.0"
 kotlinxCoroutines = "1.10.2"
 kotlinxAtomicfu = "0.31.0"
-kotlinBrowser = "2026.3.10"
-kotlinCss = "2026.3.10"
+kotlinBrowser = "2026.3.13"
+kotlinCss = "2026.3.13"
 
 ktor = "3.4.1"
 

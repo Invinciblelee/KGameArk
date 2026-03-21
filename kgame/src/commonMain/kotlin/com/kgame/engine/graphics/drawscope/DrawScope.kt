@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.VertexMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -176,5 +177,6 @@ expect fun DrawScope.drawVertices(
     texCoords: FloatArray? = null,
     indices: ShortArray? = null,
     blendMode: BlendMode,
-    paint: Paint
+    shader: Shader? = null,
+    alpha: Float = 1.0f
 )

@@ -57,8 +57,8 @@ internal class GameScene<T : Any>(
     private val onDisable: (() -> Unit)?,
     private val update: ((Float) -> Unit)?,
     private val render: (DrawScope.() -> Unit)?,
-    private val foregroundUI: (@Composable BoxScope.() -> Unit)?,
-    private val backgroundUI: (@Composable BoxScope.() -> Unit)?,
+    private val foregroundUI: (@Composable () -> Unit)?,
+    private val backgroundUI: (@Composable () -> Unit)?,
     private val world: GameWorld?
 ) {
 
@@ -160,7 +160,7 @@ internal class GameScene<T : Any>(
         CompositionLocalProvider(LocalWindowManager provides windowManager) {
             Box(modifier = Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
-                    backgroundUI?.invoke(this)
+                    backgroundUI?.invoke()
                 }
 
                 CompositionLocalProvider(LocalDensity provides inverseDensity) {
@@ -172,7 +172,7 @@ internal class GameScene<T : Any>(
                 }
 
                 CompositionLocalProvider(LocalDensity provides scaledDensity) {
-                    foregroundUI?.invoke(this)
+                    foregroundUI?.invoke()
 
                     if (windowManager.size > 0) {
                         WindowGroup(windowManager, modifier = Modifier.matchParentSize())

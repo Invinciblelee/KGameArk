@@ -316,10 +316,12 @@ fun SampleGame() {
             onUpdate { if (input.isKeyDown(Key.Spacebar)) sceneStack.push(Battle("Key")) }
             onBackgroundUI { Rectangle(Color.White) }
             onForegroundUI {
-                Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Text("=== Cross-Platform Test Case ===", style = MaterialTheme.typography.titleLarge)
-                    Text("Press [SPACE] to Start", style = MaterialTheme.typography.bodyLarge)
-                    Button(onClick = { sceneStack.push(Battle("Click")) }) { Text("Start") }
+                Box(Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Text("=== Cross-Platform Test Case ===", style = MaterialTheme.typography.titleLarge)
+                        Text("Press [SPACE] to Start", style = MaterialTheme.typography.bodyLarge)
+                        Button(onClick = { sceneStack.push(Battle("Click")) }) { Text("Start") }
+                    }
                 }
             }
         }
@@ -356,13 +358,15 @@ fun SampleGame() {
             onBackgroundUI { Rectangle(Color.Black) }
             onForegroundUI {
                 val windowManager = LocalWindowManager.current
-                Column(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Battle Mode | FPS: ${fpsCalculator.fps}")
-                    Text("[1-5] Switch Element  [ESC] Menu")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        repeat(5) { i -> Button(modifier = Modifier.size(30.dp, 20.dp), onClick = { input.simulateKey(listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)[i]) }, contentPadding = PaddingValues(0.dp)) { Text("${i + 1}") } }
-                        Button(modifier = Modifier.size(40.dp, 20.dp), onClick = { windowManager.addWindow(TestWindow()) }, contentPadding = PaddingValues(0.dp)) { Text("Window") }
-                        Button(modifier = Modifier.size(40.dp, 20.dp), onClick = { sceneStack.pop() }, contentPadding = PaddingValues(0.dp)) { Text("Exit") }
+                Box(Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Battle Mode | FPS: ${fpsCalculator.fps}")
+                        Text("[1-5] Switch Element  [ESC] Menu")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            repeat(5) { i -> Button(modifier = Modifier.size(30.dp, 20.dp), onClick = { input.simulateKey(listOf(Key.One, Key.Two, Key.Three, Key.Four, Key.Five)[i]) }, contentPadding = PaddingValues(0.dp)) { Text("${i + 1}") } }
+                            Button(modifier = Modifier.size(40.dp, 20.dp), onClick = { windowManager.addWindow(TestWindow()) }, contentPadding = PaddingValues(0.dp)) { Text("Window") }
+                            Button(modifier = Modifier.size(40.dp, 20.dp), onClick = { sceneStack.pop() }, contentPadding = PaddingValues(0.dp)) { Text("Exit") }
+                        }
                     }
                 }
             }

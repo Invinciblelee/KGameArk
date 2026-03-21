@@ -11,7 +11,7 @@ kotlin {
 
     sourceSets {
         jvmMain.dependencies {
-            implementation(project(":shared"))
+            implementation(project(":sample"))
 
             implementation(libs.bundles.ktor.server)
             implementation(libs.ktor.serialization.json)

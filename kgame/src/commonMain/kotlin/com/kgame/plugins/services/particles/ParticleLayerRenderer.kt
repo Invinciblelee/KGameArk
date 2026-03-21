@@ -54,7 +54,8 @@ class ParticleLayerRenderer(
                 texCoords = pattern.texCoords,
                 indices = pattern.indices,
                 blendMode = if (effect == null) BlendMode.Dst else BlendMode.Src,
-                paint = paint
+                shader = paint.shader,
+                alpha = paint.alpha
             )
         }
     }

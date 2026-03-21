@@ -20,7 +20,7 @@ kotlin {
 
     sourceSets {
         webMain.dependencies {
-            implementation(project(":shared"))
+            implementation(project(":sample"))
             implementation(libs.compose.runtime)
         }
     }

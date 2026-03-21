@@ -52,7 +52,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":sample"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
 

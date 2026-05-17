@@ -108,7 +108,6 @@ private suspend fun loadFontFamily(): FontFamily = coroutineScope {
             }
         }
         .awaitAll()
-        .filterNotNull()
 
     if (fonts.isEmpty()) FontFamily.Default else FontFamily(fonts)
 }

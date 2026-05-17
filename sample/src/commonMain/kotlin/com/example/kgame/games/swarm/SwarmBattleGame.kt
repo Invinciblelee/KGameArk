@@ -311,15 +311,7 @@ fun SwarmBattleGame() {
                 Box(Modifier.fillMaxSize().padding(24.dp)) {
                     Column {
                         Text("NEON SWARM", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                        Text("分数 (Thin): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Thin)
-                        Text("分数 (ExtraLight): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.ExtraLight)
-                        Text("分数 (Light): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Light)
-                        Text("分数 (Normal): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Normal)
-                        Text("分数 (Medium): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Medium)
-                        Text("分数 (SemiBold): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
                         Text("分数 (Bold): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                        Text("分数 (ExtraBold): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                        Text("分数 (Black): ${state.score}", color = Color.Cyan, fontSize = 28.sp, fontWeight = FontWeight.Black)
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(
                             progress = { state.chargePower },

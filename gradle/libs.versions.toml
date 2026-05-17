@@ -1,10 +1,10 @@
 [versions]
-agp = "9.1.0"
-android-compileSdk = "36"
+agp = "9.2.1"
+android-compileSdk = "37"
 android-minSdk = "26"
 android-targetSdk = "36"
 
-kotlin = "2.3.20"
+kotlin = "2.3.21"
 junit = "4.13.2"
 
 annotations = "26.1.0"
@@ -13,25 +13,25 @@ mavenPublish = "0.36.0"
 
 androidxActivity = "1.13.0"
 androidxLifecycle = "2.10.0"
-androidxNavigation3UI = "1.1.0-alpha04"
-androidxNavigationEvent = "1.0.1"
+androidxNavigation3UI = "1.1.1"
+androidxNavigationEvent = "1.1.0"
 androidxSavedstate = "1.4.0"
 androidxCollection = "1.6.0"
 
 composeHotReload = "1.0.0"
-composeMultiplatform = "1.11.0-alpha04"
-composeMaterial3 = "1.11.0-alpha04"
+composeMultiplatform = "1.11.0"
+composeMaterial3 = "1.11.0-alpha07"
 composeMaterialIcons = "1.7.3"
 
-skiko = "0.144.4"
+skiko = "0.144.6"
 
 kotlinxSerialization = "1.10.0"
-kotlinxCoroutines = "1.10.2"
-kotlinxAtomicfu = "0.31.0"
-kotlinBrowser = "2026.3.13"
+kotlinxCoroutines = "1.11.0"
+kotlinxAtomicfu = "0.32.1"
+kotlinBrowser = "2026.5.4"
 kotlinCss = "2026.3.13"
 
-ktor = "3.4.1"
+ktor = "3.5.0"
 
 logbackJvm = "1.5.32"
 logbackAndroid = "3.0.0"

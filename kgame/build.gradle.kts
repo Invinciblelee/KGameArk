@@ -16,6 +16,11 @@ kotlin {
         namespace = "com.kgame.engine"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
+
+        withHostTest {
+            isReturnDefaultValues = true
+            isIncludeAndroidResources = true
+        }
     }
 
     listOf(iosArm64(), iosSimulatorArm64()).forEach {
@@ -24,7 +29,7 @@ kotlin {
 
     jvm()
 
-    js { outputModuleName = "KGameEngineKit"; browser() }
+    js(IR) { outputModuleName = "KGameEngineKit"; browser() }
 
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs { outputModuleName = "KGameEngineKit"; browser() }

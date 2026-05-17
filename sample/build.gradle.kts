@@ -18,6 +18,11 @@ kotlin {
         minSdk = libs.versions.android.minSdk.get().toInt()
 
         androidResources.enable = true
+
+        withHostTest {
+            isReturnDefaultValues = true
+            isIncludeAndroidResources = true
+        }
     }
 
     listOf(
